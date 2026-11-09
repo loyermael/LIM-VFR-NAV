@@ -55,6 +55,8 @@ npm run typecheck        # tsc --noEmit, strict, tous les workspaces
 npm test                 # Vitest
 npm run dev -w @lim/app  # PWA en local (http://localhost:5173)
 npm run build -w @lim/app
+python tools/make-test-mbtiles.py   # régénère le MBTiles de test des tests du lecteur
+# démo sans GPS : ajouter ?sim (ou ?sim=loss) à l'adresse de l'app
 # à venir : lint, npm run data:airac (import + manifeste AIRAC)
 ```
 

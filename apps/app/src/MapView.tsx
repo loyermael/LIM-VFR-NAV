@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection } from "geojson";
 import { isAirspaceVisible, type AirspaceLimit, type GpsFix, type LimitReference, type SpeedVectorPoint, type TrueDeg } from "@lim/core";
+import { getReader, type ChartRecord } from "./charts";
 import type { Overlay } from "./overlays";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -24,6 +25,7 @@ export interface MapViewProps {
   orientation: Orientation;
   onUserMove: () => void;
   overlays: readonly Overlay[];
+  charts: readonly ChartRecord[];
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
@@ -44,6 +46,26 @@ const baseStyle = (paper: string): StyleSpecification => ({
   sources: {},
   layers: [{ id: "background", type: "background", paint: { "background-color": paper } }],
 });
+
+// Tuile transparente 1x1 renvoyée quand une carte n'a pas la tuile demandée (évite les erreurs de chargement).
+const TRANSPARENT_PNG = Uint8Array.from(
+  atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAfbLI3wAAAABJRU5ErkJggg=="),
+  (c) => c.charCodeAt(0),
+);
+
+let protocolRegistered = false;
+/** Protocole « lim://<carte>/<z>/<x>/<y> » : sert les tuiles des MBTiles importés, sans réseau. */
+function registerTileProtocol() {
+  if (protocolRegistered) return;
+  protocolRegistered = true;
+  maplibregl.addProtocol("lim", async (params) => {
+    const m = /^lim:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    const reader = m ? getReader(m[1] as string) : undefined;
+    const tile = m && reader ? await reader.getTile(Number(m[2]), Number(m[3]), Number(m[4])) : null;
+    const bytes = tile ?? TRANSPARENT_PNG;
+    return { data: bytes.slice().buffer as ArrayBuffer };
+  });
+}
 
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 32;
@@ -79,6 +101,7 @@ export function MapView(props: MapViewProps) {
   // Création unique de la carte.
   useEffect(() => {
     if (!el.current) return;
+    registerTileProtocol();
     const tk = tokens();
     const m = new maplibregl.Map({
       container: el.current,
@@ -94,6 +117,7 @@ export function MapView(props: MapViewProps) {
       loaded.current = true;
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
+      syncCharts();
       syncOverlays();
     });
 
@@ -172,6 +196,38 @@ export function MapView(props: MapViewProps) {
     }
   }
 
+  /** Ajoute, met à jour ou retire les cartes raster (MBTiles) ; elles restent sous les couches importées. */
+  function syncCharts() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const wanted = new Set(latest.current.charts.map((c) => c.id));
+    for (const l of m.getStyle().layers) {
+      if (l.id.startsWith("ch-") && !wanted.has(l.id.slice(3))) {
+        m.removeLayer(l.id);
+        m.removeSource(l.id);
+      }
+    }
+    for (const c of latest.current.charts) {
+      const id = `ch-${c.id}`;
+      if (!m.getSource(id)) {
+        m.addSource(id, {
+          type: "raster",
+          tiles: [`lim://${c.id}/{z}/{x}/{y}`],
+          tileSize: 256,
+          minzoom: c.info.minZoom,
+          maxzoom: c.info.maxZoom,
+          ...(c.info.bounds ? { bounds: [...c.info.bounds] as [number, number, number, number] } : {}),
+        });
+        const before = m.getStyle().layers.find((l) => l.id !== "background" && !l.id.startsWith("ch-"))?.id;
+        m.addLayer({ id, type: "raster", source: id, paint: { "raster-fade-duration": 0 } }, before);
+      }
+      m.setLayoutProperty(id, "visibility", c.visible ? "visible" : "none");
+      // maxzoom d'une couche est exclusif : « jusqu'au zoom N inclus » = N + 1.
+      m.setLayerZoomRange(id, c.showFromZoom, c.showToZoom + 1);
+    }
+  }
+
+  useEffect(syncCharts, [props.charts]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);
 
   // Thème : on change les couleurs sans recréer le style (sinon les couches importées disparaissent).

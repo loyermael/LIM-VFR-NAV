@@ -1,6 +1,7 @@
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { kml } from "@tmcw/togeojson";
 import shp from "shpjs";
+import { tx } from "./db";
 
 /** Une couche importée par l'utilisateur (GeoJSON, KML, Shapefile zippé). */
 export interface Overlay {
@@ -79,27 +80,6 @@ export async function readOverlayFile(file: File): Promise<Overlay> {
 
 /* Stockage hors-ligne (IndexedDB) : les couches doivent être disponibles en vol sans réseau. */
 
-const DB_NAME = "lim-vfr-nav";
-const STORE = "overlays";
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1);
-    req.onupgradeneeded = () => req.result.createObjectStore(STORE, { keyPath: "id" });
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
-  const db = await openDb();
-  return new Promise<T>((resolve, reject) => {
-    const req = run(db.transaction(STORE, mode).objectStore(STORE));
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-export const loadOverlays = (): Promise<Overlay[]> => tx("readonly", (s) => s.getAll() as IDBRequest<Overlay[]>);
-export const saveOverlay = (o: Overlay): Promise<IDBValidKey> => tx("readwrite", (s) => s.put(o));
-export const deleteOverlay = (id: string): Promise<undefined> => tx("readwrite", (s) => s.delete(id));
+export const loadOverlays = (): Promise<Overlay[]> => tx("overlays", "readonly", (s) => s.getAll() as IDBRequest<Overlay[]>);
+export const saveOverlay = (o: Overlay): Promise<IDBValidKey> => tx("overlays", "readwrite", (s) => s.put(o));
+export const deleteOverlay = (id: string): Promise<undefined> => tx("overlays", "readwrite", (s) => s.delete(id));

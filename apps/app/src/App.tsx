@@ -4,6 +4,7 @@ import {
   VERTICAL_SPEED_UNITS, flightValues, formatAngle, formatQuantity, gpsStatus, speedVector, unitLabel,
   type GpsFix, type UnitPrefs,
 } from "@lim/core";
+import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type ChartRecord } from "./charts";
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
@@ -64,6 +65,11 @@ export function App() {
   const [overlayError, setOverlayError] = useState<string | null>(null);
   const [details, setDetails] = useState<TappedFeature[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const chartInput = useRef<HTMLInputElement>(null);
+  const [charts, setCharts] = useState<ChartRecord[]>([]);
+  const [chartBusy, setChartBusy] = useState<string | null>(null);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [chartNotice, setChartNotice] = useState(false);
 
   const setUnit = <K extends keyof UnitPrefs>(field: K, value: UnitPrefs[K]) => {
     const next = { ...prefs, [field]: value };
@@ -87,6 +93,7 @@ export function App() {
       .then((b) => setGeoid(new Geoid(b)))
       .catch(() => setGeoid(null));
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
+    loadCharts().then(setCharts).catch(() => setCharts([]));
   }, []);
 
   // Source de position + écran toujours allumé + horloge pour détecter la perte de signal.
@@ -148,6 +155,42 @@ export function App() {
       }
     }
     if (fileInput.current) fileInput.current.value = "";
+  };
+  const importCharts = async (files: FileList | null) => {
+    if (!files) return;
+    setChartError(null);
+    for (const f of Array.from(files)) {
+      try {
+        const { record, persisted } = await importMbtiles(f, (phase, v) =>
+          setChartBusy(phase === "copy" ? `${T("chart.copying")} ${Math.round(v * 100)} %` : `${T("chart.indexing")} ${v}`),
+        );
+        setChartNotice(!persisted);
+        setCharts((prev) => [...prev, record]);
+      } catch (e) {
+        setChartError(`${f.name} : ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    setChartBusy(null);
+    if (chartInput.current) chartInput.current.value = "";
+  };
+  const updateChart = (id: string, patch: Partial<Pick<ChartRecord, "visible" | "showFromZoom" | "showToZoom">>) => {
+    setCharts((prev) =>
+      prev.map((c) => {
+        if (c.id !== id) return c;
+        const next = { ...c, ...patch };
+        // La borne basse ne dépasse jamais la borne haute.
+        if (next.showFromZoom > next.showToZoom) {
+          if (patch.showFromZoom !== undefined) next.showToZoom = next.showFromZoom;
+          else next.showFromZoom = next.showToZoom;
+        }
+        void saveChart(next).catch(() => undefined);
+        return next;
+      }),
+    );
+  };
+  const dropChart = (id: string) => {
+    void removeChart(id);
+    setCharts((prev) => prev.filter((c) => c.id !== id));
   };
   const removeOverlay = (id: string) => {
     void deleteOverlay(id);
@@ -223,6 +266,7 @@ export function App() {
           orientation={orientation}
           onUserMove={() => setFollow(false)}
           overlays={overlays}
+          charts={charts}
           ceilingFL={ceiling}
           onDoubleTap={setDetails}
           zoomCommand={zoomCommand}
@@ -287,7 +331,39 @@ export function App() {
               ))}
             </ul>
             <h3>{T("layers.maps")}</h3>
-            <p className="muted">{T("layers.none")}</p>
+            {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
+            {charts.map((c) => (
+              <div className="chart-item" key={c.id}>
+                <div className="overlay-item">
+                  <span>{c.name}</span>
+                  <button onClick={() => dropChart(c.id)}>{T("overlay.remove")}</button>
+                </div>
+                <p className="muted small">
+                  {c.info.tileCount} {T("chart.tiles")} · z{c.info.minZoom}–{c.info.maxZoom} · {(c.sizeBytes / 1048576).toFixed(0)} Mo
+                </p>
+                <button className="row" aria-pressed={c.visible} onClick={() => updateChart(c.id, { visible: !c.visible })}>
+                  {c.visible ? T("chart.shown") : T("chart.hidden")}
+                </button>
+                <div className="stepper">
+                  <span>{T("chart.zoomFrom")}</span>
+                  <button aria-label="−" onClick={() => updateChart(c.id, { showFromZoom: Math.max(0, c.showFromZoom - 1) })}>−</button>
+                  <b className="mono">{c.showFromZoom}</b>
+                  <button aria-label="+" onClick={() => updateChart(c.id, { showFromZoom: Math.min(MAX_ZOOM, c.showFromZoom + 1) })}>+</button>
+                </div>
+                <div className="stepper">
+                  <span>{T("chart.zoomTo")}</span>
+                  <button aria-label="−" onClick={() => updateChart(c.id, { showToZoom: Math.max(0, c.showToZoom - 1) })}>−</button>
+                  <b className="mono">{c.showToZoom}</b>
+                  <button aria-label="+" onClick={() => updateChart(c.id, { showToZoom: Math.min(MAX_ZOOM, c.showToZoom + 1) })}>+</button>
+                </div>
+              </div>
+            ))}
+            <input ref={chartInput} type="file" hidden multiple accept=".mbtiles" onChange={(e) => void importCharts(e.target.files)} />
+            <button className="row" disabled={chartBusy !== null} onClick={() => chartInput.current?.click()}>{T("chart.import")}</button>
+            <p className="muted small">{T("chart.formats")}</p>
+            {chartBusy && <p className="muted small" role="status">{chartBusy}</p>}
+            {chartNotice && <p className="error" role="alert">{T("chart.notPersisted")}</p>}
+            {chartError && <p className="error" role="alert">{T("chart.error")} — {chartError}</p>}
             <h3>{T("layers.overlays")}</h3>
             <ul>
               {overlays.map((o) => (
