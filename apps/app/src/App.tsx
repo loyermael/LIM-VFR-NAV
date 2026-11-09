@@ -311,6 +311,13 @@ export function App() {
           zoomCommand={zoomCommand}
         />
 
+        {screen === "map" && (
+          <div className={`gps-chip gps-${status === "ok" ? "ok" : status === "lost" ? "lost" : status === "none" ? "none" : "weak"}`}>
+            <span className="dot" aria-hidden="true" />
+            {T(status === "ok" ? "gps.chip.ok" : status === "lost" ? "gps.chip.lost" : status === "none" ? "gps.chip.none" : "gps.chip.weak")}
+          </div>
+        )}
+
         {banner && (
           <div className={banner.alert ? "banner alert" : "banner"} role={banner.alert ? "alert" : "status"}>
             {banner.text}

@@ -55,3 +55,10 @@ Chaque information a sa propre unité, réglable dans Réglages : vitesse sol (k
 
 ## Source unique
 `apps/app/src/ui/tokens.css` reprend les noms et valeurs de `L!M Debrief/src/ui/tokens.css`. Polices et licences OFL dans `apps/app/src/ui/fonts/` (embarquées, aucun chargement réseau). Aucun style en dur dans les composants ; une couleur nouvelle se crée d'abord en jeton.
+
+## Couleur (passe légère du 09/11/2026)
+Uniquement des couleurs de la charte Debrief, jamais de couleur en dur :
+- **Jaune de marque** (`--brand`) : bouton ou case « choisi / ouvert » (texte toujours sombre), bannière d'attention (GPS faible, en attente), barre à gauche des titres de section.
+- **Pastille d'état du GPS** (haut gauche de la carte) : point vert (OK), ocre (faible ou périmé), rouge signal (perdu) **et** un mot ; jamais la couleur seule.
+- **Rouge signal** : toujours réservé à l'avion et aux alertes (perte du GPS, modèle magnétique périmé).
+- Pistes si besoin plus tard : couleurs de tracé (route, direct, recoupement, traces) en jetons réglables, comme dans SDVFR.
