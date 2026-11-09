@@ -12,7 +12,7 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
-import { loadAltitude, loadGpsAltitudeRef, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, type GpsAltitudeRef } from "./prefs";
+import { loadAltitude, loadGpsAltitudeRef, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
 type Screen = "map" | "nav" | "docs" | "settings" | "soon";
 
@@ -61,6 +61,7 @@ export function App() {
   const offsetSetAt = useRef(altMem.offsetSetAtMs);
   const [qnhExpired, setQnhExpired] = useState(altMem.qnhExpired);
   const [cellSheet, setCellSheet] = useState<CellId | null>(null);
+  const [figuresColor, setFiguresColor] = useState(loadFiguresColor);
 
   const [fix, setFix] = useState<GpsFix | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -107,7 +108,8 @@ export function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme === "night" ? "dark" : "light";
     document.documentElement.lang = lang;
-  }, [theme, lang]);
+    document.documentElement.dataset.figures = figuresColor ? "color" : "mono";
+  }, [theme, lang, figuresColor]);
 
   // Grille du géoïde EGM96 et couches importées : disponibles hors-ligne (cache du service worker, IndexedDB).
   useEffect(() => {
@@ -254,13 +256,13 @@ export function App() {
         : formatQuantity("altitude", prefs, altM);
   const altUnit = altSettings.mode === "fl" ? "FL" : unitLabel("altitude", prefs);
 
-  const cells: { id: CellId | null; label: string; value: string; unit?: string }[] = [
-    { id: "gs", label: T("data.gs"), value: live ? formatQuantity("groundSpeed", prefs, fv.groundSpeed ?? NaN) : "---", unit: unitLabel("groundSpeed", prefs) },
-    { id: "trk", label: T("data.trk"), value: formatAngle(trackShown), unit: unitLabel("track", prefs, lang) },
-    { id: null, label: T("data.wpt"), value: "---" },
-    { id: "alt", label: altLabel, value: altValue, unit: altUnit },
-    { id: "brg", label: T("data.brg"), value: "---", unit: unitLabel("bearing", prefs, lang) },
-    { id: "dist", label: T("data.dist"), value: "---", unit: unitLabel("distance", prefs) },
+  const cells: { id: CellId | null; kind: string; label: string; value: string; unit?: string }[] = [
+    { id: "gs", kind: "speed", label: T("data.gs"), value: live ? formatQuantity("groundSpeed", prefs, fv.groundSpeed ?? NaN) : "---", unit: unitLabel("groundSpeed", prefs) },
+    { id: "trk", kind: "track", label: T("data.trk"), value: formatAngle(trackShown), unit: unitLabel("track", prefs, lang) },
+    { id: null, kind: "nav", label: T("data.wpt"), value: "---" },
+    { id: "alt", kind: "alt", label: altLabel, value: altValue, unit: altUnit },
+    { id: "brg", kind: "nav", label: T("data.brg"), value: "---", unit: unitLabel("bearing", prefs, lang) },
+    { id: "dist", kind: "nav", label: T("data.dist"), value: "---", unit: unitLabel("distance", prefs) },
   ];
 
   const tabs = screen === "nav" ? NAV_TABS : screen === "docs" ? DOCS_TABS : null;
@@ -483,6 +485,11 @@ export function App() {
                     {theme === "day" ? T("theme.night") : T("theme.day")}
                   </button>
                 </div>
+                <h3>{T("set.figures")}</h3>
+                <div className="choices">
+                  <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
+                  <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
+                </div>
                 <h3>{T("set.units")}</h3>
                 {UNIT_ROWS.map(({ field, label }) => (
                   <div className="unit-row" key={field} role="group" aria-label={T(label)}>
@@ -531,11 +538,11 @@ export function App() {
             </>
           );
           return c.id ? (
-            <button className="cell" key={i} aria-pressed={cellSheet === c.id} onClick={() => openCell(c.id as CellId)}>
+            <button className="cell" data-kind={c.kind} key={i} aria-pressed={cellSheet === c.id} onClick={() => openCell(c.id as CellId)}>
               {body}
             </button>
           ) : (
-            <div className="cell" key={i}>{body}</div>
+            <div className="cell" data-kind={c.kind} key={i}>{body}</div>
           );
         })}
       </footer>

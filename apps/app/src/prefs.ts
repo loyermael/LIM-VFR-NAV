@@ -74,3 +74,22 @@ export function saveAltitude(s: AltitudeSettings, qnhSetAtMs: number, offsetSetA
     /* stockage bloqué : valable pour la session */
   }
 }
+
+const FIGURES_KEY = "lim.figuresColor.v1";
+
+/** Chiffres de vol en couleur (défaut) ou tout en noir. */
+export function loadFiguresColor(): boolean {
+  try {
+    return localStorage.getItem(FIGURES_KEY) !== "mono";
+  } catch {
+    return true;
+  }
+}
+
+export function saveFiguresColor(color: boolean): void {
+  try {
+    localStorage.setItem(FIGURES_KEY, color ? "color" : "mono");
+  } catch {
+    /* stockage bloqué : valable pour la session */
+  }
+}

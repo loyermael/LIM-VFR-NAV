@@ -62,3 +62,6 @@ Uniquement des couleurs de la charte Debrief, jamais de couleur en dur :
 - **Pastille d'état du GPS** (haut gauche de la carte) : point vert (OK), ocre (faible ou périmé), rouge signal (perdu) **et** un mot ; jamais la couleur seule.
 - **Rouge signal** : toujours réservé à l'avion et aux alertes (perte du GPS, modèle magnétique périmé).
 - Pistes si besoin plus tard : couleurs de tracé (route, direct, recoupement, traces) en jetons réglables, comme dans SDVFR.
+
+### Chiffres en couleur (09/11/2026)
+Une couleur par famille de chiffres, jetons `--data-*` dans `tokens.css` (jour puis nuit), contrastes WCAG calculés sur le fond réel de la grille : vitesse en encre (16,9 / 16,4), route en bleu (6,2 / 8,6), altitude en vert (6,0 / 8,7), navigation (point, relèvement, distance) en ocre (5,8 / 8,9). Sur une case ouverte (fond jaune) le chiffre repasse en sombre. Réglages → « Chiffres de vol » permet de revenir au tout noir. Piste pour J2 : réutiliser ces mêmes couleurs pour les tracés (route, direct) afin que la couleur d'un chiffre rappelle celle de la ligne.
