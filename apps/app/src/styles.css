@@ -119,11 +119,8 @@ button.cell:active { background: var(--ink); color: var(--on-ink); }
 .gps-lost { color: var(--signal); }
 .gps-lost .dot { background: var(--signal); }
 
-/* Chiffres de vol en couleur : une famille par couleur ; sur une case ouverte (fond jaune) le texte repasse en sombre.
-   L'option « Chiffres en noir » (Réglages) supprime ces couleurs. */
-:root:not([data-figures='mono']) .cell[data-kind='speed'] .value { color: var(--data-speed); }
-:root:not([data-figures='mono']) .cell[data-kind='track'] .value { color: var(--data-track); }
-:root:not([data-figures='mono']) .cell[data-kind='alt'] .value { color: var(--data-alt); }
-:root:not([data-figures='mono']) .cell[data-kind='nav'] .value { color: var(--data-nav); }
+/* Chiffres de vol : une seule couleur (--data-figure) ; sur une case ouverte (fond jaune) le texte repasse en sombre.
+   L'option « Chiffres en noir » (Réglages) supprime la couleur. */
+:root:not([data-figures='mono']) .cell .value { color: var(--data-figure); }
 :root:not([data-figures='mono']) button.cell[aria-pressed='true'] .value,
 :root:not([data-figures='mono']) button.cell:active .value { color: inherit; }
