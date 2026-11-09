@@ -28,8 +28,8 @@
   --zone-warn: #7a5200;
   --zone-bad: #9a3b2b;
 
-  /* Chiffres de vol : une seule couleur pour tous. Contraste sur --field : 6,2:1 (jour) */
-  --data-figure: #2f5f9a;
+  /* Chiffres de vol : une seule couleur pour tous, bleu marine très sombre. Contraste sur --field : 13,1:1 (jour) ; l'encre fait 16,9:1 */
+  --data-figure: #0a2a66;
 
   --font-display: 'Archivo', 'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif;
   --font-text: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
@@ -81,8 +81,8 @@
   --zone-good: #8cbf7b;
   --zone-warn: #e0b24a;
   --zone-bad: #e58c79;
-  /* Contraste sur --field (nuit) : 8,6:1 */
-  --data-figure: #8fb4e3;
+  /* Contraste sur --field (nuit) : 13,3:1 (le papier fait 16,4:1) */
+  --data-figure: #c7dcff;
   --shadow-pop: 0 0 0 1px var(--ink), 4px 4px 0 rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
