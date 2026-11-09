@@ -40,6 +40,9 @@ Le moteur de calcul est testable sans simulateur.
 - Altitudes : toujours qualifier (`AMSL` ellipsoïde GPS / géoïde EGM96, `QNH`, `FL`, `AGL`). Le GPS fournit une hauteur ellipsoïdale : corriger par le géoïde avant affichage.
 - Latitude/longitude en degrés décimaux WGS84, ordre `[lon, lat]` dans GeoJSON, `{lat, lon}` dans le code.
 
+## Interface
+UX proche de SDVFR Next (carte plein écran, bandeau de chiffres de vol, outils au pouce, onglets en bas), DA identique à L!M Debrief (papier/encre, filets, Archivo/Plex). Détail et règles dans `docs/design.md`. Jetons dans `apps/app/src/ui/tokens.css`, mêmes noms que Debrief ; aucun style en dur dans les composants.
+
 ## Données
 - Sources prévues : SIA (France), openAIP (Europe), Copernicus DEM/SRTM, NGA EGM96, WMM NOAA. Détail et licences dans `docs/donnees.md` (à écrire en J0).
 - Chaque jeu importé porte : `source`, `licence`, `airac_cycle`, `valid_from`, `valid_to`, `imported_at`, `checksum`. L'UI affiche la date de validité et alerte quand un cycle est périmé.

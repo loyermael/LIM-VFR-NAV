@@ -1,0 +1,83 @@
+/*
+ * Jetons de design L!M VFR Nav — même direction artistique que L!M Debrief :
+ * « carnet de vol sous un panneau d'instruments ». Papier chaud, encre, un seul rouge signal,
+ * filets au lieu d'ombres, rayon unique de 2 px, Archivo condensé / IBM Plex Sans / IBM Plex Mono.
+ * Les noms et valeurs de couleur sont ceux de Debrief (src/ui/tokens.css) pour que les deux apps restent jumelles.
+ *
+ * Différence assumée avec Debrief : cible cockpit. Contrôles de 56 px minimum (gants, turbulences),
+ * chiffres de vol grands. Source unique : aucun style en dur dans les composants.
+ *
+ * Règle du rouge : --signal sert uniquement à l'avion / au point courant de la carte et aux alertes prioritaires.
+ * Le jaune de marque (--brand) = petites touches, jamais du texte sur fond clair.
+ */
+:root {
+  --paper: #f3f1ea;
+  --paper-2: #eae7dd;
+  --field: #fbfaf6;
+  --ink: #15191d;
+  --ink-muted: #42484d;
+  --rule: #15191d;
+  --hair: #b8b3a4;
+  --brand: #ffd700;
+  --on-brand: #15191d;
+  --signal: #c8321e;
+  --on-ink: #f3f1ea;
+  --on-signal: #f3f1ea;
+
+  --zone-good: #2f6b3a;
+  --zone-warn: #7a5200;
+  --zone-bad: #9a3b2b;
+
+  --font-display: 'Archivo', 'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif;
+  --font-text: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  --stretch-display: 68%;
+
+  --fs-12: 12px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-28: 28px;
+  --fs-32: 32px;
+  --fs-40: 40px;
+  --fs-64: 64px;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+
+  --r: 2px;
+  --rule-heavy: 3px solid var(--rule);
+  --rule-line: 1px solid var(--rule);
+  --rule-hair: 1px solid var(--hair);
+  --shadow-pop: 0 0 0 1px var(--ink), 4px 4px 0 var(--ink);
+
+  /* Cible cockpit */
+  --h-control: 56px;
+  --h-strip: 72px;
+  --focus-ring: 3px solid var(--ink);
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --paper: #15191d;
+  --paper-2: #1e2429;
+  --field: #101417;
+  --ink: #f3f1ea;
+  --ink-muted: #a9afb3;
+  --rule: #f3f1ea;
+  --hair: #3a4147;
+  --signal: #ee6a53;
+  --on-ink: #15191d;
+  --on-signal: #15191d;
+  --zone-good: #8cbf7b;
+  --zone-warn: #e0b24a;
+  --zone-bad: #e58c79;
+  --shadow-pop: 0 0 0 1px var(--ink), 4px 4px 0 rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}

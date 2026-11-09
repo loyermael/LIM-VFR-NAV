@@ -13,7 +13,8 @@ const style = (theme: Theme): StyleSpecification => ({
     {
       id: "background",
       type: "background",
-      paint: { "background-color": theme === "day" ? "#eef2f5" : "#0b1220" },
+      // Couleurs = jetons --paper de la DA Debrief (papier chaud / encre de nuit).
+      paint: { "background-color": theme === "day" ? "#f3f1ea" : "#15191d" },
     },
   ],
 });
