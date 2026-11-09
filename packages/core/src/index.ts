@@ -11,3 +11,5 @@ export * from "./flightValues";
 export * from "./altitude";
 export * from "./baro";
 export * from "./altitudeSource";
+export * from "./wind";
+export * from "./navlog";

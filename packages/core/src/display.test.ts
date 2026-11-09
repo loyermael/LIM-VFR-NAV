@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_UNIT_PREFS, formatAngle, formatQuantity, fromSI, parseUnitPrefs, toSI, unitLabel, type UnitPrefs,
+  DEFAULT_UNIT_PREFS, formatAngle, formatDuration, formatQuantity, fromSI, parseUnitPrefs, toSI, unitLabel, type UnitPrefs,
 } from "./display";
 import { knotsToMps, knots, feet, feetToMeters } from "./units";
 
@@ -66,5 +66,22 @@ describe("formatAngle", () => {
     expect(formatAngle(-10)).toBe("350");
     expect(formatAngle(null)).toBe("---");
     expect(formatAngle(Number.NaN)).toBe("---");
+  });
+});
+
+describe("carburant et durée", () => {
+  it("1 USG = 3,785 L, arrondi à 1 décimale", () => {
+    expect(fromSI("fuel", with_({ fuel: "usg" }), 3.785411784)).toBeCloseTo(1, 9);
+    expect(formatQuantity("fuel", base, 38.46)).toBe("38.5");
+    expect(unitLabel("fuel", with_({ fuel: "usg" }))).toBe("USG");
+  });
+  it("formatDuration", () => {
+    expect(formatDuration(353)).toBe("5:53");
+    expect(formatDuration(0)).toBe("0:00");
+    expect(formatDuration(3930)).toBe("1:05:30");
+    expect(formatDuration(59.6)).toBe("1:00");
+    expect(formatDuration(null)).toBe("---");
+    expect(formatDuration(-5)).toBe("---");
+    expect(formatDuration(Number.NaN)).toBe("---");
   });
 });

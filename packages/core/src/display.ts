@@ -9,6 +9,7 @@ export type AltitudeUnit = "ft" | "m";
 export type DistanceUnit = "nm" | "km" | "sm" | "m";
 export type VerticalSpeedUnit = "fpm" | "ms";
 export type PressureUnit = "hpa" | "inhg";
+export type FuelUnit = "l" | "usg";
 export type AngleReference = "mag" | "true";
 
 interface UnitDef {
@@ -25,6 +26,7 @@ const MPS_PER_MPH = 1609.344 / 3600;
 const M_PER_SM = 1609.344;
 const MPS_PER_FPM = METERS_PER_FOOT / 60;
 const PA_PER_INHG = 3386.389;
+const LITERS_PER_USG = 3.785411784;
 
 export const SPEED_UNITS: Record<SpeedUnit, UnitDef> = {
   kt: { label: "kt", si: MPS_PER_KNOT, decimals: 0 },
@@ -51,6 +53,11 @@ export const PRESSURE_UNITS: Record<PressureUnit, UnitDef> = {
   inhg: { label: "inHg", si: PA_PER_INHG, decimals: 2 },
 };
 
+export const FUEL_UNITS: Record<FuelUnit, UnitDef> = {
+  l: { label: "L", si: 1, decimals: 1 },
+  usg: { label: "USG", si: LITERS_PER_USG, decimals: 1 },
+};
+
 /** Choix de l'utilisateur : une unité pour chaque information affichée. */
 export interface UnitPrefs {
   groundSpeed: SpeedUnit;
@@ -58,6 +65,7 @@ export interface UnitPrefs {
   distance: DistanceUnit;
   verticalSpeed: VerticalSpeedUnit;
   pressure: PressureUnit;
+  fuel: FuelUnit;
   /** Référence de la route suivie (magnétique ou vraie). */
   track: AngleReference;
   /** Référence du relèvement vers le prochain point. */
@@ -71,6 +79,7 @@ export const DEFAULT_UNIT_PREFS: UnitPrefs = {
   distance: "nm",
   verticalSpeed: "fpm",
   pressure: "hpa",
+  fuel: "l",
   track: "mag",
   bearing: "mag",
 };
@@ -82,6 +91,7 @@ export const UNIT_CHOICES = {
   distance: Object.keys(DISTANCE_UNITS) as DistanceUnit[],
   verticalSpeed: Object.keys(VERTICAL_SPEED_UNITS) as VerticalSpeedUnit[],
   pressure: Object.keys(PRESSURE_UNITS) as PressureUnit[],
+  fuel: Object.keys(FUEL_UNITS) as FuelUnit[],
   track: ["mag", "true"] as AngleReference[],
   bearing: ["mag", "true"] as AngleReference[],
 } as const satisfies Record<keyof UnitPrefs, readonly string[]>;
@@ -110,6 +120,7 @@ const tables = {
   distance: DISTANCE_UNITS,
   verticalSpeed: VERTICAL_SPEED_UNITS,
   pressure: PRESSURE_UNITS,
+  fuel: FUEL_UNITS,
 } as const;
 
 type Quantity = keyof typeof tables;
@@ -147,4 +158,15 @@ export function formatAngle(deg: number | null): string {
   if (deg === null || !Number.isFinite(deg)) return "---";
   const r = Math.round(deg) % 360;
   return String(r < 0 ? r + 360 : r).padStart(3, "0");
+}
+
+/** Durée lisible : « 5:53 » sous une heure, « 1:05:30 » au-delà. `null` ou non fini → « --- ». */
+export function formatDuration(totalSeconds: number | null): string {
+  if (totalSeconds === null || !Number.isFinite(totalSeconds) || totalSeconds < 0) return "---";
+  const s = Math.round(totalSeconds);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const two = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
 }

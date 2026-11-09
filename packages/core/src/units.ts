@@ -13,6 +13,10 @@ export type MetersPerSecond = Brand<number, "m/s">;
 export type Knots = Brand<number, "kt">;
 export type Pascals = Brand<number, "Pa">;
 export type Hectopascals = Brand<number, "hPa">;
+export type Seconds = Brand<number, "s">;
+/** Volume de carburant. Exception documentée au « tout en SI » : le litre (1 L = 0,001 m³) est l'unité interne. */
+export type Liters = Brand<number, "L">;
+export type LitersPerHour = Brand<number, "L/h">;
 
 // Facteurs exacts par définition.
 export const METERS_PER_FOOT = 0.3048;
@@ -27,6 +31,9 @@ export const metersPerSecond = (v: number) => v as MetersPerSecond;
 export const knots = (v: number) => v as Knots;
 export const pascals = (v: number) => v as Pascals;
 export const hectopascals = (v: number) => v as Hectopascals;
+export const seconds = (v: number) => v as Seconds;
+export const liters = (v: number) => v as Liters;
+export const litersPerHour = (v: number) => v as LitersPerHour;
 
 export const feetToMeters = (v: Feet): Meters => meters(v * METERS_PER_FOOT);
 export const metersToFeet = (v: Meters): Feet => feet(v / METERS_PER_FOOT);
