@@ -122,3 +122,25 @@ export function savePerf(p: StoredPerf): void {
     /* stockage bloqué : valable pour la session */
   }
 }
+
+const GROUPS_KEY = "lim.airspaceGroups.v1";
+const ALL_GROUPS = ["controlled", "restricted", "radio", "activity", "glider", "other"];
+
+/** Groupes d'espaces affichés (défaut : tout sauf « autres » : FIR, SIV, parcs…). */
+export function loadVisibleGroups(): string[] {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(GROUPS_KEY) ?? "null");
+    if (Array.isArray(raw)) return raw.filter((g): g is string => typeof g === "string" && ALL_GROUPS.includes(g));
+  } catch {
+    /* repli sur le défaut */
+  }
+  return ["controlled", "restricted", "radio", "activity", "glider"];
+}
+
+export function saveVisibleGroups(groups: readonly string[]): void {
+  try {
+    localStorage.setItem(GROUPS_KEY, JSON.stringify(groups));
+  } catch {
+    /* stockage bloqué : valable pour la session */
+  }
+}

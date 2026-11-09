@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection } from "geojson";
-import { isAirspaceVisible, type AirspaceLimit, type GpsFix, type LimitReference, type SpeedVectorPoint, type TrueDeg } from "@lim/core";
+import { flightLevelToMeters, isAirspaceVisible, type AirspaceLimit, type GpsFix, type LimitReference, type SpeedVectorPoint, type TrueDeg } from "@lim/core";
 import { getReader, type ChartRecord } from "./charts";
 import type { Overlay } from "./overlays";
 import type { RouteRecord } from "./routeEdit";
@@ -27,8 +27,17 @@ export interface MapViewProps {
   onUserMove: () => void;
   overlays: readonly Overlay[];
   charts: readonly ChartRecord[];
+  /** Espaces aériens et terrains importés (openAIP), déjà convertis en GeoJSON. */
+  airspaceData: FeatureCollection | null;
+  airfieldData: FeatureCollection | null;
+  showAirspaces: boolean;
+  showAirfields: boolean;
+  /** Groupes d'espaces affichés (contrôlés, réglementés…). */
+  visibleGroups: readonly string[];
   /** Route active à dessiner (ligne et points numérotés). */
   route: RouteRecord | null;
+  /** Cible hors route (Direct vers un terrain), prioritaire sur le point visé de la route. */
+  adhocTarget: { lat: number; lon: number } | null;
   /** Indice du point visé (ligne « direct » depuis l'avion), ou null. */
   targetIndex: number | null;
   selectedIndex: number | null;
@@ -49,7 +58,7 @@ export interface MapViewProps {
 function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string) => css.getPropertyValue(n).trim();
-  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand"), good: v("--zone-good") };
+  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand"), good: v("--zone-good"), bad: v("--zone-bad"), warn: v("--zone-warn"), muted: v("--ink-muted"), data: v("--data-figure") };
 }
 
 // Style vide : aucune donnée aéronautique en dur, aucun appel réseau. Les fonds de carte (MBTiles, J1 suite) et
@@ -79,6 +88,10 @@ function registerTileProtocol() {
     return { data: bytes.slice().buffer as ArrayBuffer };
   });
 }
+
+/** Couleur d'un espace selon son groupe : contrôlés en bleu, réglementés en brique, radio en ocre, planeur en vert. */
+const groupColor = (tk: ReturnType<typeof tokens>) =>
+  ["match", ["get", "group"], "controlled", tk.data, "restricted", tk.bad, "radio", tk.warn, "glider", tk.good, tk.muted] as unknown as string;
 
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 32;
@@ -138,6 +151,7 @@ export function MapView(props: MapViewProps) {
       syncCharts();
       syncOverlays();
       syncRoute();
+      syncAero();
     });
 
     m.on("zoomend", (e) => {
@@ -160,7 +174,7 @@ export function MapView(props: MapViewProps) {
       const { x, y } = e.point;
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
-        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).filter((l) => m.getLayer(l));
+        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill"]).filter((l) => m.getLayer(l));
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - 12, y - 12], [x + 12, y + 12]];
         const hits = layers.length ? m.queryRenderedFeatures(box, { layers }) : [];
         const seen = new Set<string>();
@@ -169,8 +183,10 @@ export function MapView(props: MapViewProps) {
           const key = `${h.source}:${JSON.stringify(h.properties)}`;
           if (seen.has(key)) continue;
           seen.add(key);
+          // Espaces et terrains : l'application retrouve la fiche complète par l'identifiant.
+          const aero = h.layer.id === "asp-fill" ? "asp" : h.layer.id === "apt-circle" ? "apt" : null;
           out.push({
-            layerName: addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
+            layerName: aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
             properties: (h.properties ?? {}) as Record<string, unknown>,
           });
         }
@@ -255,7 +271,7 @@ export function MapView(props: MapViewProps) {
   function syncRoute() {
     const m = map.current;
     if (!m || !loaded.current) return;
-    const { route, targetIndex, fix } = latest.current;
+    const { route, targetIndex, fix, adhocTarget } = latest.current;
     const pts = route?.points ?? [];
     (m.getSource("route") as maplibregl.GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
@@ -264,7 +280,8 @@ export function MapView(props: MapViewProps) {
           ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: pts.map((p) => [p.position.lon, p.position.lat]) } }]
           : [],
     });
-    const target = targetIndex !== null ? pts[targetIndex] : undefined;
+    const routeTarget = targetIndex !== null ? pts[targetIndex] : undefined;
+    const target = adhocTarget ? { position: adhocTarget } : routeTarget;
     (m.getSource("direct") as maplibregl.GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
       features:
@@ -273,7 +290,7 @@ export function MapView(props: MapViewProps) {
           : [],
     });
   }
-  useEffect(syncRoute, [props.route, props.targetIndex, props.fix]);
+  useEffect(syncRoute, [props.route, props.targetIndex, props.fix, props.adhocTarget]);
 
   // Points numérotés (déplaçables en mode tracé).
   useEffect(() => {
@@ -318,6 +335,44 @@ export function MapView(props: MapViewProps) {
     m.fitBounds(b, { padding: { top: 110, bottom: 70, left: 100, right: 70 }, maxZoom: 11, duration: 600 });
   }, [props.fitRequest.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /** Espaces aériens et terrains : données posées une fois, filtres (groupe, plafond, visibilité) appliqués sans recharger. */
+  const aeroData = useRef(new Map<string, FeatureCollection>());
+  function syncAero() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const { airspaceData, airfieldData, showAirspaces, showAirfields, visibleGroups, ceilingFL } = latest.current;
+    const tk = tokens();
+    const before = m.getLayer("route-line") ? "route-line" : undefined;
+    const ensure = (id: string, data: FeatureCollection | null) => {
+      if (!data) return false;
+      const src = m.getSource(id) as maplibregl.GeoJSONSource | undefined;
+      if (!src) m.addSource(id, { type: "geojson", data });
+      else if (aeroData.current.get(id) !== data) src.setData(data);
+      aeroData.current.set(id, data);
+      return true;
+    };
+    if (ensure("asp", airspaceData) && !m.getLayer("asp-fill")) {
+      m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": groupColor(tk), "fill-opacity": 0.06 } }, before);
+      m.addLayer({ id: "asp-line", type: "line", source: "asp", paint: { "line-color": groupColor(tk), "line-width": 1.6 } }, before);
+    }
+    if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
+      m.addLayer(
+        { id: "apt-circle", type: "circle", source: "apt", minzoom: 6, paint: { "circle-radius": 7, "circle-color": tk.paper, "circle-stroke-color": tk.ink, "circle-stroke-width": 2.5 } },
+        before,
+      );
+    }
+    if (m.getLayer("asp-fill")) {
+      const ceilingM = flightLevelToMeters(ceilingFL);
+      const filter = ["all", ["in", ["get", "group"], ["literal", [...visibleGroups]]], ["<", ["get", "floorM"], ceilingM]] as never;
+      for (const id of ["asp-fill", "asp-line"]) {
+        m.setFilter(id, filter);
+        m.setLayoutProperty(id, "visibility", showAirspaces ? "visible" : "none");
+      }
+    }
+    if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
+  }
+  useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
+
   useEffect(syncCharts, [props.charts]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);
 
@@ -329,6 +384,14 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty("background", "background-color", tk.paper);
     m.setPaintProperty("vector-line", "line-color", tk.signal);
     m.setPaintProperty("route-line", "line-color", tk.ink);
+    if (m.getLayer("asp-line")) {
+      m.setPaintProperty("asp-line", "line-color", groupColor(tk));
+      m.setPaintProperty("asp-fill", "fill-color", groupColor(tk));
+    }
+    if (m.getLayer("apt-circle")) {
+      m.setPaintProperty("apt-circle", "circle-color", tk.paper);
+      m.setPaintProperty("apt-circle", "circle-stroke-color", tk.ink);
+    }
     m.setPaintProperty("direct-line", "line-color", tk.good);
     for (const id of addedOverlays.current.keys()) {
       m.setPaintProperty(`ov-${id}-fill`, "fill-color", tk.ink);
@@ -399,7 +462,7 @@ export function MapView(props: MapViewProps) {
 
   return (
     <div className="map" ref={el}>
-      {props.overlays.length === 0 && <div className="map-empty">{props.emptyLabel}</div>}
+      {props.overlays.length === 0 && props.charts.length === 0 && !props.airspaceData && <div className="map-empty">{props.emptyLabel}</div>}
     </div>
   );
 }

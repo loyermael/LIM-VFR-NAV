@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
-  exportRoute, type NavLogLeg, type RouteFormat, type UnitPrefs,
+  airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
+  exportRoute, nearestAirfields, searchAirfields, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
+import { periodStatus } from "./aeroGeo";
 import { t, type Key, type Lang } from "./i18n";
 import {
   removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
@@ -77,6 +78,9 @@ interface NavProps {
   onDirect: (index: number) => void;
   onDrawOnMap: () => void;
   onShowRoute: () => void;
+  /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
+  airspaces: readonly Airspace[];
+  hasAero: boolean;
 }
 
 /** Onglet « Log » : routes, paramètres de vol, points, vents et tableau du log de navigation. */
@@ -100,6 +104,10 @@ export function NavScreen(p: NavProps) {
     );
   }, [route, perf.tasMps, perf.fuelFlowLph, p.date]);
 
+  const crossed = useMemo(
+    () => (route && route.points.length >= 2 && p.airspaces.length > 0 ? airspacesAlongRoute(route, p.airspaces) : []),
+    [route, p.airspaces],
+  );
   const showTrue = prefs.track === "true";
   const dist = (v: number) => formatQuantity("distance", prefs, v);
   const spd = (v: number | null) => (v === null ? "---" : formatQuantity("groundSpeed", prefs, v));
@@ -305,6 +313,27 @@ export function NavScreen(p: NavProps) {
             </div>
           )}
 
+          <h3>{T("navasp.title")}</h3>
+          {!p.hasAero && <p className="muted small">{T("navasp.needData")}</p>}
+          {p.hasAero && route.points.length >= 2 && crossed.length === 0 && <p className="muted small">{T("navasp.none")}</p>}
+          {crossed.map((h) => (
+            <div className={`crossed ${h.vertical}`} key={h.airspace.id}>
+              <div className="crossed-head">
+                <b>{h.airspace.name}</b>
+                <span className="badge">{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
+              </div>
+              <div className="muted small">
+                {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {unitLabel("distance", prefs)}
+                {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
+                {(() => { const st = periodStatus(h.airspace, p.date.getTime()); return st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`; })()}
+              </div>
+              {h.airspace.frequencies.length > 0 && (
+                <div className="freqs mono">{h.airspace.frequencies.map((f) => `${f.mhz} ${f.name}`.trim()).join(" · ")}</div>
+              )}
+            </div>
+          ))}
+          {p.hasAero && crossed.length > 0 && <p className="muted small">{T("navasp.legend")}</p>}
+
           {log && log.legs.length > 0 && (
             <>
               <h3>{T("nav.legwind")}</h3>
@@ -374,29 +403,73 @@ export function PointSheet(p: {
   );
 }
 
-/** Fiche « Direct vers… » : choisir le point visé. */
+/** Fiche « Direct vers… » : un point de la route, un terrain proche ou un terrain cherché par nom ou code OACI. */
 export function DirectSheet(p: {
   lang: Lang;
+  prefs: UnitPrefs;
   route: RouteRecord | null;
   targetIndex: number | null;
+  airfields: readonly Airfield[];
+  position: LatLon | null;
   onPick: (i: number) => void;
+  onPickAirfield: (a: Airfield) => void;
   onClose: () => void;
 }) {
   const T = (k: Key) => t(p.lang, k);
+  const [query, setQuery] = useState("");
+  const results = useMemo(() => searchAirfields(query, p.airfields, 8), [query, p.airfields]);
+  const nearby = useMemo(
+    () => (p.position && p.airfields.length > 0 ? nearestAirfields(p.position, p.airfields, 6, (a) => !a.private) : []),
+    [p.position, p.airfields],
+  );
+  const dist = (m: number) => `${formatQuantity("distance", p.prefs, m)} ${unitLabel("distance", p.prefs)}`;
+  const pick = (a: Airfield) => { p.onPickAirfield(a); p.onClose(); };
   return (
     <aside className="sheet" aria-label={T("direct.title")}>
       <header>
         <h2>{T("direct.title")}</h2>
         <button onClick={p.onClose}>{T("close")}</button>
       </header>
-      {(!p.route || p.route.points.length === 0) && <p className="muted">{T("direct.none")}</p>}
-      <div className="choices">
-        {p.route?.points.map((pt, i) => (
-          <button key={pt.id} aria-pressed={p.targetIndex === i} onClick={() => { p.onPick(i); p.onClose(); }}>
-            {i + 1} · {pt.name}
-          </button>
-        ))}
-      </div>
+      {p.route && p.route.points.length > 0 && (
+        <div className="choices">
+          {p.route.points.map((pt, i) => (
+            <button key={pt.id} aria-pressed={p.targetIndex === i} onClick={() => { p.onPick(i); p.onClose(); }}>
+              {i + 1} · {pt.name}
+            </button>
+          ))}
+        </div>
+      )}
+      <h3>{T("direct.airfields")}</h3>
+      {p.airfields.length === 0 && <p className="muted small">{T("direct.needdata")}</p>}
+      {p.airfields.length > 0 && (
+        <>
+          <input
+            className="field"
+            style={{ textAlign: "left", width: "100%" }}
+            placeholder={T("direct.search")}
+            aria-label={T("direct.search")}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {query.trim() !== "" && results.length === 0 && <p className="muted small">{T("direct.noresults")}</p>}
+          <div className="choices">
+            {results.map((a) => (
+              <button key={a.id} onClick={() => pick(a)}>{a.icao ? `${a.icao} · ` : ""}{a.name}</button>
+            ))}
+          </div>
+          {query.trim() === "" && !p.position && <p className="muted small">{T("direct.needgps")}</p>}
+          {query.trim() === "" && p.position && (
+            <div className="choices">
+              {nearby.map((n) => (
+                <button key={n.airfield.id} onClick={() => pick(n.airfield)}>
+                  {n.airfield.icao ? `${n.airfield.icao} · ` : ""}{n.airfield.name} · {dist(n.distance)}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+      {(!p.route || p.route.points.length === 0) && p.airfields.length === 0 && <p className="muted">{T("direct.none")}</p>}
     </aside>
   );
 }

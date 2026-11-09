@@ -2,14 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
   PressureFilter, VERTICAL_SPEED_UNITS, altitudeResult, directTo, distance, flightLevelOf, flightValues, formatAngle, formatDuration,
-  formatQuantity, gpsStatus, hasReachedPoint, speedVector, unitLabel,
-  type AltitudeSettings, type GpsFix, type Pascals, type UnitPrefs,
+  airacCycleAt, datasetFreshness, formatQuantity, gpsStatus, hasReachedPoint, speedVector, unitLabel,
+  type Airfield, type AltitudeSettings, type GpsFix, type LatLon, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
 import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type ChartRecord } from "./charts";
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
+import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
+import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, importRoute } from "@lim/core";
@@ -17,7 +19,7 @@ import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
-import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
+import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
 type Screen = "map" | "nav" | "docs" | "settings" | "soon";
 
@@ -91,6 +93,16 @@ export function App() {
   const [perf, setPerf] = useState(loadPerf);
   const [routeImportError, setRouteImportError] = useState<string | null>(null);
   const [fit, setFit] = useState({ nonce: 0, force: false });
+  // Données aéronautiques importées (openAIP) et leur affichage.
+  const [aspSet, setAspSet] = useState<AirspaceDataset | null>(null);
+  const [aptSet, setAptSet] = useState<AirfieldDataset | null>(null);
+  const [aeroBusy, setAeroBusy] = useState(false);
+  const [aeroProblems, setAeroProblems] = useState<string[]>([]);
+  const [visibleGroups, setVisibleGroups] = useState<string[]>(loadVisibleGroups);
+  const [showAsp, setShowAsp] = useState(true);
+  const [showApt, setShowApt] = useState(true);
+  const [adhoc, setAdhoc] = useState<{ name: string; position: LatLon } | null>(null);
+  const aeroInput = useRef<HTMLInputElement>(null);
   // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
   const baroFilter = useRef(new PressureFilter(1.0));
   const [baroAvailable, setBaroAvailable] = useState(false);
@@ -149,6 +161,7 @@ export function App() {
     setActiveRouteId(id);
     saveActiveRouteId(id);
     setTargetIndex(null);
+    setAdhoc(null);
     setSelectedPoint(null);
     if (id !== null) {
       setFollow(false);
@@ -183,6 +196,53 @@ export function App() {
     void deleteRoute(id);
     setRoutes((prev) => prev.filter((r) => r.id !== id));
     if (id === activeRouteId) selectRoute(null);
+  };
+  const pickRoutePoint = (i: number) => {
+    setAdhoc(null);
+    setTargetIndex(i);
+  };
+  const pickAirfield = (a: Airfield) => setAdhoc({ name: a.icao ?? a.name, position: a.position });
+  /** Double-tap : les espaces et terrains sont remplacés par leur fiche complète. */
+  const onDoubleTap = (found: TappedFeature[]) => {
+    setCellSheet(null);
+    setDetails(
+      found.map((f) => {
+        const id = String((f.properties as { id?: unknown }).id ?? "");
+        if (f.layerName === "asp") {
+          const a = aspById.get(id);
+          if (a) return { layerName: "Espace aérien", properties: airspaceDetails(a, aspSet?.meta.exportedAtMs ?? null) };
+        }
+        if (f.layerName === "apt") {
+          const a = aptById.get(id);
+          if (a) return { layerName: "Terrain", properties: airfieldDetails(a, prefs, aptSet?.meta.exportedAtMs ?? null) };
+        }
+        return f;
+      }),
+    );
+  };
+  const importAero = async (files: FileList | null) => {
+    if (!files) return;
+    setAeroBusy(true);
+    const out = await importAeroFiles(Array.from(files), Date.now());
+    for (const d of out.datasets) {
+      await saveDataset(d).catch(() => undefined);
+      if (d.id === "airspaces") setAspSet(d);
+      else setAptSet(d);
+    }
+    setAeroProblems(out.problems);
+    setAeroBusy(false);
+    if (aeroInput.current) aeroInput.current.value = "";
+  };
+  const removeAero = () => {
+    void deleteDataset("airspaces");
+    void deleteDataset("airfields");
+    setAspSet(null);
+    setAptSet(null);
+  };
+  const toggleGroup = (g: string) => {
+    const next = visibleGroups.includes(g) ? visibleGroups.filter((x) => x !== g) : [...visibleGroups, g];
+    setVisibleGroups(next);
+    saveVisibleGroups(next);
   };
   const changeAltitude = (next: AltitudeSettings, changed: { qnh?: boolean; offset?: boolean }) => {
     const now = Date.now();
@@ -219,6 +279,14 @@ export function App() {
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
     loadCharts().then(setCharts).catch(() => setCharts([]));
     loadRoutes().then(setRoutes).catch(() => setRoutes([]));
+    loadDatasets()
+      .then((ds) => {
+        for (const d of ds) {
+          if (d.id === "airspaces") setAspSet(d);
+          else setAptSet(d);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
   // Baromètre : démarre dès l'acceptation de l'avertissement ; absent dans un navigateur (sauf simulateur ?sim).
@@ -276,17 +344,23 @@ export function App() {
   }, [accepted, gpsAltRef]);
 
   const status = gpsStatus(fix, now);
-  const targetPoint = route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
+  const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
+  const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
+  const airfieldGeo = useMemo(() => (aptSet ? airfieldsToGeoJSON(aptSet.items) : null), [aptSet]);
+  const aspById = useMemo(() => new Map((aspSet?.items ?? []).map((a) => [a.id, a])), [aspSet]);
+  const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
+  // Espaces pris en compte pour la liste des espaces traversés : ceux des groupes affichés.
+  const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
-    if (!fix || !route || targetIndex === null || status === "lost") return;
+    if (!fix || !route || targetIndex === null || adhoc !== null || status === "lost") return;
     const tp = route.points[targetIndex];
     if (!tp) return;
     if (hasReachedPoint(distance(fix.position, tp.position), fix.groundSpeed)) {
       setTargetIndex(targetIndex + 1 < route.points.length ? targetIndex + 1 : null);
     }
-  }, [fix, route, targetIndex, status]);
+  }, [fix, route, targetIndex, status, adhoc]);
   // Au lancement, on vise le premier point de la route active (une seule fois : après l'arrivée au dernier point, on ne revise pas le premier).
   const initialTargetDone = useRef(false);
   useEffect(() => {
@@ -465,6 +539,12 @@ export function App() {
           onUserMove={() => setFollow(false)}
           overlays={overlays}
           charts={charts}
+          airspaceData={airspaceGeo}
+          airfieldData={airfieldGeo}
+          showAirspaces={showAsp}
+          showAirfields={showApt}
+          visibleGroups={visibleGroups}
+          adhocTarget={adhoc?.position ?? null}
           route={route}
           targetIndex={targetIndex}
           selectedIndex={selectedPoint}
@@ -474,7 +554,7 @@ export function App() {
           onPointTap={(i) => { setDirectOpen(false); setCellSheet(null); setDetails(null); setSelectedPoint(i); }}
           onPointMove={(i, lat, lon) => route && putRoute(movePoint(route, i, lat, lon, Date.now()))}
           ceilingFL={ceiling}
-          onDoubleTap={(f) => { setCellSheet(null); setDetails(f); }}
+          onDoubleTap={onDoubleTap}
           zoomCommand={zoomCommand}
         />
 
@@ -540,12 +620,22 @@ export function App() {
             route={route}
             index={selectedPoint}
             onRoute={putRoute}
-            onDirect={setTargetIndex}
+            onDirect={pickRoutePoint}
             onClose={() => setSelectedPoint(null)}
           />
         )}
         {directOpen && mapActive && (
-          <DirectSheet lang={lang} route={route} targetIndex={targetIndex} onPick={setTargetIndex} onClose={() => setDirectOpen(false)} />
+          <DirectSheet
+            lang={lang}
+            prefs={prefs}
+            route={route}
+            targetIndex={adhoc ? null : targetIndex}
+            airfields={aptSet?.items ?? []}
+            position={fix && status !== "lost" ? fix.position : null}
+            onPick={pickRoutePoint}
+            onPickAirfield={pickAirfield}
+            onClose={() => setDirectOpen(false)}
+          />
         )}
         {cellSheet === "alt" && mapActive && (
           <AltitudeSheet
@@ -632,6 +722,50 @@ export function App() {
             <button className="row" onClick={() => fileInput.current?.click()}>{T("overlay.import")}</button>
             <p className="muted small">{T("overlay.formats")}</p>
             {overlayError && <p className="error" role="alert">{T("overlay.error")} — {overlayError}</p>}
+            <h3>{T("aero.title")}</h3>
+            {!aspSet && !aptSet && <p className="muted small">{T("aero.none")}</p>}
+            {([[T("aero.airspaces"), aspSet], [T("aero.airfields"), aptSet]] as const).map(([label, set]) =>
+              set ? (
+                <p className="muted small" key={label}>
+                  {label} : {set.meta.count} · {T("aero.exported")} {new Date(set.meta.exportedAtMs).toLocaleDateString(lang === "fr" ? "fr-FR" : "en-GB")}
+                  {set.meta.exactDate ? "" : ` ${T("aero.approx")}`}
+                  {set.meta.skipped > 0 ? ` · ${set.meta.skipped} ${T("aero.skipped")}` : ""}
+                </p>
+              ) : null,
+            )}
+            {aspSet && (
+              <>
+                <p className="muted small">
+                  {T("aero.airac")} : {airacCycleAt(new Date(now)).id}
+                </p>
+                {freshnessWarnings(datasetFreshness(new Date(aspSet.meta.exportedAtMs), new Date(now))).map((w, i) => (
+                  <p className={i === 0 ? "muted small" : "error"} key={i}>{w}</p>
+                ))}
+              </>
+            )}
+            <input ref={aeroInput} type="file" hidden multiple accept=".json" onChange={(e) => void importAero(e.target.files)} />
+            <button className="row" disabled={aeroBusy} onClick={() => aeroInput.current?.click()}>{T("aero.import")}</button>
+            <p className="muted small">{T("aero.help")}</p>
+            {aeroProblems.map((m, i) => (
+              <p className="error" role="alert" key={i}>{T("aero.problem")} — {m}</p>
+            ))}
+            {(aspSet || aptSet) && (
+              <>
+                <div className="choices">
+                  <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
+                  <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
+                </div>
+                <div className="choices">
+                  {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (
+                    <button key={g} aria-pressed={visibleGroups.includes(g)} onClick={() => toggleGroup(g)}>
+                      {T(`aero.group.${g}` as Key)}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={removeAero}>{T("aero.remove")}</button>
+              </>
+            )}
+            <p className="muted small">{T("aero.licence")}</p>
             <h3>
               {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
             </h3>
@@ -707,7 +841,9 @@ export function App() {
                 onSelectRoute={(id) => { selectRoute(id); setTargetIndex(0); }}
                 onDeleteRoute={removeRoute}
                 onImportFile={(f) => void importRouteFile(f)}
-                onDirect={(i) => { setTargetIndex(i); if (!wide) open("map"); }}
+                onDirect={(i) => { pickRoutePoint(i); if (!wide) open("map"); }}
+                airspaces={visibleAirspaces}
+                hasAero={aspSet !== null}
                 onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}
               />
