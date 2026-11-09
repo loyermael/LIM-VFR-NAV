@@ -64,4 +64,7 @@ Uniquement des couleurs de la charte Debrief, jamais de couleur en dur :
 - Pistes si besoin plus tard : couleurs de tracé (route, direct, recoupement, traces) en jetons réglables, comme dans SDVFR.
 
 ### Chiffres en couleur (09/11/2026)
-Une couleur par famille de chiffres, jetons `--data-*` dans `tokens.css` (jour puis nuit), contrastes WCAG calculés sur le fond réel de la grille : vitesse en encre (16,9 / 16,4), route en bleu (6,2 / 8,6), altitude en vert (6,0 / 8,7), navigation (point, relèvement, distance) en ocre (5,8 / 8,9). Sur une case ouverte (fond jaune) le chiffre repasse en sombre. Réglages → « Chiffres de vol » permet de revenir au tout noir. Piste pour J2 : réutiliser ces mêmes couleurs pour les tracés (route, direct) afin que la couleur d'un chiffre rappelle celle de la ligne.
+**Décision finale : une seule couleur pour tous les chiffres** (une première version avait une couleur par famille, écartée par l'utilisateur). Jeton `--data-figure` dans `tokens.css` : bleu `#2f5f9a` en jour (contraste 6,2:1 sur le fond de la grille), `#8fb4e3` en nuit (8,6:1). Sur une case ouverte (fond jaune) le chiffre repasse en sombre. Réglages → « Chiffres de vol » permet de revenir au tout noir. Pour changer la couleur : une seule ligne à modifier.
+
+### Fond (09/11/2026)
+Le défaut est le fond **crème** de la charte (`--paper` `#F3F1EA`) partout. Le mode nuit (fond encre) n'est qu'une option dans Réglages, jamais activé de lui-même.
