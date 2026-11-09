@@ -68,7 +68,7 @@ export function saveAltitude(s: AltitudeSettings, qnhSetAtMs: number, offsetSetA
   try {
     localStorage.setItem(
       ALTITUDE_KEY,
-      JSON.stringify({ mode: s.mode, qnhHpa: s.qnh / 100, qnhSetAtMs, offsetM: s.offset, offsetSetAtMs }),
+      JSON.stringify({ mode: s.mode, source: s.source, qnhHpa: s.qnh / 100, qnhSetAtMs, offsetM: s.offset, offsetSetAtMs }),
     );
   } catch {
     /* stockage bloqué : valable pour la session */

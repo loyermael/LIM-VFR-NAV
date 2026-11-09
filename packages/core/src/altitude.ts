@@ -19,15 +19,20 @@ export const QNH_VALID_HOURS = 6;
 
 export type AltitudeMode = "qnh" | "gps" | "fl";
 
+/** D'où vient l'altitude : GPS (partout) ou baromètre de l'appareil (coque Android native seulement). */
+export type AltitudeSource = "gps" | "baro";
+
 export interface AltitudeSettings {
   readonly mode: AltitudeMode;
+  /** Source demandée. Si le baromètre est demandé mais muet, l'affichage retombe sur le GPS (et le dit). */
+  readonly source: AltitudeSource;
   /** QNH du jour. */
   readonly qnh: Pascals;
   /** Calage : décalage ajouté à l'altitude GPS (mètres), pour caler sur l'altitude connue d'un terrain. */
   readonly offset: Meters;
 }
 
-export const DEFAULT_ALTITUDE_SETTINGS: AltitudeSettings = { mode: "qnh", qnh: STANDARD_QNH, offset: meters(0) };
+export const DEFAULT_ALTITUDE_SETTINGS: AltitudeSettings = { mode: "qnh", source: "gps", qnh: STANDARD_QNH, offset: meters(0) };
 
 // Atmosphère standard OACI : h = 44330,77 · (1 − (p / 101325)^0,190263), valable sous 11 km.
 const ISA_SCALE_M = 44330.77;
@@ -99,5 +104,6 @@ export function parseStoredAltitude(raw: unknown, nowMs: number): StoredAltitude
     if (nowMs - setAt <= QNH_VALID_HOURS * 3_600_000 && nowMs >= setAt) qnh = pascals(hpa * 100);
     else qnhExpired = hpa * 100 !== STANDARD_QNH;
   }
-  return { settings: { mode, qnh, offset: meters(offsetOk ? (o["offsetM"] as number) : 0) }, qnhExpired };
+  const source: AltitudeSource = o["source"] === "baro" ? "baro" : "gps";
+  return { settings: { mode, source, qnh, offset: meters(offsetOk ? (o["offsetM"] as number) : 0) }, qnhExpired };
 }

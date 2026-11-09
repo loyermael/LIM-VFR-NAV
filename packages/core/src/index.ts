@@ -9,3 +9,5 @@ export * from "./gps";
 export * from "./ceiling";
 export * from "./flightValues";
 export * from "./altitude";
+export * from "./baro";
+export * from "./altitudeSource";

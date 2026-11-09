@@ -1,0 +1,41 @@
+# Compile l'APK Android de L!M VFR Nav (coque Capacitor) dans le nuage : pas besoin d'Android Studio.
+# Utilisation : pousser le dépôt sur GitHub, onglet Actions > « APK Android » > Run workflow, puis télécharger
+# l'artefact « lim-vfr-nav-debug-apk ». Cet APK « debug » est signé avec une clé de développement : il s'installe
+# directement sur un téléphone (autoriser les sources inconnues) mais n'est pas destiné au Play Store.
+# ATTENTION : ce workflow n'a pas encore été exécuté (écrit sans pouvoir le tester).
+name: APK Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths: ["apps/app/**", "packages/core/**", ".github/workflows/android.yml"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npm run build -w @lim/app
+      - name: Synchroniser le projet Android
+        working-directory: apps/app
+        run: npx cap sync android
+      - name: Compiler l'APK debug
+        working-directory: apps/app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lim-vfr-nav-debug-apk
+          path: apps/app/android/app/build/outputs/apk/debug/*.apk

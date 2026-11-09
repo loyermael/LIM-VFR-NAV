@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">L!M VFR Nav</string>
+    <string name="title_activity_main">L!M VFR Nav</string>
+    <string name="package_name">fr.lim.vfrnav</string>
+    <string name="custom_url_scheme">fr.lim.vfrnav</string>
+</resources>

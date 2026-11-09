@@ -26,6 +26,8 @@ apps/app           PWA unique (React + Vite + MapLibre GL JS), installable gratu
                    tablette, ordinateur (préparation des vols et navs), portrait/paysage. Hors-ligne par
                    service worker. Évolution possible : emballage Capacitor (APK Android gratuit).
                    Limites iOS (pas de GPS en arrière-plan, pas d'UDP) : voir `docs/stacks.md`.
+                   Coque Android native (Capacitor 8, `apps/app/android`) : même application + plugins natifs,
+                   dont le baromètre ; voir `docs/android.md` (non compilée à ce jour).
 docs/              étude enroute, stacks, jalons, sources de données et licences.
 ```
 Règle de dépendance : `apps/*` → `core`. `core` n'importe jamais React, DOM ni Node-only.
@@ -55,6 +57,7 @@ npm run typecheck        # tsc --noEmit, strict, tous les workspaces
 npm test                 # Vitest
 npm run dev -w @lim/app  # PWA en local (http://localhost:5173)
 npm run build -w @lim/app
+# coque Android (JDK 21 + Android SDK, ou le workflow GitHub Actions) : npm run build -w @lim/app puis, dans apps/app, npx cap sync android
 python tools/make-test-mbtiles.py   # régénère le MBTiles de test des tests du lecteur
 # démo sans GPS : ajouter ?sim (ou ?sim=loss) à l'adresse de l'app
 # à venir : lint, npm run data:airac (import + manifeste AIRAC)

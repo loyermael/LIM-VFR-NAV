@@ -1,8 +1,8 @@
 import { useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, SPEED_UNITS, STANDARD_QNH, UNIT_CHOICES, calibrationOffset, formatQuantity,
-  isPlausibleQnh, meters, pascals, toSI, unitLabel,
-  type AltitudeMode, type AltitudeSettings, type Meters, type UnitPrefs,
+  isPlausibleQnh, meters, pascals, qnhFromElevation, toSI, unitLabel,
+  type AltitudeMode, type AltitudeSettings, type AltitudeSource, type Meters, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import type { GpsAltitudeRef } from "./prefs";
@@ -58,6 +58,10 @@ interface AltitudeSheetProps extends CommonProps {
   qnhExpired: boolean;
   gpsAltRef: GpsAltitudeRef;
   onGpsAltRef: (v: GpsAltitudeRef) => void;
+  /** Le baromètre de l'appareil existe (coque Android ou simulateur). */
+  baroAvailable: boolean;
+  /** Dernière pression filtrée, ou null si le capteur est muet. */
+  baroPressure: Pascals | null;
 }
 
 const MODES: { mode: AltitudeMode; label: Key }[] = [
@@ -95,11 +99,20 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
   };
 
   const elev = Number(elevText.replace(",", "."));
-  const canCalibrate = p.gpsAmsl !== null && elevText.trim() !== "" && Number.isFinite(elev);
+  const useBaro = settings.source === "baro" && p.baroPressure !== null;
+  const canCalibrate = useBaro
+    ? p.baroPressure !== null && elevText.trim() !== "" && Number.isFinite(elev)
+    : p.gpsAmsl !== null && elevText.trim() !== "" && Number.isFinite(elev);
   const applyCalibration = () => {
-    if (p.gpsAmsl === null || !Number.isFinite(elev)) return;
-    const off = calibrationOffset(p.gpsAmsl, meters(toSI("altitude", prefs, elev)));
-    p.onSettings({ ...settings, offset: off }, { offset: true });
+    if (!Number.isFinite(elev)) return;
+    const known = meters(toSI("altitude", prefs, elev));
+    if (useBaro && p.baroPressure !== null) {
+      // Avec le baromètre : on cale le QNH (comme un pilote au sol), pas un décalage.
+      setQnh(qnhFromElevation(p.baroPressure, known));
+      return;
+    }
+    if (p.gpsAmsl === null) return;
+    p.onSettings({ ...settings, offset: calibrationOffset(p.gpsAmsl, known) }, { offset: true });
   };
   const offsetShown = formatQuantity("altitude", prefs, Math.abs(settings.offset));
   const showQnh = settings.mode !== "gps";
@@ -141,10 +154,30 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
         ))}
       </div>
 
-      <p className="muted small">{T("alt.estimate")}</p>
+      <p className="muted small">{T(settings.source === "baro" && p.baroPressure !== null ? "alt.estimate.baro" : "alt.estimate")}</p>
+
+      <h3>{T("alt.source")}</h3>
+      {p.baroAvailable ? (
+        <>
+          <div className="choices">
+            {(["gps", "baro"] as AltitudeSource[]).map((src) => (
+              <button key={src} aria-pressed={settings.source === src} onClick={() => p.onSettings({ ...settings, source: src }, {})}>
+                {T(src === "gps" ? "alt.source.gps" : "alt.source.baro")}
+              </button>
+            ))}
+          </div>
+          {settings.source === "baro" && (
+            <p className={p.baroPressure === null ? "error" : "muted small"} role={p.baroPressure === null ? "alert" : undefined}>
+              {T(p.baroPressure === null ? "alt.baro.silent" : "alt.baro.ok")}
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="muted small">{T("alt.baro.none")}</p>
+      )}
 
       <h3>{T("alt.calib")}</h3>
-      <p className="muted small">{T("alt.calib.help")}</p>
+      <p className="muted small">{T(useBaro ? "alt.calib.help.baro" : "alt.calib.help")}</p>
       <div className="stepper">
         <input
           className="field mono"
@@ -154,9 +187,9 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
           value={elevText}
           onChange={(e) => setElevText(e.target.value)}
         />
-        <button disabled={!canCalibrate} onClick={applyCalibration}>{T("alt.calib.apply")}</button>
+        <button disabled={!canCalibrate} onClick={applyCalibration}>{T(useBaro ? "alt.calib.qnh" : "alt.calib.apply")}</button>
       </div>
-      {p.gpsAmsl === null && <p className="muted small">{T("alt.calib.nogps")}</p>}
+      {!useBaro && p.gpsAmsl === null && <p className="muted small">{T("alt.calib.nogps")}</p>}
       {settings.offset !== 0 && (
         <p className="muted small">
           {T("alt.calib.current")} : {settings.offset > 0 ? "+" : "−"}{offsetShown} {unitLabel("altitude", prefs)}{" "}

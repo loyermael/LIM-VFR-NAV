@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
-  VERTICAL_SPEED_UNITS, altitudeForDisplay, flightLevelOf, flightValues, formatAngle, formatQuantity, gpsStatus,
+  PressureFilter, VERTICAL_SPEED_UNITS, altitudeResult, flightLevelOf, flightValues, formatAngle, formatQuantity, gpsStatus,
   speedVector, unitLabel,
-  type AltitudeSettings, type GpsFix, type UnitPrefs,
+  type AltitudeSettings, type GpsFix, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
 import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type ChartRecord } from "./charts";
@@ -12,6 +12,7 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
+import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
 type Screen = "map" | "nav" | "docs" | "settings" | "soon";
@@ -62,6 +63,10 @@ export function App() {
   const [qnhExpired, setQnhExpired] = useState(altMem.qnhExpired);
   const [cellSheet, setCellSheet] = useState<CellId | null>(null);
   const [figuresColor, setFiguresColor] = useState(loadFiguresColor);
+  // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
+  const baroFilter = useRef(new PressureFilter(1.0));
+  const [baroAvailable, setBaroAvailable] = useState(false);
+  const [baroLast, setBaroLast] = useState<{ pressure: Pascals; ageMs: number } | null>(null);
 
   const [fix, setFix] = useState<GpsFix | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -120,6 +125,31 @@ export function App() {
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
     loadCharts().then(setCharts).catch(() => setCharts([]));
   }, []);
+
+  // Baromètre : démarre dès l'acceptation de l'avertissement ; absent dans un navigateur (sauf simulateur ?sim).
+  useEffect(() => {
+    if (!accepted) return;
+    let cancelled = false;
+    let source: PressureSource | null = null;
+    void (async () => {
+      const sim = simMode() !== null;
+      const available = sim || (await DeviceBarometer.isAvailable());
+      if (cancelled) return;
+      setBaroAvailable(available);
+      if (!available) return;
+      source = sim ? new SimulatedBarometer() : new DeviceBarometer();
+      await source.start(
+        (s) => void baroFilter.current.update(s.pressure, s.timeMs),
+        () => setBaroAvailable(false),
+      );
+    })();
+    const tick = setInterval(() => setBaroLast(baroFilter.current.last(Date.now())), 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(tick);
+      void source?.stop();
+    };
+  }, [accepted]);
 
   // Source de position + écran toujours allumé + horloge pour détecter la perte de signal.
   useEffect(() => {
@@ -241,13 +271,18 @@ export function App() {
   const stale = status === "stale" || status === "poor";
   const trackShown = live ? (prefs.track === "mag" ? fv.trackMagnetic : fv.trackTrue) : null;
   // Altitude : mode QNH / niveau de vol / GPS brute, tout estimé depuis le GPS (voir core/altitude.ts).
-  const altM = live ? altitudeForDisplay(fv.altitudeMsl, altSettings) : null;
+  // Un baromètre qui ne répond plus depuis 5 s est considéré muet (repli sur le GPS, signalé dans le label).
+  const baroP: Pascals | null = baroAvailable && baroLast !== null && baroLast.ageMs < 5000 ? baroLast.pressure : null;
+  const altRes = altitudeResult(live ? fv.altitudeMsl : null, baroP, altSettings);
+  const altM = altRes.value;
+  const fromBaro = altRes.origin === "baro";
   const qnhText = formatQuantity("pressure", prefs, altSettings.qnh);
-  const calibrated = altSettings.offset !== 0 && altSettings.mode !== "gps";
+  const calibrated = altSettings.offset !== 0 && altSettings.mode !== "gps" && !fromBaro;
+  const baroFallback = altSettings.source === "baro" && !fromBaro && altSettings.mode !== "gps";
   const altLabel =
     altSettings.mode === "gps"
       ? T("alt.short.gps")
-      : `${T(altSettings.mode === "fl" ? "alt.short.fl" : "alt.short.qnh")} ${qnhText}${calibrated ? "*" : ""}`;
+      : `${T(altSettings.mode === "fl" ? "alt.short.fl" : fromBaro ? "alt.short.baro" : "alt.short.qnh")} ${qnhText}${calibrated ? "*" : ""}${baroFallback ? " GPS" : ""}`;
   const altValue =
     altM === null
       ? "---"
@@ -379,6 +414,8 @@ export function App() {
             qnhExpired={qnhExpired}
             gpsAltRef={gpsAltRef}
             onGpsAltRef={chooseGpsAlt}
+            baroAvailable={baroAvailable}
+            baroPressure={baroP}
           />
         )}
         {cellSheet !== null && cellSheet !== "alt" && screen === "map" && (
