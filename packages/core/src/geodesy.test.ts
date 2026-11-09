@@ -92,7 +92,10 @@ describe("propriétés (fast-check)", () => {
   it("le cap inverse (à l'arrivée + 180) ramène vers le départ", () => {
     fc.assert(
       fc.property(point, point, (a, b) => {
-        if (distance(a, b) < 1000) return true;
+        const d = distance(a, b);
+        // Hors domaine : points confondus (cap indéfini) et points presque antipodaux (> 19 000 km) où le plus court
+        // chemin est ambigu et le cap change brutalement. Sans intérêt en navigation VFR.
+        if (d < 1000 || d > 19_000_000) return true;
         const back = initialBearing(b, a);
         const expected = (finalBearing(a, b) + 180) % 360;
         return Math.abs(((back - expected + 540) % 360) - 180) < 1e-6;

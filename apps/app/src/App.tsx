@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
-  VERTICAL_SPEED_UNITS, flightValues, formatAngle, formatQuantity, gpsStatus, speedVector, unitLabel,
-  type GpsFix, type UnitPrefs,
+  VERTICAL_SPEED_UNITS, altitudeForDisplay, flightLevelOf, flightValues, formatAngle, formatQuantity, gpsStatus,
+  speedVector, unitLabel,
+  type AltitudeSettings, type GpsFix, type UnitPrefs,
 } from "@lim/core";
+import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
 import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type ChartRecord } from "./charts";
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
-import { loadGpsAltitudeRef, loadUnitPrefs, saveGpsAltitudeRef, saveUnitPrefs, type GpsAltitudeRef } from "./prefs";
+import { loadAltitude, loadGpsAltitudeRef, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, type GpsAltitudeRef } from "./prefs";
 
 type Screen = "map" | "nav" | "docs" | "settings" | "soon";
 
@@ -53,6 +55,12 @@ export function App() {
   const [ceiling, setCeiling] = useState<number>(CEILING_FILTER.defaultFL);
   const [prefs, setPrefs] = useState<UnitPrefs>(loadUnitPrefs);
   const [gpsAltRef, setGpsAltRef] = useState<GpsAltitudeRef>(loadGpsAltitudeRef);
+  const [altMem] = useState(() => loadAltitude(Date.now()));
+  const [altSettings, setAltSettings] = useState<AltitudeSettings>(altMem.settings);
+  const qnhSetAt = useRef(altMem.qnhSetAtMs);
+  const offsetSetAt = useRef(altMem.offsetSetAtMs);
+  const [qnhExpired, setQnhExpired] = useState(altMem.qnhExpired);
+  const [cellSheet, setCellSheet] = useState<CellId | null>(null);
 
   const [fix, setFix] = useState<GpsFix | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -75,6 +83,21 @@ export function App() {
     const next = { ...prefs, [field]: value };
     setPrefs(next);
     saveUnitPrefs(next);
+  };
+  const changeAltitude = (next: AltitudeSettings, changed: { qnh?: boolean; offset?: boolean }) => {
+    const now = Date.now();
+    if (changed.qnh) {
+      qnhSetAt.current = now;
+      setQnhExpired(false);
+    }
+    if (changed.offset) offsetSetAt.current = now;
+    setAltSettings(next);
+    saveAltitude(next, qnhSetAt.current, offsetSetAt.current);
+  };
+  const openCell = (id: CellId) => {
+    setDetails(null);
+    setDrawer(false);
+    setCellSheet((cur) => (cur === id ? null : id));
   };
   const chooseGpsAlt = (v: GpsAltitudeRef) => {
     setGpsAltRef(v);
@@ -215,13 +238,29 @@ export function App() {
   const live = fv !== null && status !== "lost";
   const stale = status === "stale" || status === "poor";
   const trackShown = live ? (prefs.track === "mag" ? fv.trackMagnetic : fv.trackTrue) : null;
-  const cells: { label: Key; value: string; unit?: string }[] = [
-    { label: "data.gs", value: live ? formatQuantity("groundSpeed", prefs, fv.groundSpeed ?? NaN) : "---", unit: unitLabel("groundSpeed", prefs) },
-    { label: "data.trk", value: formatAngle(trackShown), unit: unitLabel("track", prefs, lang) },
-    { label: "data.wpt", value: "---" },
-    { label: "data.alt", value: live ? formatQuantity("altitude", prefs, fv.altitudeMsl ?? NaN) : "---", unit: unitLabel("altitude", prefs) },
-    { label: "data.brg", value: "---", unit: unitLabel("bearing", prefs, lang) },
-    { label: "data.dist", value: "---", unit: unitLabel("distance", prefs) },
+  // Altitude : mode QNH / niveau de vol / GPS brute, tout estimé depuis le GPS (voir core/altitude.ts).
+  const altM = live ? altitudeForDisplay(fv.altitudeMsl, altSettings) : null;
+  const qnhText = formatQuantity("pressure", prefs, altSettings.qnh);
+  const calibrated = altSettings.offset !== 0 && altSettings.mode !== "gps";
+  const altLabel =
+    altSettings.mode === "gps"
+      ? T("alt.short.gps")
+      : `${T(altSettings.mode === "fl" ? "alt.short.fl" : "alt.short.qnh")} ${qnhText}${calibrated ? "*" : ""}`;
+  const altValue =
+    altM === null
+      ? "---"
+      : altSettings.mode === "fl"
+        ? String(Math.max(0, flightLevelOf(altM))).padStart(3, "0")
+        : formatQuantity("altitude", prefs, altM);
+  const altUnit = altSettings.mode === "fl" ? "FL" : unitLabel("altitude", prefs);
+
+  const cells: { id: CellId | null; label: string; value: string; unit?: string }[] = [
+    { id: "gs", label: T("data.gs"), value: live ? formatQuantity("groundSpeed", prefs, fv.groundSpeed ?? NaN) : "---", unit: unitLabel("groundSpeed", prefs) },
+    { id: "trk", label: T("data.trk"), value: formatAngle(trackShown), unit: unitLabel("track", prefs, lang) },
+    { id: null, label: T("data.wpt"), value: "---" },
+    { id: "alt", label: altLabel, value: altValue, unit: altUnit },
+    { id: "brg", label: T("data.brg"), value: "---", unit: unitLabel("bearing", prefs, lang) },
+    { id: "dist", label: T("data.dist"), value: "---", unit: unitLabel("distance", prefs) },
   ];
 
   const tabs = screen === "nav" ? NAV_TABS : screen === "docs" ? DOCS_TABS : null;
@@ -268,7 +307,7 @@ export function App() {
           overlays={overlays}
           charts={charts}
           ceilingFL={ceiling}
-          onDoubleTap={setDetails}
+          onDoubleTap={(f) => { setCellSheet(null); setDetails(f); }}
           zoomCommand={zoomCommand}
         />
 
@@ -317,6 +356,24 @@ export function App() {
               ))
             )}
           </aside>
+        )}
+
+        {cellSheet === "alt" && screen === "map" && (
+          <AltitudeSheet
+            lang={lang}
+            prefs={prefs}
+            setUnit={setUnit}
+            onClose={() => setCellSheet(null)}
+            settings={altSettings}
+            onSettings={changeAltitude}
+            gpsAmsl={live ? fv.altitudeMsl : null}
+            qnhExpired={qnhExpired}
+            gpsAltRef={gpsAltRef}
+            onGpsAltRef={chooseGpsAlt}
+          />
+        )}
+        {cellSheet !== null && cellSheet !== "alt" && screen === "map" && (
+          <UnitSheet cell={cellSheet} lang={lang} prefs={prefs} setUnit={setUnit} onClose={() => setCellSheet(null)} />
         )}
 
         {drawer && (
@@ -438,12 +495,6 @@ export function App() {
                     </div>
                   </div>
                 ))}
-                <h3>{T("set.gpsalt")}</h3>
-                <div className="choices">
-                  <button aria-pressed={gpsAltRef === "msl"} onClick={() => chooseGpsAlt("msl")}>{T("set.gpsalt.msl")}</button>
-                  <button aria-pressed={gpsAltRef === "ellipsoid"} onClick={() => chooseGpsAlt("ellipsoid")}>{T("set.gpsalt.ellipsoid")}</button>
-                </div>
-                <p className="muted small">{T("set.gpsalt.help")}</p>
               </div>
             ) : (
               <p className="muted">{T("soon")}</p>
@@ -462,15 +513,24 @@ export function App() {
       </div>
 
       <footer className={stale ? "datagrid stale" : "datagrid"}>
-        {cells.map((c) => (
-          <div className="cell" key={c.label}>
-            <div className="label">
-              <span>{T(c.label)}</span>
-              {c.unit && <span>{c.unit}</span>}
-            </div>
-            <div className="value">{c.value}</div>
-          </div>
-        ))}
+        {cells.map((c, i) => {
+          const body = (
+            <>
+              <div className="label">
+                <span>{c.label}</span>
+                {c.unit && <span>{c.unit}</span>}
+              </div>
+              <div className="value">{c.value}</div>
+            </>
+          );
+          return c.id ? (
+            <button className="cell" key={i} aria-pressed={cellSheet === c.id} onClick={() => openCell(c.id as CellId)}>
+              {body}
+            </button>
+          ) : (
+            <div className="cell" key={i}>{body}</div>
+          );
+        })}
       </footer>
     </div>
   );

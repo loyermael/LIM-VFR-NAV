@@ -30,6 +30,12 @@
 Tiroir de calques à droite (Météo, Cartes, Surcouches, Filtre de plafond). Écrans « Nav » et « Docs » : plein écran avec **onglets contextuels en bas** (Log / Profil / Carburant / Centrage ; Traces / Documents / Produits / Points perso).
 Les valeurs affichent `---` tant qu'aucun GPS n'est branché : on n'invente jamais une valeur.
 
+## Cases de la grille touchables (décidé le 09/11/2026)
+Toucher une case ouvre ses réglages, sans passer par Réglages :
+- **Altitude** : QNH du jour (− / + / saisie / STD), mode (Altitude QNH, Niveau de vol, GPS brute), calage sur l'altitude d'un terrain, source de l'altitude GPS (AMSL ou ellipsoïde), unité. Le label de la case affiche toujours le mode et le QNH réglé (« ALT QNH 1013 », « NIV. VOL 1003 »), avec une étoile si un calage est actif.
+- **Vitesse sol, route, relèvement, distance** : choix de l'unité (ou magnétique / vrai).
+- **Honnêteté** : sans baromètre, altitude QNH et niveau de vol sont **estimés depuis l'altitude GPS** (atmosphère standard) ; l'altimètre de bord reste la référence. Le QNH et le calage saisis sont abandonnés après 6 h (retour à 1013, avec message) pour ne jamais voler avec le réglage de la veille sans le savoir.
+
 ## Log de nav (J2) : colonnes de SDVFR
 Z vol / Z min, Rm / Cm, DSD / DIST / DTA, TSV / TAV, Report.
 - **TSV = temps sans vent** : distance ÷ vitesse propre (TAS) ; base de calcul.

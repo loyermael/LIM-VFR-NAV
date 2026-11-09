@@ -47,8 +47,17 @@ button.brand { background: var(--brand); color: var(--on-brand); border-color: v
 .banner.alert { background: var(--signal); color: var(--on-signal); border-color: var(--ink); font-size: var(--fs-20); letter-spacing: 0.04em; }
 .mapctl { position: absolute; left: calc(var(--sp-3) + env(safe-area-inset-left)); bottom: var(--sp-3); z-index: 2; display: flex; flex-direction: column; gap: var(--sp-2); }
 .mapctl button { width: var(--h-control); font-size: var(--fs-28); padding: 0; box-shadow: var(--shadow-pop); }
+/* Case de la grille touchable : on neutralise le style de bouton global, on garde le filet et l'inversion au toucher */
+button.cell { display: block; width: 100%; text-align: left; border-radius: 0; border-width: 0; border-left: var(--rule-line); border-top: var(--rule-line); background: transparent; font-family: inherit; font-stretch: normal; font-weight: inherit; font-size: inherit; letter-spacing: normal; text-transform: none; min-height: var(--h-strip); padding: var(--sp-2) var(--sp-3); white-space: normal; }
+button.cell:nth-child(3n+1) { border-left: 0; }
+button.cell:nth-child(-n+3) { border-top: 0; }
+button.cell .label { color: inherit; opacity: 0.75; }
+button.cell { color: var(--ink); }
+button.cell[aria-pressed='true'], button.cell:active { background: var(--ink); color: var(--on-ink); }
+.field { min-height: var(--h-control); min-width: 0; flex: 1; padding: 0 var(--sp-3); font-size: var(--fs-24); text-align: center; color: var(--ink); background: var(--paper); border: var(--rule-line); border-radius: var(--r); user-select: text; }
+.btn-inline { min-height: 40px; font-size: var(--fs-14); padding: 0 var(--sp-3); }
 .datagrid.stale .value { opacity: 0.45; }
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 55%; z-index: 4; overflow: auto; background: var(--field); border-top: var(--rule-heavy); padding: var(--sp-3) var(--sp-4); user-select: text; }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 70%; z-index: 4; overflow: auto; background: var(--field); border-top: var(--rule-heavy); padding: var(--sp-3) var(--sp-4); user-select: text; }
 .sheet header { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
 .sheet h2 { font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 800; font-size: var(--fs-28); text-transform: uppercase; margin: 0; }
 .sheet h3 { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; text-transform: uppercase; border-top: var(--rule-line); padding-top: var(--sp-2); margin: var(--sp-3) 0 var(--sp-2); }

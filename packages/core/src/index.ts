@@ -8,3 +8,4 @@ export * from "./geoid";
 export * from "./gps";
 export * from "./ceiling";
 export * from "./flightValues";
+export * from "./altitude";

@@ -1,4 +1,4 @@
-import { DEFAULT_UNIT_PREFS, parseUnitPrefs, type UnitPrefs } from "@lim/core";
+import { DEFAULT_ALTITUDE_SETTINGS, DEFAULT_UNIT_PREFS, parseStoredAltitude, parseUnitPrefs, type AltitudeSettings, type StoredAltitude, type UnitPrefs } from "@lim/core";
 
 const KEY = "lim.unitPrefs.v1";
 
@@ -37,5 +37,40 @@ export function saveUnitPrefs(prefs: UnitPrefs): void {
     localStorage.setItem(KEY, JSON.stringify(prefs));
   } catch {
     /* navigation privée ou stockage bloqué : le choix vaut pour la session seulement */
+  }
+}
+
+const ALTITUDE_KEY = "lim.altitude.v1";
+
+export interface AltitudeMemory extends StoredAltitude {
+  /** Instants auxquels le QNH et le calage ont été réglés (pour les faire expirer). */
+  readonly qnhSetAtMs: number;
+  readonly offsetSetAtMs: number;
+}
+
+/** Relit mode, QNH et calage. Un QNH ou un calage de plus de 6 h est abandonné (voir core/altitude.ts). */
+export function loadAltitude(nowMs: number): AltitudeMemory {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(ALTITUDE_KEY) ?? "null");
+    const parsed = parseStoredAltitude(raw, nowMs);
+    const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+    return {
+      ...parsed,
+      qnhSetAtMs: typeof o["qnhSetAtMs"] === "number" ? o["qnhSetAtMs"] : nowMs,
+      offsetSetAtMs: typeof o["offsetSetAtMs"] === "number" ? o["offsetSetAtMs"] : nowMs,
+    };
+  } catch {
+    return { settings: DEFAULT_ALTITUDE_SETTINGS, qnhExpired: false, qnhSetAtMs: nowMs, offsetSetAtMs: nowMs };
+  }
+}
+
+export function saveAltitude(s: AltitudeSettings, qnhSetAtMs: number, offsetSetAtMs: number): void {
+  try {
+    localStorage.setItem(
+      ALTITUDE_KEY,
+      JSON.stringify({ mode: s.mode, qnhHpa: s.qnh / 100, qnhSetAtMs, offsetM: s.offset, offsetSetAtMs }),
+    );
+  } catch {
+    /* stockage bloqué : valable pour la session */
   }
 }

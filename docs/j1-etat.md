@@ -15,6 +15,9 @@
 | Changement de carte selon le zoom | réglage « du zoom X au zoom Y » par carte ; **non testé avec deux cartes** |
 | Unités par information, avertissement, FR/EN, jour/nuit | écran + tests |
 
+## Ajout du 09/11 : réglages par case
+Toucher la case altitude : QNH du jour, mode QNH / niveau de vol / GPS brute, calage sur un terrain, source de l'altitude GPS. Toucher une autre case : son unité. Vérifié à l'écran : QNH 1003 + 3281 ft GPS → FL036 ; calage sur 3000 ft → affiche 3000 ; réglages mémorisés. 16 tests sur les calculs (altitude pression ISA, FL, calage, expiration 6 h). Voir `docs/design.md`.
+
 ## Pas fait / pas vérifié
 - **Carte vectorielle aéronautique** (espaces, terrains, balises, obstacles) : dépend des données SIA/openAIP, donc **J3**. En J1 le fond est vide, ou tes MBTiles.
 - **Aucun test sur un vrai appareil** : GPS réel, altitude (voir ci-dessous), gros MBTiles (IGN OACI), service worker hors-ligne, iPhone/iPad.
