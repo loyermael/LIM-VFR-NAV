@@ -7,3 +7,4 @@ export * from "./magnetic";
 export * from "./geoid";
 export * from "./gps";
 export * from "./ceiling";
+export * from "./flightValues";

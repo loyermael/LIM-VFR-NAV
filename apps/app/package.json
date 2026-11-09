@@ -12,13 +12,17 @@
   },
   "dependencies": {
     "@lim/core": "*",
+    "@tmcw/togeojson": "^7.1.3",
     "maplibre-gl": "^5.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "shpjs": "^6.2.0"
   },
   "devDependencies": {
+    "@types/geojson": "^7946.0.16",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/shpjs": "^3.4.7",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.9.2",
     "vite": "^7.0.0",

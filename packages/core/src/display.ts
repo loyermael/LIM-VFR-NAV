@@ -141,3 +141,10 @@ export function formatQuantity(q: Quantity, prefs: UnitPrefs, siValue: number): 
   if (!def) throw new Error(`unité inconnue : ${q}=${prefs[q]}`);
   return (siValue / def.si).toFixed(def.decimals);
 }
+
+/** Angle de route ou de cap sur 3 chiffres (« 090 », « 000 » pour le nord). `null` ou non fini → « --- ». */
+export function formatAngle(deg: number | null): string {
+  if (deg === null || !Number.isFinite(deg)) return "---";
+  const r = Math.round(deg) % 360;
+  return String(r < 0 ? r + 360 : r).padStart(3, "0");
+}

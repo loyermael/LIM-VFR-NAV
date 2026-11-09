@@ -17,7 +17,8 @@ export default defineConfig({
         theme_color: "#15191d",
         icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
       },
-      workbox: { globPatterns: ["**/*.{js,css,html,svg,png,json}"] },
+      // La grille du géoïde (.bin, 2 Mo) doit être disponible hors-ligne : correction d'altitude en vol.
+      workbox: { globPatterns: ["**/*.{js,css,html,svg,png,json,bin,woff2}"], maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 },
     }),
   ],
 });

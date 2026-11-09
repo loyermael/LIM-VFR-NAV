@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  DEFAULT_UNIT_PREFS, formatQuantity, fromSI, parseUnitPrefs, toSI, unitLabel, type UnitPrefs,
+  DEFAULT_UNIT_PREFS, formatAngle, formatQuantity, fromSI, parseUnitPrefs, toSI, unitLabel, type UnitPrefs,
 } from "./display";
 import { knotsToMps, knots, feet, feetToMeters } from "./units";
 
@@ -54,5 +54,17 @@ describe("parseUnitPrefs", () => {
   it("accepte des préférences valides", () => {
     const p = with_({ groundSpeed: "kmh", distance: "km", track: "true" });
     expect(parseUnitPrefs(JSON.parse(JSON.stringify(p)))).toEqual(p);
+  });
+});
+
+describe("formatAngle", () => {
+  it("3 chiffres, 360 devient 000, inconnu devient ---", () => {
+    expect(formatAngle(90)).toBe("090");
+    expect(formatAngle(5.4)).toBe("005");
+    expect(formatAngle(359.6)).toBe("000");
+    expect(formatAngle(0)).toBe("000");
+    expect(formatAngle(-10)).toBe("350");
+    expect(formatAngle(null)).toBe("---");
+    expect(formatAngle(Number.NaN)).toBe("---");
   });
 });

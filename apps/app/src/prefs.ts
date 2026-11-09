@@ -12,6 +12,26 @@ export function loadUnitPrefs(): UnitPrefs {
   }
 }
 
+export type GpsAltitudeRef = "msl" | "ellipsoid";
+const ALT_KEY = "lim.gpsAltitudeRef.v1";
+
+/** Référence de l'altitude renvoyée par le GPS de l'appareil (varie selon le modèle ; réglable). Défaut : niveau de la mer. */
+export function loadGpsAltitudeRef(): GpsAltitudeRef {
+  try {
+    return localStorage.getItem(ALT_KEY) === "ellipsoid" ? "ellipsoid" : "msl";
+  } catch {
+    return "msl";
+  }
+}
+
+export function saveGpsAltitudeRef(v: GpsAltitudeRef): void {
+  try {
+    localStorage.setItem(ALT_KEY, v);
+  } catch {
+    /* stockage bloqué : valable pour la session */
+  }
+}
+
 export function saveUnitPrefs(prefs: UnitPrefs): void {
   try {
     localStorage.setItem(KEY, JSON.stringify(prefs));
