@@ -48,8 +48,22 @@ function simMode(): null | "sim" | "loss" {
   return v === null ? null : v === "loss" ? "loss" : "sim";
 }
 
+/** Écran large (ordinateur, tablette en paysage) : carte et panneau de route côte à côte. */
+function useWide(): boolean {
+  const query = "(min-width: 1100px)";
+  const [wide, setWide] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const onChange = () => setWide(m.matches);
+    m.addEventListener("change", onChange);
+    return () => m.removeEventListener("change", onChange);
+  }, []);
+  return wide;
+}
+
 export function App() {
   const [lang, setLang] = useState<Lang>(detectLang);
+  const wide = useWide();
   // L'avertissement est volontairement redemandé à chaque lancement (jamais mémorisé).
   const [accepted, setAccepted] = useState(false);
   const [theme, setTheme] = useState<Theme>("day");
@@ -76,6 +90,7 @@ export function App() {
   const [directOpen, setDirectOpen] = useState(false);
   const [perf, setPerf] = useState(loadPerf);
   const [routeImportError, setRouteImportError] = useState<string | null>(null);
+  const [fit, setFit] = useState({ nonce: 0, force: false });
   // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
   const baroFilter = useRef(new PressureFilter(1.0));
   const [baroAvailable, setBaroAvailable] = useState(false);
@@ -103,6 +118,27 @@ export function App() {
     setPrefs(next);
     saveUnitPrefs(next);
   };
+  // Le panneau Route réduit la carte : on recadre sur la route (seulement s'il n'y a pas d'avion à suivre).
+  const splitNow = wide && screen === "nav";
+  useEffect(() => {
+    if (splitNow) setFit((f) => ({ nonce: f.nonce + 1, force: false }));
+  }, [splitNow]);
+
+  // Clavier (ordinateur) : Échap ferme les fiches, le tiroir et le mode tracé.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setCellSheet(null);
+      setDetails(null);
+      setDirectOpen(false);
+      setSelectedPoint(null);
+      setDrawer(false);
+      setEditMode(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   const route = routes.find((r) => r.id === activeRouteId) ?? null;
   const uid = () => crypto.randomUUID();
   const putRoute = (next: RouteRecord) => {
@@ -114,6 +150,10 @@ export function App() {
     saveActiveRouteId(id);
     setTargetIndex(null);
     setSelectedPoint(null);
+    if (id !== null) {
+      setFollow(false);
+      setFit((f) => ({ nonce: f.nonce + 1, force: true }));
+    }
   };
   const createRoute = () => {
     const r = newRoute(uid(), `${t(lang, "nav.new")} ${routes.length + 1}`, Date.now());
@@ -252,7 +292,10 @@ export function App() {
   useEffect(() => {
     if (initialTargetDone.current || !route) return;
     initialTargetDone.current = true;
-    if (route.points.length > 0) setTargetIndex(0);
+    if (route.points.length > 0) {
+      setTargetIndex(0);
+      setFit((f) => ({ nonce: f.nonce + 1, force: false }));
+    }
   }, [route]);
   const direct = useMemo(
     () => (fix && targetPoint && status !== "lost" ? directTo(fix.position, targetPoint.position, fix.groundSpeed, new Date(fix.timeMs)) : null),
@@ -377,11 +420,14 @@ export function App() {
   ];
 
   const tabs = screen === "nav" ? NAV_TABS : screen === "docs" ? DOCS_TABS : null;
+  // Écran large : l'écran Route s'affiche à droite de la carte, qui reste utilisable (tracé, Direct).
+  const split = wide && screen === "nav";
+  const mapActive = screen === "map" || split;
   const toolbar: { label: Key; action: () => void; pressed?: boolean }[] = [
-    { label: "tb.route", action: () => open("nav") },
+    { label: "tb.route", action: () => open(screen === "nav" ? "map" : "nav"), pressed: screen === "nav" },
     { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
     { label: "tb.settings", action: () => open("settings") },
-    { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && screen === "map" },
+    { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && mapActive },
     { label: "tb.maps", action: () => setDrawer(!drawer), pressed: drawer },
     { label: "tb.relief", action: () => soon("tb.relief") },
     { label: "tb.profile", action: () => soon("tb.profile") },
@@ -391,7 +437,7 @@ export function App() {
 
   const banner: { text: string; alert: boolean } | null =
     status === "lost" ? { text: T("gps.lost"), alert: true }
-    : gpsError && !fix ? { text: T("gps.error"), alert: true }
+    : gpsError && !fix ? { text: T("gps.error"), alert: false }
     : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
     : status === "none" ? { text: T("gps.waiting"), alert: false }
     : fv?.variationOutOfRange ? { text: T("mag.expired"), alert: true }
@@ -407,7 +453,7 @@ export function App() {
         ))}
       </nav>
 
-      <div className="stage">
+      <div className={split ? "stage split" : "stage"}>
         <MapView
           theme={theme}
           emptyLabel={T("map.empty")}
@@ -423,6 +469,7 @@ export function App() {
           targetIndex={targetIndex}
           selectedIndex={selectedPoint}
           editMode={editMode}
+          fitRequest={fit}
           onMapTap={onMapTap}
           onPointTap={(i) => { setDirectOpen(false); setCellSheet(null); setDetails(null); setSelectedPoint(i); }}
           onPointMove={(i, lat, lon) => route && putRoute(movePoint(route, i, lat, lon, Date.now()))}
@@ -431,7 +478,7 @@ export function App() {
           zoomCommand={zoomCommand}
         />
 
-        {screen === "map" && (
+        {mapActive && (
           <div className={`gps-chip gps-${status === "ok" ? "ok" : status === "lost" ? "lost" : status === "none" ? "none" : "weak"}`}>
             <span className="dot" aria-hidden="true" />
             {T(status === "ok" ? "gps.chip.ok" : status === "lost" ? "gps.chip.lost" : status === "none" ? "gps.chip.none" : "gps.chip.weak")}
@@ -444,7 +491,7 @@ export function App() {
           </div>
         )}
 
-        {screen === "map" && (
+        {mapActive && (
           <>
             <div className="mapctl">
               <button aria-label="zoom +" onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
@@ -460,7 +507,7 @@ export function App() {
           </>
         )}
 
-        {details && screen === "map" && (
+        {details && mapActive && (
           <aside className="sheet" aria-label={T("details.title")}>
             <header>
               <h2>{T("details.title")}</h2>
@@ -486,7 +533,7 @@ export function App() {
           </aside>
         )}
 
-        {selectedPoint !== null && route && screen === "map" && (
+        {selectedPoint !== null && route && mapActive && (
           <PointSheet
             lang={lang}
             prefs={prefs}
@@ -497,10 +544,10 @@ export function App() {
             onClose={() => setSelectedPoint(null)}
           />
         )}
-        {directOpen && screen === "map" && (
+        {directOpen && mapActive && (
           <DirectSheet lang={lang} route={route} targetIndex={targetIndex} onPick={setTargetIndex} onClose={() => setDirectOpen(false)} />
         )}
-        {cellSheet === "alt" && screen === "map" && (
+        {cellSheet === "alt" && mapActive && (
           <AltitudeSheet
             lang={lang}
             prefs={prefs}
@@ -516,7 +563,7 @@ export function App() {
             baroPressure={baroP}
           />
         )}
-        {cellSheet !== null && cellSheet !== "alt" && screen === "map" && (
+        {cellSheet !== null && cellSheet !== "alt" && mapActive && (
           <UnitSheet cell={cellSheet} lang={lang} prefs={prefs} setUnit={setUnit} onClose={() => setCellSheet(null)} />
         )}
 
@@ -660,8 +707,9 @@ export function App() {
                 onSelectRoute={(id) => { selectRoute(id); setTargetIndex(0); }}
                 onDeleteRoute={removeRoute}
                 onImportFile={(f) => void importRouteFile(f)}
-                onDirect={(i) => { setTargetIndex(i); open("map"); }}
-                onDrawOnMap={() => { open("map"); setEditMode(true); }}
+                onDirect={(i) => { setTargetIndex(i); if (!wide) open("map"); }}
+                onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
+                onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}
               />
             ) : (
               <p className="muted">{T("soon")}</p>

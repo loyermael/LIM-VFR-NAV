@@ -76,6 +76,7 @@ interface NavProps {
   onImportFile: (file: File) => void;
   onDirect: (index: number) => void;
   onDrawOnMap: () => void;
+  onShowRoute: () => void;
 }
 
 /** Onglet « Log » : routes, paramètres de vol, points, vents et tableau du log de navigation. */
@@ -132,6 +133,7 @@ export function NavScreen(p: NavProps) {
       <div className="choices">
         <button onClick={p.onNewRoute}>{T("nav.new")}</button>
         <button onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
+        <button disabled={!route || route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
         <label className="filebtn">
           {T("nav.import")}
           <input

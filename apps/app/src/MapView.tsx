@@ -34,6 +34,8 @@ export interface MapViewProps {
   selectedIndex: number | null;
   /** Mode tracé : un appui sur la carte ajoute un point, les points se déplacent au doigt. */
   editMode: boolean;
+  /** Demande de cadrage sur la route ; `force` ignore la présence d'un GPS (action de l'utilisateur). */
+  fitRequest: { nonce: number; force: boolean };
   onMapTap: (lat: number, lon: number) => void;
   onPointTap: (index: number) => void;
   onPointMove: (index: number, lat: number, lon: number) => void;
@@ -297,6 +299,24 @@ export function MapView(props: MapViewProps) {
       wpMarkers.current.push(mk);
     });
   }, [props.route, props.targetIndex, props.selectedIndex, props.editMode]);
+
+  // Cadrer la carte sur la route (préparation sur ordinateur : pas de GPS, donc pas d'avion à suivre).
+  useEffect(() => {
+    const m = map.current;
+    const { route, fix, fitRequest } = latest.current;
+    if (!m || fitRequest.nonce === 0 || !route || route.points.length === 0) return;
+    if (!fitRequest.force && fix) return; // avec un GPS, la carte suit l'avion sauf demande explicite
+    m.resize(); // le conteneur vient peut-être de changer de taille (panneau Route) : on recalcule avant de cadrer
+    if (route.points.length === 1) {
+      const p0 = route.points[0]!;
+      m.easeTo({ center: [p0.position.lon, p0.position.lat], zoom: 9, duration: 600 });
+      return;
+    }
+    const b = new maplibregl.LngLatBounds();
+    route.points.forEach((p) => b.extend([p.position.lon, p.position.lat]));
+    // Marges plus grandes en haut et à gauche : bannière, pastille GPS et boutons de la carte s'y trouvent.
+    m.fitBounds(b, { padding: { top: 110, bottom: 70, left: 100, right: 70 }, maxZoom: 11, duration: 600 });
+  }, [props.fitRequest.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(syncCharts, [props.charts]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);

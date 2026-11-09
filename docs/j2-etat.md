@@ -13,11 +13,13 @@
 | **Import / export GPX, KML, FPL, PLN** | 28 tests (aller-retour, fichiers invalides) ; **jamais essayés avec les logiciels d'origine** (docs/formats.md) ; le bouton Importer et les téléchargements n'ont pas été essayés dans le navigateur |
 | Routes mémorisées hors-ligne (IndexedDB), vitesse propre et consommation mémorisées | rechargement vérifié (3 points, vitesse propre) |
 
+## Version ordinateur (ajoutée le 10/11)
+À partir de 1100 px de large : bouton **Route** = ouvre/ferme un panneau à droite de la carte (la carte reste utilisable : tracé, Direct, points déplaçables), grille de données sur une seule ligne de 6 cases, **Échap** ferme fiches, tiroir et mode tracé, survol des boutons, cadrage automatique sur la route (« Voir la route » et à l'ouverture du panneau, quand il n'y a pas de GPS). Sans GPS (ordinateur), la bannière « GPS indisponible » est jaune (attention), pas rouge. **Vu à l'écran à 1280 px** (carte + panneau + grille) ; pas essayé sur un vrai grand écran ni à la souris (glisser un point, molette).
+
 ## Pas fait dans J2
 - **Terrains les plus proches, recherche de localités, points de report VFR** : ils exigent des données (SIA / openAIP) que J3 apporte ; la règle « aucune donnée aéronautique en dur » interdit de les inventer.
 - **Waypoints perso réutilisables** (bibliothèque) : aujourd'hui un point existe seulement dans une route.
 - **Montée / descente** : le log affiche seulement la tendance (↑ → ↓ d'après les altitudes des points). Pas de temps ni de carburant de montée : il faut les performances de l'avion (J5).
-- **Mise en page pour ordinateur** : l'application s'ouvre dans un navigateur de bureau mais garde sa mise en page de téléphone (une colonne). Pas de carte + log côte à côte.
 - **Synchronisation** entre appareils : J8 ; en attendant, passer par les fichiers exportés.
 - **Aucune performance d'avion par défaut** : vitesse propre et consommation sont saisies par l'utilisateur (ce sont des données d'avion).
 
