@@ -33,7 +33,7 @@ Le moteur de calcul est testable sans simulateur.
 
 ## Unités et angles (point le plus critique)
 - **Stockage interne et `core`** : SI. Distances en mètres, vitesses en m/s, temps en secondes (UTC), pression en Pa, altitudes en mètres.
-- **Affichage** : ft, kt, NM, hPa, °, l ou USG selon réglage. Conversion **uniquement** aux frontières (UI, import/export).
+- **Affichage** : une unité **par information**, choisie par l'utilisateur dans Réglages (kt ou km/h, ft ou m, NM ou km, hPa ou inHg, l ou USG, °M ou °V…). Défaut : kt, ft, NM, hPa, magnétique. Conversion **uniquement** aux frontières (UI, import/export), via `packages/core/src/display.ts` ; jamais de conversion dispersée dans les composants.
 - Types TS « brandés » obligatoires : `Meters`, `Feet`, `Knots`, `MetersPerSecond`, `NauticalMiles`, `Hectopascals`… Pas de `number` nu pour une grandeur physique dans une API publique.
 - **Angles** : types distincts `TrueDeg` (vrai), `MagDeg` (magnétique), `RelDeg` (relatif). Conversion vrai↔magnétique seulement via `magneticVariation(lat, lon, alt, date)` (WMM). Convention : variation Est positive, `MAG = TRUE − VAR`.
 - Vent : **direction d'où il vient**, en vrai pour les calculs ; les vents ATIS/METAR (magnétiques) sont convertis à l'entrée.

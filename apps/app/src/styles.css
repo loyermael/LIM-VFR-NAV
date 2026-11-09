@@ -59,7 +59,11 @@ button.brand { background: var(--brand); color: var(--on-brand); border-color: v
 .screen { position: absolute; inset: 0; z-index: 3; background: var(--paper); display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-4); overflow: auto; }
 .screen-head { display: flex; align-items: center; gap: var(--sp-4); border-top: var(--rule-heavy); padding-top: var(--sp-2); }
 .screen-head h2 { margin: 0; }
-.settings { display: grid; gap: var(--sp-3); max-width: 420px; }
+.settings { display: grid; gap: var(--sp-3); max-width: 560px; }
+.settings h3 { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; text-transform: uppercase; border-top: var(--rule-heavy); padding-top: var(--sp-2); margin: var(--sp-3) 0 0; }
+.unit-row { display: grid; gap: var(--sp-2); border-top: var(--rule-hair); padding-top: var(--sp-2); }
+.unit-name { font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; }
+.choices { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .tabs { display: flex; margin: auto calc(-1 * var(--sp-4)) calc(-1 * var(--sp-4)); background: var(--field); border-top: var(--rule-heavy); position: sticky; bottom: calc(-1 * var(--sp-4)); }
 .tabs button { flex: 1; min-height: 72px; border: 0; border-left: var(--rule-line); border-radius: 0; font-size: var(--fs-16); }
 .tabs button:first-child { border-left: 0; }

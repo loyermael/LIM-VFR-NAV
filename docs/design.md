@@ -30,9 +30,14 @@
 Tiroir de calques à droite (Météo, Cartes, Surcouches, Filtre de plafond). Écrans « Nav » et « Docs » : plein écran avec **onglets contextuels en bas** (Log / Profil / Carburant / Centrage ; Traces / Documents / Produits / Points perso).
 Les valeurs affichent `---` tant qu'aucun GPS n'est branché : on n'invente jamais une valeur.
 
-## À confirmer avec l'utilisateur
-- Colonnes du log de nav SDVFR : Z vol / Z min, Rm / Cm, DSD / DIST / DTA, TSV / TAV, Report. Je suppose Rm = route magnétique, Cm = cap magnétique, DSD = distance depuis le départ, DTA = distance restante, Z min = altitude minimale de sécurité ; **TSV / TAV (temps) à me confirmer** avant J2.
-- Unités par défaut : SDVFR affiche des km/h ; nous suivons le CLAUDE.md (kt, ft, NM) avec choix dans les réglages. À confirmer.
+## Log de nav (J2) : colonnes de SDVFR
+Z vol / Z min, Rm / Cm, DSD / DIST / DTA, TSV / TAV, Report.
+- **TSV = temps sans vent** : distance ÷ vitesse propre (TAS) ; base de calcul.
+- **TAV = temps avec vent** : distance ÷ vitesse sol (GS), donc TSV corrigé du vent. Sert aux heures de passage estimées et au carburant.
+- Rm = route magnétique, Cm = cap magnétique (Cm = Rm corrigé de la dérive). DSD = distance depuis le départ, DTA = distance restante, Z min = altitude minimale de sécurité : lecture déduite des captures, à confirmer par l'utilisateur à la livraison de J2.
+
+## Unités : un choix par information (décidé le 09/11/2026)
+Chaque information a sa propre unité, réglable dans Réglages : vitesse sol (kt, km/h, mph, m/s), altitude (ft, m), distance (NM, km, SM, m), vitesse verticale (ft/min, m/s), pression QNH (hPa, inHg), et la référence des angles route et relèvement (magnétique ou vrai). Défaut : kt, ft, NM, ft/min, hPa, magnétique (usage aviation). Le choix est mémorisé sur l'appareil. Le calcul reste en SI (`packages/core/src/display.ts`).
 
 ## Règles
 1. Une action fréquente = un bouton visible, jamais derrière un menu.
