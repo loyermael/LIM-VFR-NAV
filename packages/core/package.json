@@ -10,7 +10,13 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
+    "fast-check": "^4.10.2",
     "typescript": "~5.9.2",
     "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "geographiclib-geodesic": "^2.2.0",
+    "geomagnetism": "^0.2.0"
   }
 }
