@@ -124,3 +124,35 @@ button.cell:active { background: var(--ink); color: var(--on-ink); }
 :root:not([data-figures='mono']) .cell .value { color: var(--data-figure); }
 :root:not([data-figures='mono']) button.cell[aria-pressed='true'] .value,
 :root:not([data-figures='mono']) button.cell:active .value { color: inherit; }
+
+/* Points de route numérotés (comme sur une carte papier : cercle et numéro) */
+.wp { width: 32px; height: 32px; display: grid; place-items: center; border: 3px solid var(--ink); background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-16); border-radius: 50%; cursor: pointer; }
+.wp.target { background: var(--zone-good); color: var(--on-ink); }
+.wp.selected { box-shadow: 0 0 0 4px var(--brand); }
+
+/* Écran Log */
+.navscreen { display: grid; gap: var(--sp-3); max-width: 960px; padding-bottom: var(--sp-6); }
+.navscreen h3 { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; text-transform: uppercase; border-top: var(--rule-line); border-left: 6px solid var(--brand); padding: var(--sp-2) 0 0 var(--sp-2); margin: var(--sp-3) 0 0; }
+.route-list { display: grid; gap: var(--sp-2); }
+.route-item { display: flex; gap: var(--sp-2); }
+.route-item .row { flex: 1; text-align: left; }
+.filebtn { display: inline-flex; align-items: center; min-height: var(--h-control); padding: 0 var(--sp-4); border: var(--rule-line); border-radius: var(--r); background: var(--field); font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 700; font-size: var(--fs-20); letter-spacing: 0.04em; text-transform: uppercase; cursor: pointer; }
+.numfield { display: grid; gap: var(--sp-1); font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; }
+.numfield .field { text-align: left; font-size: var(--fs-20); }
+.nf-row { display: flex; align-items: center; gap: var(--sp-2); }
+.suffix { font-family: var(--font-mono); color: var(--ink-muted); }
+.params { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-3); }
+.point-row { display: grid; grid-template-columns: 28px 1fr minmax(110px, 150px) auto; gap: var(--sp-2); align-items: end; border-top: var(--rule-hair); padding-top: var(--sp-2); }
+.point-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
+.point-actions button { min-width: var(--h-control); padding: 0 var(--sp-2); font-size: var(--fs-16); }
+.tablewrap { overflow-x: auto; border: var(--rule-line); background: var(--field); }
+table.navlog { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
+table.navlog th, table.navlog td { padding: var(--sp-2); text-align: right; border-bottom: var(--rule-hair); white-space: nowrap; }
+table.navlog th { background: var(--paper-2); font-weight: 600; letter-spacing: 0.04em; border-bottom: var(--rule-line); }
+table.navlog td:first-child, table.navlog th:first-child, table.navlog .legname { text-align: left; }
+table.navlog tbody tr.bad td { color: var(--zone-bad); }
+table.navlog tfoot td { font-weight: 600; border-top: var(--rule-line); text-align: right; }
+table.navlog tfoot td:first-child { text-align: left; }
+.cell .sub { font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; opacity: 0.8; }
+:root:not([data-figures='mono']) .cell .sub { color: var(--data-figure); }
+@media (max-width: 600px) { .point-row { grid-template-columns: 24px 1fr; } .point-row .numfield, .point-row .point-actions { grid-column: 1 / -1; } }

@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
-  PressureFilter, VERTICAL_SPEED_UNITS, altitudeResult, flightLevelOf, flightValues, formatAngle, formatQuantity, gpsStatus,
-  speedVector, unitLabel,
+  PressureFilter, VERTICAL_SPEED_UNITS, altitudeResult, directTo, distance, flightLevelOf, flightValues, formatAngle, formatDuration,
+  formatQuantity, gpsStatus, hasReachedPoint, speedVector, unitLabel,
   type AltitudeSettings, type GpsFix, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
@@ -10,10 +10,14 @@ import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type Chart
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
+import { addPoint, fromRouteFile, movePoint, newRoute, type RouteRecord } from "./routeEdit";
+import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
+import { FormatError, importRoute } from "@lim/core";
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
+import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
-import { loadAltitude, loadGpsAltitudeRef, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
+import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
 type Screen = "map" | "nav" | "docs" | "settings" | "soon";
 
@@ -63,6 +67,15 @@ export function App() {
   const [qnhExpired, setQnhExpired] = useState(altMem.qnhExpired);
   const [cellSheet, setCellSheet] = useState<CellId | null>(null);
   const [figuresColor, setFiguresColor] = useState(loadFiguresColor);
+  // Routes : mémorisées sur l'appareil ; une route active, un point visé (Direct), un mode tracé.
+  const [routes, setRoutes] = useState<RouteRecord[]>([]);
+  const [activeRouteId, setActiveRouteId] = useState<string | null>(loadActiveRouteId);
+  const [targetIndex, setTargetIndex] = useState<number | null>(null);
+  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [directOpen, setDirectOpen] = useState(false);
+  const [perf, setPerf] = useState(loadPerf);
+  const [routeImportError, setRouteImportError] = useState<string | null>(null);
   // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
   const baroFilter = useRef(new PressureFilter(1.0));
   const [baroAvailable, setBaroAvailable] = useState(false);
@@ -89,6 +102,47 @@ export function App() {
     const next = { ...prefs, [field]: value };
     setPrefs(next);
     saveUnitPrefs(next);
+  };
+  const route = routes.find((r) => r.id === activeRouteId) ?? null;
+  const uid = () => crypto.randomUUID();
+  const putRoute = (next: RouteRecord) => {
+    setRoutes((prev) => (prev.some((r) => r.id === next.id) ? prev.map((r) => (r.id === next.id ? next : r)) : [...prev, next]));
+    void saveRoute(next).catch(() => undefined);
+  };
+  const selectRoute = (id: string | null) => {
+    setActiveRouteId(id);
+    saveActiveRouteId(id);
+    setTargetIndex(null);
+    setSelectedPoint(null);
+  };
+  const createRoute = () => {
+    const r = newRoute(uid(), `${t(lang, "nav.new")} ${routes.length + 1}`, Date.now());
+    putRoute(r);
+    selectRoute(r.id);
+    return r;
+  };
+  const onMapTap = (lat: number, lon: number) => {
+    const r = route ?? createRoute();
+    const next = addPoint(r, lat, lon, uid(), Date.now());
+    putRoute(next);
+    if (targetIndex === null) setTargetIndex(0);
+  };
+  const importRouteFile = async (file: File) => {
+    setRouteImportError(null);
+    try {
+      const rf = importRoute(file.name, await file.text());
+      const r = fromRouteFile(rf, uid, Date.now());
+      putRoute(r);
+      selectRoute(r.id);
+      setTargetIndex(0);
+    } catch (e) {
+      setRouteImportError(`${file.name} : ${e instanceof FormatError || e instanceof Error ? e.message : String(e)}`);
+    }
+  };
+  const removeRoute = (id: string) => {
+    void deleteRoute(id);
+    setRoutes((prev) => prev.filter((r) => r.id !== id));
+    if (id === activeRouteId) selectRoute(null);
   };
   const changeAltitude = (next: AltitudeSettings, changed: { qnh?: boolean; offset?: boolean }) => {
     const now = Date.now();
@@ -124,6 +178,7 @@ export function App() {
       .catch(() => setGeoid(null));
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
     loadCharts().then(setCharts).catch(() => setCharts([]));
+    loadRoutes().then(setRoutes).catch(() => setRoutes([]));
   }, []);
 
   // Baromètre : démarre dès l'acceptation de l'avertissement ; absent dans un navigateur (sauf simulateur ?sim).
@@ -181,7 +236,28 @@ export function App() {
   }, [accepted, gpsAltRef]);
 
   const status = gpsStatus(fix, now);
+  const targetPoint = route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
+  // Avancer au point suivant dès qu'on atteint le point visé.
+  useEffect(() => {
+    if (!fix || !route || targetIndex === null || status === "lost") return;
+    const tp = route.points[targetIndex];
+    if (!tp) return;
+    if (hasReachedPoint(distance(fix.position, tp.position), fix.groundSpeed)) {
+      setTargetIndex(targetIndex + 1 < route.points.length ? targetIndex + 1 : null);
+    }
+  }, [fix, route, targetIndex, status]);
+  // Au lancement, on vise le premier point de la route active (une seule fois : après l'arrivée au dernier point, on ne revise pas le premier).
+  const initialTargetDone = useRef(false);
+  useEffect(() => {
+    if (initialTargetDone.current || !route) return;
+    initialTargetDone.current = true;
+    if (route.points.length > 0) setTargetIndex(0);
+  }, [route]);
+  const direct = useMemo(
+    () => (fix && targetPoint && status !== "lost" ? directTo(fix.position, targetPoint.position, fix.groundSpeed, new Date(fix.timeMs)) : null),
+    [fix, targetPoint, status],
+  );
   const vector = useMemo(() => (fix && status !== "lost" ? speedVector(fix, SPEED_VECTOR_MINUTES) : []), [fix, status]);
 
   const T = (k: Key) => t(lang, k);
@@ -291,19 +367,19 @@ export function App() {
         : formatQuantity("altitude", prefs, altM);
   const altUnit = altSettings.mode === "fl" ? "FL" : unitLabel("altitude", prefs);
 
-  const cells: { id: CellId | null; label: string; value: string; unit?: string }[] = [
+  const cells: { id: CellId | null; label: string; value: string; unit?: string; sub?: string | undefined }[] = [
     { id: "gs", label: T("data.gs"), value: live ? formatQuantity("groundSpeed", prefs, fv.groundSpeed ?? NaN) : "---", unit: unitLabel("groundSpeed", prefs) },
     { id: "trk", label: T("data.trk"), value: formatAngle(trackShown), unit: unitLabel("track", prefs, lang) },
-    { id: null, label: T("data.wpt"), value: "---" },
+    { id: null, label: T("data.wpt"), value: targetPoint?.name ?? "---" },
     { id: "alt", label: altLabel, value: altValue, unit: altUnit },
-    { id: "brg", label: T("data.brg"), value: "---", unit: unitLabel("bearing", prefs, lang) },
-    { id: "dist", label: T("data.dist"), value: "---", unit: unitLabel("distance", prefs) },
+    { id: "brg", label: T("data.brg"), value: direct ? formatAngle(prefs.bearing === "mag" ? direct.magneticBearing : direct.trueBearing) : "---", unit: unitLabel("bearing", prefs, lang) },
+    { id: "dist", label: T("data.dist"), value: direct ? formatQuantity("distance", prefs, direct.distance) : "---", sub: direct ? formatDuration(direct.timeToGo) : undefined, unit: unitLabel("distance", prefs) },
   ];
 
   const tabs = screen === "nav" ? NAV_TABS : screen === "docs" ? DOCS_TABS : null;
   const toolbar: { label: Key; action: () => void; pressed?: boolean }[] = [
     { label: "tb.route", action: () => open("nav") },
-    { label: "tb.direct", action: () => soon("tb.direct") },
+    { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
     { label: "tb.settings", action: () => open("settings") },
     { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && screen === "map" },
     { label: "tb.maps", action: () => setDrawer(!drawer), pressed: drawer },
@@ -343,6 +419,13 @@ export function App() {
           onUserMove={() => setFollow(false)}
           overlays={overlays}
           charts={charts}
+          route={route}
+          targetIndex={targetIndex}
+          selectedIndex={selectedPoint}
+          editMode={editMode}
+          onMapTap={onMapTap}
+          onPointTap={(i) => { setDirectOpen(false); setCellSheet(null); setDetails(null); setSelectedPoint(i); }}
+          onPointMove={(i, lat, lon) => route && putRoute(movePoint(route, i, lat, lon, Date.now()))}
           ceilingFL={ceiling}
           onDoubleTap={(f) => { setCellSheet(null); setDetails(f); }}
           zoomCommand={zoomCommand}
@@ -366,6 +449,7 @@ export function App() {
             <div className="mapctl">
               <button aria-label="zoom +" onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
               <button aria-label="zoom −" onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
+              <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>
               <button aria-pressed={orientation === "track"} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}>
                 {orientation === "north" ? "N" : "↑"}
               </button>
@@ -402,6 +486,20 @@ export function App() {
           </aside>
         )}
 
+        {selectedPoint !== null && route && screen === "map" && (
+          <PointSheet
+            lang={lang}
+            prefs={prefs}
+            route={route}
+            index={selectedPoint}
+            onRoute={putRoute}
+            onDirect={setTargetIndex}
+            onClose={() => setSelectedPoint(null)}
+          />
+        )}
+        {directOpen && screen === "map" && (
+          <DirectSheet lang={lang} route={route} targetIndex={targetIndex} onPick={setTargetIndex} onClose={() => setDirectOpen(false)} />
+        )}
         {cellSheet === "alt" && screen === "map" && (
           <AltitudeSheet
             lang={lang}
@@ -547,6 +645,24 @@ export function App() {
                   </div>
                 ))}
               </div>
+            ) : screen === "nav" && tab === 0 ? (
+              <NavScreen
+                lang={lang}
+                prefs={prefs}
+                route={route}
+                routes={routes}
+                perf={perf}
+                date={new Date(now)}
+                importError={routeImportError}
+                onPerf={(p2) => { setPerf(p2); savePerf(p2); }}
+                onRoute={putRoute}
+                onNewRoute={() => { createRoute(); }}
+                onSelectRoute={(id) => { selectRoute(id); setTargetIndex(0); }}
+                onDeleteRoute={removeRoute}
+                onImportFile={(f) => void importRouteFile(f)}
+                onDirect={(i) => { setTargetIndex(i); open("map"); }}
+                onDrawOnMap={() => { open("map"); setEditMode(true); }}
+              />
             ) : (
               <p className="muted">{T("soon")}</p>
             )}
@@ -572,6 +688,7 @@ export function App() {
                 {c.unit && <span>{c.unit}</span>}
               </div>
               <div className="value">{c.value}</div>
+              {c.sub && <div className="sub">{c.sub}</div>}
             </>
           );
           return c.id ? (

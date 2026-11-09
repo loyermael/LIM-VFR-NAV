@@ -222,3 +222,14 @@ export function directTo(from: LatLon, target: LatLon, groundSpeed: MetersPerSec
     timeToGo: groundSpeed !== null && groundSpeed >= 1 ? seconds(d / groundSpeed) : null,
   };
 }
+
+/** Rayon d'arrivée : on est « sur » le point visé sous cette distance (0,5 NM). JUGÉ. */
+export const ARRIVAL_RADIUS_M = 926;
+/** …ou si le point est atteint en moins de ce temps à la vitesse sol actuelle (10 s), pour ne pas le manquer à grande vitesse. JUGÉ. */
+export const ARRIVAL_SECONDS = 10;
+
+/** Faut-il passer au point suivant de la route ? */
+export function hasReachedPoint(distanceToPoint: Meters, groundSpeed: MetersPerSecond | null): boolean {
+  if (distanceToPoint <= ARRIVAL_RADIUS_M) return true;
+  return groundSpeed !== null && groundSpeed >= 1 && distanceToPoint / groundSpeed <= ARRIVAL_SECONDS;
+}

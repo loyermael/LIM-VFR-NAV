@@ -93,3 +93,32 @@ export function saveFiguresColor(color: boolean): void {
     /* stockage bloqué : valable pour la session */
   }
 }
+
+const PERF_KEY = "lim.perf.v1";
+
+/** Performances de croisière saisies par l'utilisateur. Aucune valeur par défaut : ce sont des données d'avion, pas des constantes. */
+export interface StoredPerf {
+  /** Vitesse propre, m/s. */
+  readonly tasMps: number | null;
+  /** Consommation, litres par heure. */
+  readonly fuelFlowLph: number | null;
+}
+
+export function loadPerf(): StoredPerf {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(PERF_KEY) ?? "null");
+    const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+    const pos = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
+    return { tasMps: pos(o["tasMps"]), fuelFlowLph: pos(o["fuelFlowLph"]) };
+  } catch {
+    return { tasMps: null, fuelFlowLph: null };
+  }
+}
+
+export function savePerf(p: StoredPerf): void {
+  try {
+    localStorage.setItem(PERF_KEY, JSON.stringify(p));
+  } catch {
+    /* stockage bloqué : valable pour la session */
+  }
+}

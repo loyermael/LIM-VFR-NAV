@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeNavLog, directTo, midCourse, type Performance, type Route, type RoutePoint, type WindPlan } from "./navlog";
+import { ARRIVAL_RADIUS_M, computeNavLog, directTo, hasReachedPoint, midCourse, type Performance, type Route, type RoutePoint, type WindPlan } from "./navlog";
 import { distance, initialBearing } from "./geodesy";
 import { magneticVariation } from "./magnetic";
 import { feet, feetToMeters, knots, knotsToMps, litersPerHour, meters, mpsToKnots } from "./units";
@@ -171,5 +171,21 @@ describe("Direct", () => {
   });
   it("déjà sur le point : distance nulle", () => {
     expect(directTo(here, here, kt(90), date).distance).toBe(0);
+  });
+});
+
+describe("arrivée au point visé", () => {
+  it("sous le rayon d'arrivée : atteint, quelle que soit la vitesse", () => {
+    expect(hasReachedPoint(meters(ARRIVAL_RADIUS_M - 1), null)).toBe(true);
+    expect(hasReachedPoint(meters(100), kt(0))).toBe(true);
+  });
+  it("loin et lent : pas atteint", () => {
+    expect(hasReachedPoint(meters(5000), kt(80))).toBe(false);
+    expect(hasReachedPoint(meters(5000), null)).toBe(false);
+  });
+  it("à grande vitesse : atteint si on y sera en moins de 10 s (1,5 km à 160 kt = 18 s : non ; 800 m... : oui par le rayon)", () => {
+    expect(hasReachedPoint(meters(1500), kt(160))).toBe(false);
+    expect(hasReachedPoint(meters(800), kt(160))).toBe(true);
+    expect(hasReachedPoint(meters(1000), kt(300))).toBe(true); // 1 000 m à 154 m/s = 6,5 s
   });
 });

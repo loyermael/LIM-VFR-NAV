@@ -4,6 +4,7 @@ import type { Feature, FeatureCollection } from "geojson";
 import { isAirspaceVisible, type AirspaceLimit, type GpsFix, type LimitReference, type SpeedVectorPoint, type TrueDeg } from "@lim/core";
 import { getReader, type ChartRecord } from "./charts";
 import type { Overlay } from "./overlays";
+import type { RouteRecord } from "./routeEdit";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 export type Theme = "day" | "night";
@@ -26,6 +27,16 @@ export interface MapViewProps {
   onUserMove: () => void;
   overlays: readonly Overlay[];
   charts: readonly ChartRecord[];
+  /** Route active à dessiner (ligne et points numérotés). */
+  route: RouteRecord | null;
+  /** Indice du point visé (ligne « direct » depuis l'avion), ou null. */
+  targetIndex: number | null;
+  selectedIndex: number | null;
+  /** Mode tracé : un appui sur la carte ajoute un point, les points se déplacent au doigt. */
+  editMode: boolean;
+  onMapTap: (lat: number, lon: number) => void;
+  onPointTap: (index: number) => void;
+  onPointMove: (index: number, lat: number, lon: number) => void;
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
@@ -36,7 +47,7 @@ export interface MapViewProps {
 function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string) => css.getPropertyValue(n).trim();
-  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand") };
+  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand"), good: v("--zone-good") };
 }
 
 // Style vide : aucune donnée aéronautique en dur, aucun appel réseau. Les fonds de carte (MBTiles, J1 suite) et
@@ -90,6 +101,7 @@ export function MapView(props: MapViewProps) {
   const map = useRef<maplibregl.Map | null>(null);
   const planeMarker = useRef<maplibregl.Marker | null>(null);
   const bubbleMarkers = useRef<maplibregl.Marker[]>([]);
+  const wpMarkers = useRef<maplibregl.Marker[]>([]);
   const loaded = useRef(false);
   const latest = useRef(props);
   latest.current = props;
@@ -116,9 +128,14 @@ export function MapView(props: MapViewProps) {
     m.on("load", () => {
       loaded.current = true;
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 4 } });
+      m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       syncCharts();
       syncOverlays();
+      syncRoute();
     });
 
     m.on("zoomend", (e) => {
@@ -132,6 +149,10 @@ export function MapView(props: MapViewProps) {
 
     // Double-tap = deux appuis rapprochés dans le temps et l'espace (souris et tactile).
     m.on("click", (e) => {
+      if (latest.current.editMode) {
+        latest.current.onMapTap(e.lngLat.lat, e.lngLat.lng);
+        return;
+      }
       const now = Date.now();
       const prev = lastTap.current;
       const { x, y } = e.point;
@@ -160,6 +181,7 @@ export function MapView(props: MapViewProps) {
     return () => {
       planeMarker.current?.remove();
       bubbleMarkers.current.forEach((b) => b.remove());
+      wpMarkers.current.forEach((b) => b.remove());
       m.remove();
       map.current = null;
       loaded.current = false;
@@ -227,6 +249,55 @@ export function MapView(props: MapViewProps) {
     }
   }
 
+  /** Ligne de la route et ligne « direct » de l'avion vers le point visé. */
+  function syncRoute() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const { route, targetIndex, fix } = latest.current;
+    const pts = route?.points ?? [];
+    (m.getSource("route") as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features:
+        pts.length >= 2
+          ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: pts.map((p) => [p.position.lon, p.position.lat]) } }]
+          : [],
+    });
+    const target = targetIndex !== null ? pts[targetIndex] : undefined;
+    (m.getSource("direct") as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features:
+        fix && target
+          ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: [[fix.position.lon, fix.position.lat], [target.position.lon, target.position.lat]] } }]
+          : [],
+    });
+  }
+  useEffect(syncRoute, [props.route, props.targetIndex, props.fix]);
+
+  // Points numérotés (déplaçables en mode tracé).
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    wpMarkers.current.forEach((x) => x.remove());
+    wpMarkers.current = [];
+    (props.route?.points ?? []).forEach((p, i) => {
+      const el = document.createElement("div");
+      el.className = `wp${i === props.targetIndex ? " target" : ""}${i === props.selectedIndex ? " selected" : ""}`;
+      el.textContent = String(i + 1);
+      el.addEventListener("click", (ev) => {
+        ev.stopPropagation(); // sinon la carte comprend un appui « ajouter un point »
+        latest.current.onPointTap(i);
+      });
+      const mk = new maplibregl.Marker({ element: el, draggable: props.editMode })
+        .setLngLat([p.position.lon, p.position.lat])
+        .addTo(m);
+      mk.on("dragend", () => {
+        const ll = mk.getLngLat();
+        latest.current.onPointMove(i, ll.lat, ll.lng);
+      });
+      wpMarkers.current.push(mk);
+    });
+  }, [props.route, props.targetIndex, props.selectedIndex, props.editMode]);
+
   useEffect(syncCharts, [props.charts]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);
 
@@ -237,6 +308,8 @@ export function MapView(props: MapViewProps) {
     const tk = tokens();
     m.setPaintProperty("background", "background-color", tk.paper);
     m.setPaintProperty("vector-line", "line-color", tk.signal);
+    m.setPaintProperty("route-line", "line-color", tk.ink);
+    m.setPaintProperty("direct-line", "line-color", tk.good);
     for (const id of addedOverlays.current.keys()) {
       m.setPaintProperty(`ov-${id}-fill`, "fill-color", tk.ink);
       m.setPaintProperty(`ov-${id}-line`, "line-color", tk.ink);
