@@ -188,3 +188,5 @@ button:disabled { opacity: 0.45; cursor: default; }
 .crossed.unknown .badge { background: var(--brand); color: var(--on-brand); }
 .crossed.outside { opacity: 0.7; }
 .freqs { font-size: var(--fs-14); }
+
+table.navlog tr.under td { opacity: 0.45; }

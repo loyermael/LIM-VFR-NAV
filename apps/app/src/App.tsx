@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
   PressureFilter, VERTICAL_SPEED_UNITS, altitudeResult, directTo, distance, flightLevelOf, flightValues, formatAngle, formatDuration,
-  airacCycleAt, datasetFreshness, formatQuantity, gpsStatus, hasReachedPoint, speedVector, unitLabel,
+  airacCycleAt, datasetFreshness, formatQuantity, type LegWindEstimate, type WindForecast, gpsStatus, hasReachedPoint, speedVector, unitLabel,
   type Airfield, type AltitudeSettings, type GpsFix, type LatLon, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
@@ -12,18 +12,21 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
-import { addPoint, fromRouteFile, movePoint, newRoute, type RouteRecord } from "./routeEdit";
+import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, importRoute } from "@lim/core";
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
+import { WindsTab } from "./WxScreen";
+import { fetchWinds, loadWindCache, windKey } from "./windClient";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
-type Screen = "map" | "nav" | "docs" | "settings" | "soon";
+type Screen = "map" | "nav" | "wx" | "docs" | "settings" | "soon";
 
 const NAV_TABS: Key[] = ["nav.log", "nav.profile", "nav.fuel", "nav.wb"];
+const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const DOCS_TABS: Key[] = ["docs.traces", "docs.documents", "docs.products", "docs.points"];
 const WEATHER: Key[] = ["wx.metar", "wx.taf", "wx.sigmet", "wx.wintem", "wx.radar"];
 
@@ -103,6 +106,10 @@ export function App() {
   const [showApt, setShowApt] = useState(true);
   const [adhoc, setAdhoc] = useState<{ name: string; position: LatLon } | null>(null);
   const aeroInput = useRef<HTMLInputElement>(null);
+  // Météo : prévisions de vent (réseau pour les charger, cache sur l'appareil pour l'ensuite).
+  const [windForecasts, setWindForecasts] = useState<Map<string, WindForecast>>(new Map());
+  const [windBusy, setWindBusy] = useState(false);
+  const [windError, setWindError] = useState<string | null>(null);
   // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
   const baroFilter = useRef(new PressureFilter(1.0));
   const [baroAvailable, setBaroAvailable] = useState(false);
@@ -197,6 +204,29 @@ export function App() {
     setRoutes((prev) => prev.filter((r) => r.id !== id));
     if (id === activeRouteId) selectRoute(null);
   };
+  const loadWinds = async (points: LatLon[]) => {
+    setWindBusy(true);
+    setWindError(null);
+    try {
+      const results = await Promise.all(points.map((p) => fetchWinds(p.lat, p.lon)));
+      setWindForecasts((prev) => {
+        const next = new Map(prev);
+        for (const f of results) next.set(windKey(f.lat, f.lon), f);
+        return next;
+      });
+    } catch (e) {
+      setWindError(e instanceof Error ? e.message : String(e));
+    }
+    setWindBusy(false);
+  };
+  const applyRouteWinds = (estimates: LegWindEstimate[]) => {
+    if (!route) return;
+    let next = route;
+    for (const e of estimates) {
+      if (e.wind) next = setLegWind(next, e.leg, { directionDeg: e.wind.direction, speedMps: e.wind.speed }, Date.now());
+    }
+    putRoute(next);
+  };
   const pickRoutePoint = (i: number) => {
     setAdhoc(null);
     setTargetIndex(i);
@@ -279,6 +309,7 @@ export function App() {
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
     loadCharts().then(setCharts).catch(() => setCharts([]));
     loadRoutes().then(setRoutes).catch(() => setRoutes([]));
+    loadWindCache().then((all) => setWindForecasts(new Map(all.map((f) => [windKey(f.lat, f.lon), f])))).catch(() => undefined);
     loadDatasets()
       .then((ds) => {
         for (const d of ds) {
@@ -493,7 +524,7 @@ export function App() {
     { id: "dist", label: T("data.dist"), value: direct ? formatQuantity("distance", prefs, direct.distance) : "---", sub: direct ? formatDuration(direct.timeToGo) : undefined, unit: unitLabel("distance", prefs) },
   ];
 
-  const tabs = screen === "nav" ? NAV_TABS : screen === "docs" ? DOCS_TABS : null;
+  const tabs = screen === "nav" ? NAV_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : null;
   // Écran large : l'écran Route s'affiche à droite de la carte, qui reste utilisable (tracé, Direct).
   const split = wide && screen === "nav";
   const mapActive = screen === "map" || split;
@@ -504,6 +535,7 @@ export function App() {
     { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && mapActive },
     { label: "tb.maps", action: () => setDrawer(!drawer), pressed: drawer },
     { label: "tb.relief", action: () => soon("tb.relief") },
+    { label: "tb.weather", action: () => open(screen === "wx" ? "map" : "wx"), pressed: screen === "wx" },
     { label: "tb.profile", action: () => soon("tb.profile") },
     { label: "tb.timer", action: () => soon("tb.timer") },
     { label: "tb.docs", action: () => open("docs") },
@@ -664,7 +696,7 @@ export function App() {
             <ul>
               {WEATHER.map((k) => (
                 <li key={k}>
-                  <button className="row" onClick={() => soon(k)}>{T(k)}</button>
+                  <button className="row" onClick={() => (k === "wx.wintem" ? (open("wx"), setTab(4)) : k === "wx.metar" ? (open("wx"), setTab(1)) : k === "wx.taf" ? (open("wx"), setTab(2)) : k === "wx.sigmet" ? (open("wx"), setTab(3)) : soon(k))}>{T(k)}</button>
                 </li>
               ))}
             </ul>
@@ -826,6 +858,20 @@ export function App() {
                   </div>
                 ))}
               </div>
+            ) : screen === "wx" && tab === 4 ? (
+              <WindsTab
+                lang={lang}
+                prefs={prefs}
+                route={route}
+                gps={fix && status !== "lost" ? fix.position : null}
+                tasMps={perf.tasMps}
+                nowMs={now}
+                forecasts={windForecasts}
+                busy={windBusy}
+                error={windError}
+                onLoad={(pts) => void loadWinds(pts)}
+                onApply={applyRouteWinds}
+              />
             ) : screen === "nav" && tab === 0 ? (
               <NavScreen
                 lang={lang}

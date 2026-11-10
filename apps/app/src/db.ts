@@ -1,15 +1,15 @@
 /** Base IndexedDB unique de l'application (couches importées, cartes MBTiles). */
 
 const DB_NAME = "lim-vfr-nav";
-const VERSION = 4;
-export type StoreName = "overlays" | "charts" | "routes" | "datasets";
+const VERSION = 5;
+export type StoreName = "overlays" | "charts" | "routes" | "datasets" | "weather";
 
 export function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
-      for (const name of ["overlays", "charts", "routes", "datasets"] as const) {
+      for (const name of ["overlays", "charts", "routes", "datasets", "weather"] as const) {
         if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, { keyPath: "id" });
       }
     };
