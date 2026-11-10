@@ -1,0 +1,279 @@
+[
+ {
+  "icaoId": "LFBL",
+  "receiptTime": "2026-11-10T06:02:28.471Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 13,
+  "dewp": 12,
+  "wdir": "VRB",
+  "wspd": 2,
+  "visib": "6+",
+  "altim": 1009,
+  "qcField": 18,
+  "metarType": "METAR",
+  "rawOb": "METAR LFBL 100600Z AUTO VRB02KT CAVOK 13/12 Q1009 NOSIG",
+  "lat": 45.863,
+  "lon": 1.179,
+  "elev": 402,
+  "name": "Limoges/Bellegarde Arpt, NA, FR",
+  "cover": "CAVOK",
+  "clouds": [],
+  "fltCat": "VFR"
+ },
+ {
+  "icaoId": "LFGA",
+  "receiptTime": "2026-11-10T06:02:27.562Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 7,
+  "dewp": 7,
+  "wdir": "VRB",
+  "wspd": 3,
+  "visib": 3.73,
+  "altim": 1012,
+  "qcField": 2,
+  "wxString": "RA",
+  "metarType": "METAR",
+  "rawOb": "METAR LFGA 100600Z AUTO VRB03KT 6000 RA OVC003/// ///TCU 07/07 Q1012",
+  "lat": 48.11,
+  "lon": 7.359,
+  "elev": 191,
+  "name": "Colmar/Houssen Arpt, GE, FR",
+  "cover": "OVC",
+  "clouds": [
+   {
+    "cover": "OVC",
+    "base": 300
+   }
+  ],
+  "fltCat": "LIFR"
+ },
+ {
+  "icaoId": "LFBT",
+  "receiptTime": "2026-11-10T06:04:20.207Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 9,
+  "dewp": 7,
+  "wdir": 260,
+  "wspd": 4,
+  "visib": "6+",
+  "altim": 1010,
+  "qcField": 18,
+  "metarType": "METAR",
+  "rawOb": "METAR LFBT 100600Z AUTO 26004KT 210V360 9999 BKN088 09/07 Q1010 NOSIG",
+  "lat": 43.189,
+  "lon": 0,
+  "elev": 359,
+  "name": "Tarbes/Ossun Arpt, OC, FR",
+  "cover": "BKN",
+  "clouds": [
+   {
+    "cover": "BKN",
+    "base": 8800
+   }
+  ],
+  "fltCat": "VFR"
+ },
+ {
+  "icaoId": "LFOH",
+  "receiptTime": "2026-11-10T06:06:07.041Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 8,
+  "dewp": 8,
+  "wdir": 100,
+  "wspd": 10,
+  "visib": 3.11,
+  "altim": 1007,
+  "qcField": 2,
+  "metarType": "METAR",
+  "rawOb": "METAR LFOH 100600Z AUTO 10010KT 5000 // OVC005 08/08 Q1007",
+  "lat": 49.533,
+  "lon": 0.091,
+  "elev": 87,
+  "name": "Le Havre/Octeville Arpt, NO, FR",
+  "cover": "OVC",
+  "clouds": [
+   {
+    "cover": "OVC",
+    "base": 500
+   }
+  ],
+  "fltCat": "IFR"
+ },
+ {
+  "icaoId": "LFOP",
+  "receiptTime": "2026-11-10T06:06:07.551Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 8,
+  "dewp": 8,
+  "wdir": 90,
+  "wspd": 9,
+  "visib": 1.43,
+  "altim": 1008,
+  "qcField": 2,
+  "wxString": "-DZ BR",
+  "metarType": "METAR",
+  "rawOb": "METAR LFOP 100600Z AUTO 09009KT 2300 -DZ BR OVC002 08/08 Q1008 TEMPO 1200 RADZ BR BECMG OVC006",
+  "lat": 49.383,
+  "lon": 1.182,
+  "elev": 149,
+  "name": "Rouen/Boos Arpt, NO, FR",
+  "cover": "OVC",
+  "clouds": [
+   {
+    "cover": "OVC",
+    "base": 200
+   }
+  ],
+  "fltCat": "LIFR"
+ },
+ {
+  "icaoId": "ETHL",
+  "receiptTime": "2026-11-10T06:15:11.919Z",
+  "obsTime": 1794291120,
+  "reportTime": "2026-11-10T06:12:00.000Z",
+  "temp": 8,
+  "dewp": 8,
+  "wdir": 230,
+  "wspd": 6,
+  "visib": 3.11,
+  "altim": 1011,
+  "qcField": 0,
+  "wxString": "-RA BR",
+  "metarType": "SPECI",
+  "rawOb": "SPECI ETHL 100612Z 23006KT 5000 -RA BR SCT017 BKN050 08/08 Q1011 WHT WHT TEMPO YLO",
+  "lat": 48.218,
+  "lon": 9.91,
+  "elev": 536,
+  "name": "Laupheim Arpt, BW, DE",
+  "cover": "BKN",
+  "clouds": [
+   {
+    "cover": "SCT",
+    "base": 1700
+   },
+   {
+    "cover": "BKN",
+    "base": 5000
+   }
+  ],
+  "fltCat": "MVFR"
+ },
+ {
+  "icaoId": "LIMZ",
+  "receiptTime": "2026-11-10T06:27:33.996Z",
+  "obsTime": 1794291600,
+  "reportTime": "2026-11-10T06:20:00.000Z",
+  "temp": 7,
+  "dewp": 7,
+  "wdir": 130,
+  "wspd": 1,
+  "visib": 0.09,
+  "altim": 1016,
+  "qcField": 2,
+  "wxString": "FG",
+  "vertVis": 2,
+  "metarType": "METAR",
+  "rawOb": "METAR LIMZ 100620Z AUTO 13001KT 0150 0100NE R21/0400N FG VV002 07/07 Q1016",
+  "lat": 44.547,
+  "lon": 7.623,
+  "elev": 377,
+  "name": "Cuneo/Levaldigi Arpt, CN, IT",
+  "cover": "OVX",
+  "clouds": [
+   {
+    "cover": "OVX",
+    "base": 200
+   }
+  ],
+  "fltCat": "LIFR"
+ },
+ {
+  "icaoId": "LSZB",
+  "receiptTime": "2026-11-10T06:22:18.169Z",
+  "obsTime": 1794291600,
+  "reportTime": "2026-11-10T06:20:00.000Z",
+  "temp": 9,
+  "dewp": 8,
+  "wdir": "VRB",
+  "wspd": 2,
+  "visib": 2.49,
+  "altim": 1012,
+  "qcField": 0,
+  "wxString": "-RA",
+  "metarType": "METAR",
+  "rawOb": "METAR LSZB 100620Z VRB02KT 4000 -RA FEW005 SCT009 BKN042 09/08 Q1012",
+  "lat": 46.914,
+  "lon": 7.497,
+  "elev": 510,
+  "name": "Bern Arpt, BE, CH",
+  "cover": "BKN",
+  "clouds": [
+   {
+    "cover": "FEW",
+    "base": 500
+   },
+   {
+    "cover": "SCT",
+    "base": 900
+   },
+   {
+    "cover": "BKN",
+    "base": 4200
+   }
+  ],
+  "fltCat": "IFR"
+ },
+ {
+  "icaoId": "EBBR",
+  "receiptTime": "2026-11-10T06:26:06.782Z",
+  "obsTime": 1794291600,
+  "reportTime": "2026-11-10T06:20:00.000Z",
+  "temp": 0,
+  "dewp": 0,
+  "wdir": 90,
+  "wspd": 4,
+  "visib": 0.09,
+  "altim": 1013,
+  "qcField": 16,
+  "wxString": "FG",
+  "metarType": "METAR",
+  "rawOb": "METAR EBBR 100620Z 09004KT 0150 R25L/0500N R25R/0450N R01/0500N FG SCT004 00/M00 Q1013 NOSIG",
+  "lat": 50.896,
+  "lon": 4.526,
+  "elev": 49,
+  "name": "Brussels Intl, VL, BE",
+  "cover": "SCT",
+  "clouds": [
+   {
+    "cover": "SCT",
+    "base": 400
+   }
+  ],
+  "fltCat": "LIFR"
+ },
+ {
+  "icaoId": "LFBZ",
+  "receiptTime": "2026-11-10T06:06:06.636Z",
+  "obsTime": 1794290400,
+  "reportTime": "2026-11-10T06:00:00.000Z",
+  "temp": 20,
+  "dewp": 12,
+  "wdir": 180,
+  "wspd": 7,
+  "visib": "6+",
+  "altim": 1008,
+  "qcField": 18,
+  "wxString": "-RA",
+  "metarType": "METAR",
+  "rawOb": "METAR LFBZ 100600Z AUTO 18007KT 110V260 9999 -RA ///TCU 20/12 Q1008 NOSIG",
+  "lat": 43.469,
+  "lon": -1.534,
+  "elev": 70,
+  "name": "Biarritz/Parme Arpt, NA, FR"
+ }
+]

@@ -1,0 +1,162 @@
+[
+ {
+  "icaoId": "RJTD",
+  "firId": "RJJJ",
+  "firName": "RJJJ FUKUOKA",
+  "receiptTime": "2026-11-10T01:09:43.017Z",
+  "validTimeFrom": 1794272940,
+  "validTimeTo": 1794294540,
+  "seriesId": "L01F",
+  "hazard": "TC",
+  "qualifier": "CEMPAKA",
+  "base": null,
+  "top": 48000,
+  "geom": "AREA",
+  "coords": [
+   {
+    "lon": 137,
+    "lat": 23.917
+   },
+   {
+    "lon": 136.333,
+    "lat": 25.417
+   },
+   {
+    "lon": 137,
+    "lat": 26.833
+   },
+   {
+    "lon": 139.5,
+    "lat": 26.833
+   },
+   {
+    "lon": 139.083,
+    "lat": 23.917
+   },
+   {
+    "lon": 137,
+    "lat": 23.917
+   }
+  ],
+  "dir": null,
+  "spd": null,
+  "chng": "NC",
+  "rawSigmet": "WCJP31 RJTD 100109\nRJJJ SIGMET L01 VALID 100109/100709 RJTD-\nRJJJ FUKUOKA FIR TC CEMPAKA PSN N2505 E13800 CB OBS AT 0000Z WI N2355\nE13700 - N2525 E13620 - N2650 E13700 - N2650 E13930 - N2355 E13905 -\nN2355 E13700 TOP FL480 NC\nFCST AT 0600Z TC CENTRE PSN N2525 E13950="
+ },
+ {
+  "icaoId": "SBGL",
+  "firId": "SBAZ",
+  "firName": "SBAZ AMAZONICA",
+  "receiptTime": "2026-11-10T03:16:56.110Z",
+  "validTimeFrom": 1794281400,
+  "validTimeTo": 1794295800,
+  "seriesId": "17",
+  "hazard": "ICE",
+  "qualifier": "SEV",
+  "base": 14000,
+  "top": 24000,
+  "geom": "AREAS",
+  "coords": [
+   [
+    {
+     "lon": -52.806,
+     "lat": -11.978
+    },
+    {
+     "lon": -52.325,
+     "lat": -11.577
+    },
+    {
+     "lon": -51.083,
+     "lat": -10.517
+    },
+    {
+     "lon": -51.061,
+     "lat": -10.513
+    },
+    {
+     "lon": -50.97,
+     "lat": -10.385
+    },
+    {
+     "lon": -51.517,
+     "lat": -10.833
+    },
+    {
+     "lon": -52.167,
+     "lat": -10.133
+    },
+    {
+     "lon": -53.4,
+     "lat": -11.4
+    },
+    {
+     "lon": -52.806,
+     "lat": -11.978
+    }
+   ],
+   [
+    {
+     "lon": -50.399,
+     "lat": -10.417
+    },
+    {
+     "lon": -50.907,
+     "lat": -10.334
+    },
+    {
+     "lon": -46.367,
+     "lat": -6.617
+    },
+    {
+     "lon": -46.383,
+     "lat": -6.617
+    },
+    {
+     "lon": -45.173,
+     "lat": -6.998
+    },
+    {
+     "lon": -45.79,
+     "lat": -8.12
+    },
+    {
+     "lon": -46.67,
+     "lat": -8.83
+    },
+    {
+     "lon": -47.32,
+     "lat": -9.48
+    },
+    {
+     "lon": -47.783,
+     "lat": -10.09
+    },
+    {
+     "lon": -47.967,
+     "lat": -9.733
+    },
+    {
+     "lon": -48.367,
+     "lat": -9.617
+    },
+    {
+     "lon": -48.867,
+     "lat": -9.833
+    },
+    {
+     "lon": -49.033,
+     "lat": -10.217
+    },
+    {
+     "lon": -50.399,
+     "lat": -10.417
+    }
+   ]
+  ],
+  "dir": "-",
+  "spd": "0",
+  "chng": "NC",
+  "rawSigmet": "WSBZ23 SBGL 100325\nSBAZ SIGMET 17 VALID 100330/100730 SBAZ - SBAZ AMAZONICA FIR SEV ICE FCST WI S1124 W05324 - S1159 W05248 - S1031 W05105 - S1013 W04902 - S0950 W04852 - S0937 W04822 - S0944 W04758 - S1017 W04741 - S1020 W04719 - S0932 W04709 - S0851 W04639 - S0809 W04546 - S0700 W04510 - S0637 W04623 - S0637 W04622 - S1050 W05131 - S1008 W05210 - S1124 W05324 FL140/240 STNR NC="
+ }
+]

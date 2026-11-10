@@ -17,3 +17,4 @@ export * from "./formats";
 export * from "./airac";
 export * from "./openaip";
 export * from "./airspaceQuery";
+export * from "./weather";
