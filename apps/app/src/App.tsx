@@ -16,6 +16,10 @@ import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, toWindPlan, t
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
+import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
+import { useRecorder } from "./trackStore";
+import { STOPWATCH_ZERO, advanceReplay, alarm, cdDue, type Countdown, type Stopwatch } from "./timers";
+import { pointAt, type TrackPoint } from "@lim/core";
 import { BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 
@@ -29,10 +33,11 @@ import { fetchWinds, loadWindCache, windKey } from "./windClient";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
-type Screen = "map" | "nav" | "wx" | "docs" | "settings" | "soon";
+type Screen = "map" | "nav" | "wx" | "docs" | "traces" | "settings" | "soon";
 
 const NAV_TABS: Key[] = ["nav.log", "nav.profile", "nav.fuel", "nav.wb"];
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
+const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.traces", "docs.documents", "docs.products", "docs.points"];
 const WEATHER: Key[] = ["wx.metar", "wx.taf", "wx.sigmet", "wx.wintem", "wx.radar"];
 
@@ -435,6 +440,39 @@ export function App() {
   const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
   // Espaces pris en compte pour la liste des espaces traversés : ceux des groupes affichés.
   const ac = useAircraft();
+  const recorder = useRecorder(fix, fv?.altitudeMsl ?? null);
+  const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
+  const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
+  const [cdFired, setCdFired] = useState(false);
+  useEffect(() => {
+    if (cdDue(cd, now)) {
+      alarm();
+      setCd({ ...cd, fired: true, endsAt: null });
+      setCdFired(true);
+      setTimeout(() => setCdFired(false), 30_000);
+    }
+  }, [now, cd]);
+  const [replay, setReplay] = useState<ReplayState | null>(null);
+  const replayTrack = replay ? recorder.tracks.find((x) => x.id === replay.id) ?? null : null;
+  useEffect(() => {
+    if (!replay?.playing || !replayTrack) return;
+    const first = (replayTrack.points[0] as TrackPoint).t, last = (replayTrack.points[replayTrack.points.length - 1] as TrackPoint).t;
+    const id = setInterval(() => {
+      setReplay((r) => {
+        if (!r || !r.playing) return r;
+        const n = advanceReplay(r.t, 200, r.speed, first, last);
+        return { ...r, t: n.t, playing: !n.ended };
+      });
+    }, 200);
+    return () => clearInterval(id);
+  }, [replay?.playing, replayTrack]);
+  const replayMap = useMemo(() => {
+    if (!replay || !replayTrack || replayTrack.points.length < 2) return null;
+    const step = Math.max(1, Math.floor(replayTrack.points.length / 2000));
+    const line = replayTrack.points.filter((_, i) => i % step === 0).map((p) => [p.lon, p.lat] as [number, number]);
+    const q = pointAt(replayTrack.points, replay.t);
+    return { line, pos: q ? { lat: q.lat, lon: q.lon, trk: q.trk } : null, key: replay.id };
+  }, [replay, replayTrack]);
   /** Quand l'avion actif change ou est modifié, sa vitesse propre et sa consommation alimentent le log de nav. */
   const pushAircraftPerf = (a: Aircraft | null) => {
     if (!a || (a.tasMps === null && a.fuelFlowLph === null)) return;
@@ -612,7 +650,7 @@ export function App() {
     { id: "dist", label: T("data.dist"), value: direct ? formatQuantity("distance", prefs, direct.distance) : "---", sub: direct ? formatDuration(direct.timeToGo) : undefined, unit: unitLabel("distance", prefs) },
   ];
 
-  const tabs = screen === "nav" ? NAV_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : null;
+  const tabs = screen === "nav" ? NAV_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : screen === "traces" ? TRACES_TABS : null;
   // Écran large : l'écran Route s'affiche à droite de la carte, qui reste utilisable (tracé, Direct).
   const split = wide && screen === "nav";
   const mapActive = screen === "map" || split;
@@ -625,12 +663,13 @@ export function App() {
     { label: "tb.relief", action: () => soon("tb.relief") },
     { label: "tb.weather", action: () => open(screen === "wx" ? "map" : "wx"), pressed: screen === "wx" },
     { label: "tb.profile", action: () => soon("tb.profile") },
-    { label: "tb.timer", action: () => soon("tb.timer") },
+    { label: "tb.timer", action: () => open(screen === "traces" ? "map" : "traces"), pressed: screen === "traces" },
     { label: "tb.docs", action: () => open("docs") },
   ];
 
   const banner: { text: string; alert: boolean } | null =
-    status === "lost" ? { text: T("gps.lost"), alert: true }
+    cdFired ? { text: T("tm.done"), alert: true }
+    : status === "lost" ? { text: T("gps.lost"), alert: true }
     : gpsError && !fix ? { text: T("gps.error"), alert: false }
     : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
     : status === "none" ? { text: T("gps.waiting"), alert: false }
@@ -677,6 +716,7 @@ export function App() {
           ceilingFL={ceiling}
           onDoubleTap={onDoubleTap}
           zoomCommand={zoomCommand}
+          replay={replayMap}
         />
 
         {mapActive && (
@@ -686,6 +726,11 @@ export function App() {
           </div>
         )}
 
+        {replay && replayTrack && mapActive && (
+          <div className="replaydock">
+            <ReplayBar lang={lang} track={replayTrack} replay={replay} onChange={setReplay} onClose={() => setReplay(null)} />
+          </div>
+        )}
         {banner && (
           <div className={banner.alert ? "banner alert" : "banner"} role={banner.alert ? "alert" : "status"}>
             {banner.text}
@@ -1023,6 +1068,34 @@ export function App() {
                 onPut={(a) => { ac.put(a); if (a.id === ac.activeId) pushAircraftPerf(a); }}
                 onRemove={ac.remove}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
+              />
+            ) : screen === "traces" && tab === 0 ? (
+              <TimersTab
+                lang={lang}
+                nowMs={now}
+                recording={recorder.recording}
+                pointCount={recorder.count}
+                takeoffMs={recorder.takeoffMs}
+                onStartRec={recorder.start}
+                onStopRec={recorder.stop}
+                sw={sw}
+                onSw={setSw}
+                cd={cd}
+                onCd={setCd}
+              />
+            ) : screen === "traces" && tab === 1 ? (
+              <TracesTab
+                lang={lang}
+                prefs={prefs}
+                tracks={recorder.tracks}
+                activeId={recorder.activeId}
+                replay={replay}
+                registration={ac.active?.registration ?? ""}
+                aircraftName={ac.active?.name ?? ""}
+                onReplay={setReplay}
+                onShowOnMap={() => { open("map"); setFollow(false); }}
+                onRemove={recorder.remove}
+                onRename={recorder.rename}
               />
             ) : (
               <p className="muted">{T("soon")}</p>

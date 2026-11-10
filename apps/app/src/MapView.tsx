@@ -52,6 +52,8 @@ export interface MapViewProps {
   onPointMove: (index: number, lat: number, lon: number) => void;
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
+  /** Rejeu d'une trace : ligne complète + position courante (null = pas de rejeu). */
+  replay: { line: [number, number][]; pos: { lat: number; lon: number; trk: number | null } | null; key: string } | null;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
   zoomCommand: { delta: number; nonce: number };
 }
@@ -147,6 +149,8 @@ export function MapView(props: MapViewProps) {
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 4 } });
+      m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+      m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
@@ -155,6 +159,7 @@ export function MapView(props: MapViewProps) {
       syncRoute();
       syncAero();
       syncRadar();
+      syncReplay();
     });
 
     m.on("zoomend", (e) => {
@@ -294,6 +299,40 @@ export function MapView(props: MapViewProps) {
     });
   }
   useEffect(syncRoute, [props.route, props.targetIndex, props.fix, props.adhocTarget]);
+
+  /** Rejeu : ligne de la trace, repère de la position rejouée, cadrage à l'ouverture d'une nouvelle trace. */
+  const replayMarker = useRef<maplibregl.Marker | null>(null);
+  const replayKey = useRef<string | null>(null);
+  function syncReplay() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const rp = latest.current.replay;
+    (m.getSource("replay") as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: "FeatureCollection",
+      features: rp && rp.line.length >= 2 ? [{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: rp.line } }] : [],
+    });
+    if (!rp || !rp.pos) {
+      replayMarker.current?.remove();
+      replayMarker.current = null;
+    } else {
+      const ll: [number, number] = [rp.pos.lon, rp.pos.lat];
+      if (!replayMarker.current) {
+        const div = document.createElement("div");
+        div.className = "plane";
+        div.innerHTML = '<svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><path d="M20 3 L31 35 L20 28 L9 35 Z"/></svg>';
+        replayMarker.current = new maplibregl.Marker({ element: div, rotationAlignment: "map", pitchAlignment: "map" }).setLngLat(ll).addTo(m);
+      }
+      replayMarker.current.setLngLat(ll);
+      if (rp.pos.trk !== null) replayMarker.current.setRotation(rp.pos.trk);
+    }
+    if (rp && rp.key !== replayKey.current && rp.line.length >= 2) {
+      const b = new maplibregl.LngLatBounds(rp.line[0] as [number, number], rp.line[0] as [number, number]);
+      rp.line.forEach((c) => b.extend(c));
+      m.fitBounds(b, { padding: 60, duration: 600, maxZoom: 13 });
+    }
+    replayKey.current = rp ? rp.key : null;
+  }
+  useEffect(syncReplay, [props.replay]);
 
   // Points numérotés (déplaçables en mode tracé).
   useEffect(() => {

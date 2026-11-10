@@ -5,20 +5,20 @@
  * d'un décollage, d'où une confirmation sur plusieurs secondes. Un enregistrement peut aussi être lancé et arrêté à la main.
  */
 import { distance, type LatLon } from "./geodesy";
-import { knotsToMps } from "./units";
+import { knots, knotsToMps } from "./units";
 
 /** Vitesse sol à partir de laquelle on considère qu'on décolle (JUGÉ). */
-export const TAKEOFF_SPEED_MPS = knotsToMps(25);
+export const TAKEOFF_SPEED_MPS = knotsToMps(knots(25));
 /** Durée pendant laquelle la vitesse doit rester au-dessus avant de lancer l'enregistrement (JUGÉ). */
 export const TAKEOFF_CONFIRM_S = 3;
 /** Vitesse sol sous laquelle on considère qu'on est posé (JUGÉ). */
-export const LANDING_SPEED_MPS = knotsToMps(15);
+export const LANDING_SPEED_MPS = knotsToMps(knots(15));
 /** Durée sous ce seuil avant de clore l'enregistrement (JUGÉ). */
 export const LANDING_CONFIRM_S = 30;
 /** Historique gardé avant la détection du décollage, pour ne pas perdre le début du roulage (JUGÉ). */
 export const PREROLL_S = 30;
-/** Un point par seconde au plus. */
-export const MIN_POINT_INTERVAL_MS = 1000;
+/** Un point par seconde au plus (tolérance : les horloges et les GPS ne tombent pas pile à 1000 ms). */
+export const MIN_POINT_INTERVAL_MS = 900;
 
 export interface TrackPoint {
   /** Horodatage UTC (ms). */

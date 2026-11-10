@@ -212,3 +212,10 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 /* J5 : avion, centrage, carburant */
 .balchart { width: 100%; max-width: 480px; height: auto; display: block; margin: var(--sp-3) 0; background: var(--paper); border: var(--rule-line); }
 .station-row { display: grid; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: 1px solid var(--hair); }
+
+/* J6 : traces, chronos, rejeu */
+.bigtime { font-family: var(--font-mono); font-size: 40px; font-weight: 700; color: var(--data-figure); letter-spacing: 0.02em; padding: var(--sp-2) 0; }
+.replaybar { display: grid; gap: var(--sp-2); padding: var(--sp-2) 0; }
+.replaybar input[type=range] { width: 100%; height: 32px; accent-color: var(--ink); }
+.replaydock { position: absolute; left: var(--sp-3); right: var(--sp-3); bottom: var(--sp-3); z-index: 3; background: var(--paper); border: var(--rule-line); border-radius: var(--r); padding: var(--sp-2) var(--sp-3); box-shadow: var(--shadow-pop); }
+@media (min-width: 900px) { .stage.split .replaydock { right: calc(600px + var(--sp-3)); } }
