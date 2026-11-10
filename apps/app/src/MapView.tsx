@@ -54,6 +54,10 @@ export interface MapViewProps {
   onDoubleTap: (features: TappedFeature[]) => void;
   /** Rejeu d'une trace : ligne complète + position courante (null = pas de rejeu). */
   replay: { line: [number, number][]; pos: { lat: number; lon: number; trk: number | null } | null; key: string } | null;
+  /** Cartes calées (VAC) posées sur la carte : image + coins [lon, lat] (haut-gauche, haut-droit, bas-droit, bas-gauche). */
+  docCharts: readonly { id: string; url: string; corners: [[number, number], [number, number], [number, number], [number, number]] }[];
+  /** Demande de cadrage sur une carte calée (approche) ; appliquée seulement si le suivi de l'avion est actif. */
+  docFocus: { nonce: number; corners: [number, number][] } | null;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
   zoomCommand: { delta: number; nonce: number };
 }
@@ -143,6 +147,7 @@ export function MapView(props: MapViewProps) {
       attributionControl: { compact: true },
     });
     map.current = m;
+    if (import.meta.env.DEV) (window as unknown as { __limMap?: unknown }).__limMap = m; // outil de test en développement seulement
 
     m.on("load", () => {
       loaded.current = true;
@@ -160,6 +165,7 @@ export function MapView(props: MapViewProps) {
       syncAero();
       syncRadar();
       syncReplay();
+      syncDocs();
     });
 
     m.on("zoomend", (e) => {
@@ -429,6 +435,42 @@ export function MapView(props: MapViewProps) {
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   useEffect(syncCharts, [props.charts]);
+
+  /** Cartes calées (VAC) : une source image par document, sous la ligne de route. */
+  const docLayers = useRef(new Set<string>());
+  function syncDocs() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const wanted = new Map(latest.current.docCharts.map((d) => [d.id, d]));
+    for (const id of [...docLayers.current]) {
+      if (!wanted.has(id)) {
+        if (m.getLayer(`doc-${id}`)) m.removeLayer(`doc-${id}`);
+        if (m.getSource(`doc-${id}`)) m.removeSource(`doc-${id}`);
+        docLayers.current.delete(id);
+      }
+    }
+    for (const d of wanted.values()) {
+      if (docLayers.current.has(d.id)) continue;
+      m.addSource(`doc-${d.id}`, { type: "image", url: d.url, coordinates: d.corners });
+      m.addLayer({ id: `doc-${d.id}`, type: "raster", source: `doc-${d.id}`, paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 } }, m.getLayer("replay-line") ? "replay-line" : undefined);
+      docLayers.current.add(d.id);
+    }
+  }
+  useEffect(syncDocs, [props.docCharts]);
+  const lastFocus = useRef(0);
+  useEffect(() => {
+    const f = props.docFocus;
+    const m = map.current;
+    if (!f || !m || f.nonce === lastFocus.current) return;
+    lastFocus.current = f.nonce;
+    const b = new maplibregl.LngLatBounds(f.corners[0] as [number, number], f.corners[0] as [number, number]);
+    f.corners.forEach((c) => b.extend(c));
+    const cam = m.cameraForBounds(b, { padding: 20 });
+    if (cam && typeof cam.zoom === "number") {
+      targetZoom.current = Math.min(15, cam.zoom);
+      m.easeTo({ zoom: targetZoom.current, duration: 800 });
+    }
+  }, [props.docFocus]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);
 
   // Thème : on change les couleurs sans recréer le style (sinon les couches importées disparaissent).

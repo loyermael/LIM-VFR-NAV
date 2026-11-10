@@ -16,6 +16,9 @@ import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, toWindPlan, t
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
+import { DocsTab } from "./DocsScreen";
+import { blobUrl, useDocs } from "./docStore";
+import { imageCorners, pixelToLatLon } from "@lim/core";
 import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
 import { useRecorder } from "./trackStore";
 import { STOPWATCH_ZERO, advanceReplay, alarm, cdDue, type Countdown, type Stopwatch } from "./timers";
@@ -38,7 +41,7 @@ type Screen = "map" | "nav" | "wx" | "docs" | "traces" | "settings" | "soon";
 const NAV_TABS: Key[] = ["nav.log", "nav.profile", "nav.fuel", "nav.wb"];
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
-const DOCS_TABS: Key[] = ["docs.traces", "docs.documents", "docs.products", "docs.points"];
+const DOCS_TABS: Key[] = ["docs.documents"];
 const WEATHER: Key[] = ["wx.metar", "wx.taf", "wx.sigmet", "wx.wintem", "wx.radar"];
 
 /** Une ligne de réglage par information : libellé + choix d'unité. */
@@ -440,6 +443,32 @@ export function App() {
   const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
   // Espaces pris en compte pour la liste des espaces traversés : ceux des groupes affichés.
   const ac = useAircraft();
+  const docs = useDocs();
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const [docFocus, setDocFocus] = useState<{ nonce: number; corners: [number, number][] } | null>(null);
+  const seenDocs = useRef(new Set<string>());
+  /** Cartes calées visibles : « toujours », ou « à l'approche » = GPS à moins de 10 NM du centre de la carte (seuil jugé). */
+  const docCharts = useMemo(() => {
+    const out: { id: string; url: string; corners: ReturnType<typeof imageCorners>; auto: boolean }[] = [];
+    for (const d of docs.list) {
+      const g = d.georef;
+      if (!g || d.show === "off") continue;
+      const corners = imageCorners(g.georef, g.width, g.height);
+      if (d.show === "auto") {
+        if (!fix || status === "lost") continue;
+        const c = pixelToLatLon(g.georef, g.width / 2, g.height / 2);
+        if (distance(fix.position, c) > 10 * 1852) continue;
+      }
+      out.push({ id: d.id, url: blobUrl(g.image), corners, auto: d.show === "auto" });
+    }
+    return out;
+  }, [docs.list, fix, status]);
+  useEffect(() => {
+    const now2 = new Set(docCharts.filter((c) => c.auto).map((c) => c.id));
+    const fresh = docCharts.find((c) => c.auto && !seenDocs.current.has(c.id));
+    seenDocs.current = now2;
+    if (fresh && follow) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: fresh.corners }));
+  }, [docCharts, follow]);
   const recorder = useRecorder(fix, fv?.altitudeMsl ?? null);
   const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
   const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
@@ -717,6 +746,8 @@ export function App() {
           onDoubleTap={onDoubleTap}
           zoomCommand={zoomCommand}
           replay={replayMap}
+          docCharts={docCharts}
+          docFocus={docFocus}
         />
 
         {mapActive && (
@@ -773,6 +804,13 @@ export function App() {
                       </div>
                     ))}
                   </dl>
+                  {d.layerName === "Terrain" && !!d.properties["Code OACI"] && docs.list.some((x) => x.icao === String(d.properties["Code OACI"])) && (
+                    <div className="choices">
+                      {docs.list.filter((x) => x.icao === String(d.properties["Code OACI"])).map((x) => (
+                        <button key={x.id} onClick={() => { setOpenDocId(x.id); open("docs"); }}>{T("details.docs")} : {x.name}</button>
+                      ))}
+                    </div>
+                  )}
                 </section>
               ))
             )}
@@ -1069,6 +1107,8 @@ export function App() {
                 onRemove={ac.remove}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
               />
+            ) : screen === "docs" ? (
+              <DocsTab lang={lang} docs={docs.list} openId={openDocId} onOpen={setOpenDocId} onPut={docs.put} onRemove={docs.remove} />
             ) : screen === "traces" && tab === 0 ? (
               <TimersTab
                 lang={lang}
