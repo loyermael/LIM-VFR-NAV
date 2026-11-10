@@ -78,6 +78,8 @@ interface NavProps {
   onDirect: (index: number) => void;
   onDrawOnMap: () => void;
   onShowRoute: () => void;
+  /** Génère et télécharge le dossier de vol PDF. */
+  onDossier: () => void;
   /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
   airspaces: readonly Airspace[];
   hasAero: boolean;
@@ -142,6 +144,7 @@ export function NavScreen(p: NavProps) {
         <button onClick={p.onNewRoute}>{T("nav.new")}</button>
         <button onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
         <button disabled={!route || route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
+        <button disabled={!route || route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
         <label className="filebtn">
           {T("nav.import")}
           <input

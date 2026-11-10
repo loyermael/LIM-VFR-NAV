@@ -14,7 +14,8 @@ import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSO
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
-import { FormatError, computeNavLog, importRoute, litersPerHour, type Aircraft } from "@lim/core";
+import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
+import { buildDossier } from "./dossierPdf";
 import { BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 
@@ -447,6 +448,27 @@ export function App() {
       : null),
     [route, perf.tasMps, perf.fuelFlowLph, now],
   );
+  const makeDossier = async () => {
+    if (!route) return;
+    try {
+      const corridor = meters(25 * 1852);
+      const crossed = aspSet ? airspacesAlongRoute(route, visibleAirspaces) : [];
+      const metars = stationsNearRoute(route, metarSet?.items ?? [], corridor, 10).map((s) => s.station);
+      const tafs = stationsNearRoute(route, tafSet?.items ?? [], corridor, 10).map((s) => s.station);
+      const bytes = await buildDossier({
+        lang, prefs, nowMs: Date.now(), route, navLog, aircraft: ac.active, loads: ac.loads, fuelPlan: ac.plan, tripLiters,
+        crossed, hasAeroData: aspSet !== null, metars, tafs,
+      });
+      const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${route.name.replace(/[\/:*?"<>|]/g, "_")}-dossier.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    } catch (e) {
+      setRouteImportError(e instanceof Error ? e.message : String(e));
+    }
+  };
   const tripLiters = navLog && perf.fuelFlowLph !== null ? navLog.totals.fuel : null;
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   // Avancer au point suivant dès qu'on atteint le point visé.
@@ -975,6 +997,7 @@ export function App() {
                 airspaces={visibleAirspaces}
                 hasAero={aspSet !== null}
                 onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
+                onDossier={() => void makeDossier()}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}
               />
             ) : screen === "nav" && tab === 2 ? (
