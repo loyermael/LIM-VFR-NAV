@@ -12,9 +12,12 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
-import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, type RouteRecord } from "./routeEdit";
+import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
-import { FormatError, importRoute } from "@lim/core";
+import { FormatError, computeNavLog, importRoute, litersPerHour, type Aircraft } from "@lim/core";
+import { BalanceTab, FuelTab } from "./AircraftScreens";
+import { useAircraft } from "./aircraftStore";
+
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
@@ -430,6 +433,21 @@ export function App() {
   const aspById = useMemo(() => new Map((aspSet?.items ?? []).map((a) => [a.id, a])), [aspSet]);
   const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
   // Espaces pris en compte pour la liste des espaces traversés : ceux des groupes affichés.
+  const ac = useAircraft();
+  /** Quand l'avion actif change ou est modifié, sa vitesse propre et sa consommation alimentent le log de nav. */
+  const pushAircraftPerf = (a: Aircraft | null) => {
+    if (!a || (a.tasMps === null && a.fuelFlowLph === null)) return;
+    const p2 = { tasMps: a.tasMps ?? perf.tasMps, fuelFlowLph: a.fuelFlowLph ?? perf.fuelFlowLph };
+    setPerf(p2);
+    savePerf(p2);
+  };
+  const navLog = useMemo(
+    () => (route && route.points.length >= 2 && perf.tasMps !== null
+      ? computeNavLog(route, { tas: perf.tasMps as never, fuelFlow: litersPerHour(perf.fuelFlowLph ?? 0) }, toWindPlan(route), new Date(now), route.departureMs)
+      : null),
+    [route, perf.tasMps, perf.fuelFlowLph, now],
+  );
+  const tripLiters = navLog && perf.fuelFlowLph !== null ? navLog.totals.fuel : null;
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
@@ -958,6 +976,30 @@ export function App() {
                 hasAero={aspSet !== null}
                 onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}
+              />
+            ) : screen === "nav" && tab === 2 ? (
+              <FuelTab
+                lang={lang}
+                prefs={prefs}
+                active={ac.active}
+                loads={ac.loads}
+                tripLiters={tripLiters}
+                plan={ac.plan}
+                onPlan={ac.updatePlan}
+                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
+              />
+            ) : screen === "nav" && tab === 3 ? (
+              <BalanceTab
+                lang={lang}
+                prefs={prefs}
+                aircraft={ac.list}
+                active={ac.active}
+                loads={ac.loads}
+                burnLiters={tripLiters}
+                onSelect={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
+                onPut={(a) => { ac.put(a); if (a.id === ac.activeId) pushAircraftPerf(a); }}
+                onRemove={ac.remove}
+                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
               />
             ) : (
               <p className="muted">{T("soon")}</p>

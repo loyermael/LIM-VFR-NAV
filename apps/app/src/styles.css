@@ -208,3 +208,7 @@ table.navlog tr.under td { opacity: 0.45; }
 .cat-LIFR { background: var(--ink); color: var(--paper); }
 .cat-none { color: var(--ink-muted); }
 table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
+
+/* J5 : avion, centrage, carburant */
+.balchart { width: 100%; max-width: 480px; height: auto; display: block; margin: var(--sp-3) 0; background: var(--paper); border: var(--rule-line); }
+.station-row { display: grid; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: 1px solid var(--hair); }
