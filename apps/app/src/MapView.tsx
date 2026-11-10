@@ -32,6 +32,8 @@ export interface MapViewProps {
   airfieldData: FeatureCollection | null;
   showAirspaces: boolean;
   showAirfields: boolean;
+  /** Modèle d'URL des tuiles du radar de pluie (réseau requis), ou null. */
+  radarTemplate: string | null;
   /** Groupes d'espaces affichés (contrôlés, réglementés…). */
   visibleGroups: readonly string[];
   /** Route active à dessiner (ligne et points numérotés). */
@@ -152,6 +154,7 @@ export function MapView(props: MapViewProps) {
       syncOverlays();
       syncRoute();
       syncAero();
+      syncRadar();
     });
 
     m.on("zoomend", (e) => {
@@ -371,6 +374,19 @@ export function MapView(props: MapViewProps) {
     }
     if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
   }
+  /** Radar de pluie : tuiles distantes (le seul calque qui exige le réseau), sous la route et au-dessus des cartes. */
+  function syncRadar() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const url = latest.current.radarTemplate;
+    if (m.getLayer("radar")) m.removeLayer("radar");
+    if (m.getSource("radar")) m.removeSource("radar");
+    if (!url) return;
+    m.addSource("radar", { type: "raster", tiles: [url], tileSize: 256, maxzoom: 7, attribution: "© RainViewer" });
+    m.addLayer({ id: "radar", type: "raster", source: "radar", paint: { "raster-opacity": 0.65 } }, m.getLayer("asp-fill") ? "asp-fill" : m.getLayer("route-line") ? "route-line" : undefined);
+  }
+  useEffect(syncRadar, [props.radarTemplate]);
+
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   useEffect(syncCharts, [props.charts]);

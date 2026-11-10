@@ -19,3 +19,4 @@ export * from "./openaip";
 export * from "./airspaceQuery";
 export * from "./weather";
 export * from "./windsAloft";
+export * from "./briefing";

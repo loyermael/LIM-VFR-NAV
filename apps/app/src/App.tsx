@@ -19,6 +19,8 @@ import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay
 import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { WindsTab } from "./WxScreen";
+import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
+import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
 import { fetchWinds, loadWindCache, windKey } from "./windClient";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
@@ -109,6 +111,13 @@ export function App() {
   // Météo : prévisions de vent (réseau pour les charger, cache sur l'appareil pour l'ensuite).
   const [windForecasts, setWindForecasts] = useState<Map<string, WindForecast>>(new Map());
   const [windBusy, setWindBusy] = useState(false);
+  const [metarSet, setMetarSet] = useState<MetarSet | null>(null);
+  const [tafSet, setTafSet] = useState<TafSet | null>(null);
+  const [sigmetSet, setSigmetSet] = useState<SigmetSet | null>(null);
+  const [wxProblems, setWxProblems] = useState<string[]>([]);
+  const [wxBusy, setWxBusy] = useState(false);
+  const [radar, setRadar] = useState<{ time: number; template: string } | null>(null);
+  const [radarError, setRadarError] = useState<string | null>(null);
   const [windError, setWindError] = useState<string | null>(null);
   // Baromètre de l'appareil (coque Android) : mesures brutes filtrées, relues chaque seconde pour l'affichage.
   const baroFilter = useRef(new PressureFilter(1.0));
@@ -219,6 +228,36 @@ export function App() {
     }
     setWindBusy(false);
   };
+  /** Radar de pluie : image la plus récente (RainViewer, tuiles distantes). Nécessite le réseau ; ne sert qu'à préparer le vol. */
+  const toggleRadar = async () => {
+    if (radar) {
+      setRadar(null);
+      return;
+    }
+    setRadarError(null);
+    try {
+      const res = await fetch("https://api.rainviewer.com/public/weather-maps.json", { signal: AbortSignal.timeout(20_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const j = (await res.json()) as { host?: string; radar?: { past?: { time?: number; path?: string }[] } };
+      const last = j.radar?.past?.[j.radar.past.length - 1];
+      if (!j.host || !last?.path || typeof last.time !== "number") throw new Error("réponse inattendue");
+      setRadar({ time: last.time * 1000, template: `${j.host}${last.path}/256/{z}/{x}/{y}/2/1_1.png` });
+    } catch (e) {
+      setRadarError(e instanceof Error ? e.message : String(e));
+    }
+  };
+  const importWx = async (files: File[]) => {
+    setWxBusy(true);
+    const out = await importWxFiles(files);
+    for (const d of out.sets) {
+      await saveWx(d).catch(() => undefined);
+      if (d.id === "metar") setMetarSet(d);
+      else if (d.id === "taf") setTafSet(d);
+      else setSigmetSet(d);
+    }
+    setWxProblems(out.problems);
+    setWxBusy(false);
+  };
   const applyRouteWinds = (estimates: LegWindEstimate[]) => {
     if (!route) return;
     let next = route;
@@ -309,6 +348,15 @@ export function App() {
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
     loadCharts().then(setCharts).catch(() => setCharts([]));
     loadRoutes().then(setRoutes).catch(() => setRoutes([]));
+    loadWx()
+      .then((all) => {
+        for (const d of all) {
+          if (d.id === "metar") setMetarSet(d);
+          else if (d.id === "taf") setTafSet(d);
+          else setSigmetSet(d);
+        }
+      })
+      .catch(() => undefined);
     loadWindCache().then((all) => setWindForecasts(new Map(all.map((f) => [windKey(f.lat, f.lon), f])))).catch(() => undefined);
     loadDatasets()
       .then((ds) => {
@@ -571,6 +619,7 @@ export function App() {
           onUserMove={() => setFollow(false)}
           overlays={overlays}
           charts={charts}
+          radarTemplate={radar?.template ?? null}
           airspaceData={airspaceGeo}
           airfieldData={airfieldGeo}
           showAirspaces={showAsp}
@@ -696,10 +745,16 @@ export function App() {
             <ul>
               {WEATHER.map((k) => (
                 <li key={k}>
-                  <button className="row" onClick={() => (k === "wx.wintem" ? (open("wx"), setTab(4)) : k === "wx.metar" ? (open("wx"), setTab(1)) : k === "wx.taf" ? (open("wx"), setTab(2)) : k === "wx.sigmet" ? (open("wx"), setTab(3)) : soon(k))}>{T(k)}</button>
+                  <button className="row" onClick={() => (k === "wx.wintem" ? (open("wx"), setTab(4)) : k === "wx.metar" ? (open("wx"), setTab(1)) : k === "wx.taf" ? (open("wx"), setTab(2)) : k === "wx.sigmet" ? (open("wx"), setTab(3)) : k === "wx.radar" ? void toggleRadar() : soon(k))} aria-pressed={k === "wx.radar" ? radar !== null : undefined}>{k === "wx.radar" && radar ? T("wxr.off") : T(k)}</button>
                 </li>
               ))}
             </ul>
+            {radar && (
+              <p className="muted small">
+                {T("wxr.info")} {new Date(radar.time).toISOString().slice(11, 16)}Z · {T("wxr.note")}
+              </p>
+            )}
+            {radarError && <p className="error" role="alert">{T("wxr.error")} — {radarError}</p>}
             <h3>{T("layers.maps")}</h3>
             {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
             {charts.map((c) => (
@@ -858,6 +913,17 @@ export function App() {
                   </div>
                 ))}
               </div>
+            ) : screen === "wx" && tab !== 4 ? (
+              (() => {
+                const startMs = route?.departureMs ?? now;
+                const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, a) => (i === 0 ? 0 : acc + distance((a[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;
+                const common: WxCommon = {
+                  lang, prefs, route, gps: fix && status !== "lost" ? fix.position : null, nowMs: now,
+                  metars: metarSet, tafs: tafSet, sigmets: sigmetSet, window: { startMs, endMs: startMs + km * 1000 },
+                  problems: wxProblems, busy: wxBusy, onImport: (f) => void importWx(f),
+                };
+                return tab === 0 ? <BriefingTab {...common} /> : tab === 1 ? <MetarTab {...common} /> : tab === 2 ? <TafTab {...common} /> : <SigmetTab {...common} />;
+              })()
             ) : screen === "wx" && tab === 4 ? (
               <WindsTab
                 lang={lang}
