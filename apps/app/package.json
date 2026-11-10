@@ -32,6 +32,7 @@
     "typescript": "~5.9.2",
     "vite": "^7.0.0",
     "vite-plugin-pwa": "^1.0.0",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "ws": "^8.22.2"
   }
 }

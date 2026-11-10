@@ -56,6 +56,8 @@ export interface MapViewProps {
   replay: { line: [number, number][]; pos: { lat: number; lon: number; trk: number | null } | null; key: string } | null;
   /** Cartes calées (VAC) posées sur la carte : image + coins [lon, lat] (haut-gauche, haut-droit, bas-droit, bas-gauche). */
   docCharts: readonly { id: string; url: string; corners: [[number, number], [number, number], [number, number], [number, number]] }[];
+  /** Trafic reçu (GDL90, FLARM) : un repère par cible, avec l'écart d'altitude en centaines de pieds. */
+  traffic: readonly { key: string; lat: number; lon: number; track: number | null; label: string; level: number; stale: boolean; relAltM: number | null }[];
   /** Demande de cadrage sur une carte calée (approche) ; appliquée seulement si le suivi de l'avion est actif. */
   docFocus: { nonce: number; corners: [number, number][] } | null;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
@@ -457,6 +459,34 @@ export function MapView(props: MapViewProps) {
     }
   }
   useEffect(syncDocs, [props.docCharts]);
+
+  /** Repères du trafic : flèche orientée selon la route, écart d'altitude (« +3 » = 300 ft au-dessus), couleur selon le niveau. */
+  const trafficMarkers = useRef(new Map<string, maplibregl.Marker>());
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const seen = new Set<string>();
+    for (const x of props.traffic) {
+      seen.add(x.key);
+      let mk = trafficMarkers.current.get(x.key);
+      if (!mk) {
+        const div = document.createElement("div");
+        div.innerHTML = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M12 2 L19 21 L12 17 L5 21 Z"/></svg><span></span>';
+        mk = new maplibregl.Marker({ element: div, rotationAlignment: "map", pitchAlignment: "map" }).setLngLat([x.lon, x.lat]).addTo(m);
+        trafficMarkers.current.set(x.key, mk);
+      }
+      const el = mk.getElement();
+      el.className = `traffic lvl${x.level}${x.stale ? " stale" : ""}`;
+      const rel = x.relAltM === null ? "?" : `${x.relAltM >= 0 ? "+" : "−"}${Math.round(Math.abs(x.relAltM) / 0.3048 / 100)}`;
+      (el.querySelector("span") as HTMLElement).textContent = rel;
+      (el.querySelector("svg") as SVGElement).style.transform = `rotate(${x.track ?? 0}deg)`;
+      (el.querySelector("svg") as SVGElement).style.opacity = x.track === null ? "0.5" : "1";
+      mk.setLngLat([x.lon, x.lat]);
+    }
+    for (const [k, mk] of trafficMarkers.current) {
+      if (!seen.has(k)) { mk.remove(); trafficMarkers.current.delete(k); }
+    }
+  }, [props.traffic]);
   const lastFocus = useRef(0);
   useEffect(() => {
     const f = props.docFocus;

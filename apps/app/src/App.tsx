@@ -17,6 +17,10 @@ import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRout
 import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
+import { LinkPanel } from "./LinkPanel";
+import { BackupPanel } from "./BackupPanel";
+import { useLink } from "./useLink";
+import { streamState } from "@lim/core";
 import { blobUrl, useDocs } from "./docStore";
 import { imageCorners, pixelToLatLon } from "@lim/core";
 import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
@@ -62,6 +66,14 @@ const UNIT_LABELS: Record<string, string> = Object.fromEntries(
 );
 
 /** `?sim` ou `?sim=loss` dans l'adresse : simulateur de position (démonstration). */
+/** Phrase d'alerte trafic : « Trafic FGABC 0.8 NM, 12 h, +200 ft ». */
+function trafficText(x: { label: string; distanceM: number; bearing: number; relAltM: number | null }, track: number | null, prefs: UnitPrefs, lead: string): string {
+  const rel = track === null ? null : (((x.bearing - track) % 360) + 360) % 360;
+  const clock = rel === null ? "" : `, ${Math.round(rel / 30) || 12} h`;
+  const alt = x.relAltM === null ? "" : `, ${x.relAltM >= 0 ? "+" : "−"}${Math.round(Math.abs(x.relAltM) / 0.3048 / 100) * 100} ft`;
+  return `${lead} ${x.label} ${formatQuantity("distance", prefs, x.distanceM)} ${unitLabel("distance", prefs)}${clock}${alt}`;
+}
+
 function simMode(): null | "sim" | "loss" {
   const v = new URLSearchParams(location.search).get("sim");
   return v === null ? null : v === "loss" ? "loss" : "sim";
@@ -137,6 +149,10 @@ export function App() {
   const [baroLast, setBaroLast] = useState<{ pressure: Pascals; ageMs: number } | null>(null);
 
   const [fix, setFix] = useState<GpsFix | null>(null);
+  const fixRef = useRef<GpsFix | null>(null);
+  fixRef.current = fix;
+  const link = useLink(() => fixRef.current?.position ?? null, (f) => { setFix(f); setGpsError(null); });
+  const extOwn = link.config.enabled && link.config.useOwnship;
   const [now, setNow] = useState(() => Date.now());
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [geoid, setGeoid] = useState<Geoid | null>(null);
@@ -409,9 +425,11 @@ export function App() {
   useEffect(() => {
     if (!accepted) return;
     const mode = simMode();
-    const source: PositionSource =
-      mode === null ? new DeviceGpsSource(gpsAltRef) : new SimulatedSource(undefined, mode === "loss");
-    source.start(
+    // Position externe (récepteur, simulateur) : le GPS de l'appareil n'est pas lancé.
+    const source: PositionSource | null = extOwn
+      ? null
+      : mode === null ? new DeviceGpsSource(gpsAltRef) : new SimulatedSource(undefined, mode === "loss");
+    source?.start(
       (f) => {
         setFix(f);
         setGpsError(null);
@@ -427,12 +445,12 @@ export function App() {
     const onVisible = () => document.visibilityState === "visible" && requestLock();
     document.addEventListener("visibilitychange", onVisible);
     return () => {
-      source.stop();
+      source?.stop();
       clearInterval(tick);
       document.removeEventListener("visibilitychange", onVisible);
       void lock?.release();
     };
-  }, [accepted, gpsAltRef]);
+  }, [accepted, gpsAltRef, extOwn]);
 
   const status = gpsStatus(fix, now);
   const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
@@ -443,6 +461,12 @@ export function App() {
   const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
   // Espaces pris en compte pour la liste des espaces traversés : ceux des groupes affichés.
   const ac = useAircraft();
+  const trafficView = useMemo(
+    () => (link.config.enabled ? link.decoder.table.snapshot(now, fix?.position ?? null) : []),
+    [now, fix, link.config.enabled, link.decoder],
+  );
+  const linkStream = streamState(link.decoder.lastMsgMs, now);
+  const trafficAlert = trafficView.find((x) => x.level >= 2 && !x.stale) ?? null;
   const docs = useDocs();
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [docFocus, setDocFocus] = useState<{ nonce: number; corners: [number, number][] } | null>(null);
@@ -698,7 +722,9 @@ export function App() {
 
   const banner: { text: string; alert: boolean } | null =
     cdFired ? { text: T("tm.done"), alert: true }
+    : trafficAlert ? { text: trafficText(trafficAlert, fv?.trackTrue ?? null, prefs, T("lk.trafficAlert")), alert: true }
     : status === "lost" ? { text: T("gps.lost"), alert: true }
+    : link.config.enabled && link.decoder.messages > 0 && linkStream === "lost" ? { text: T("lk.lostBanner"), alert: true }
     : gpsError && !fix ? { text: T("gps.error"), alert: false }
     : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
     : status === "none" ? { text: T("gps.waiting"), alert: false }
@@ -747,6 +773,7 @@ export function App() {
           zoomCommand={zoomCommand}
           replay={replayMap}
           docCharts={docCharts}
+          traffic={trafficView}
           docFocus={docFocus}
         />
 
@@ -1016,6 +1043,15 @@ export function App() {
                   <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
                   <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
                 </div>
+                <LinkPanel
+                  lang={lang}
+                  config={link.config}
+                  onConfig={link.setConfig}
+                  conn={link.conn}
+                  nowMs={now}
+                  stats={{ lastMsgMs: link.decoder.lastMsgMs, messages: link.decoder.messages, badCrc: link.decoder.badCrc, flarmRx: link.decoder.flarmRx, targets: trafficView.length }}
+                />
+                <BackupPanel lang={lang} />
                 <h3>{T("set.units")}</h3>
                 {UNIT_ROWS.map(({ field, label }) => (
                   <div className="unit-row" key={field} role="group" aria-label={T(label)}>
