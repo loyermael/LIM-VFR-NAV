@@ -450,7 +450,7 @@ export function MapView(props: MapViewProps) {
       latest.current.onAirfieldTap(null);
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
-        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "apt-minor", "asp-fill", "act-sym", ...NAV_SYM_LAYERS]).filter((l) => m.getLayer(l));
+        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "apt-minor", "asp-fill", "act-sym", "act-model", ...NAV_SYM_LAYERS]).filter((l) => m.getLayer(l));
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - 12, y - 12], [x + 12, y + 12]];
         const hits = layers.length ? m.queryRenderedFeatures(box, { layers }) : [];
         const seen = new Set<string>();
@@ -462,7 +462,7 @@ export function MapView(props: MapViewProps) {
           // Espaces et terrains : l'application retrouve la fiche complète par l'identifiant.
           const aero = h.layer.id === "asp-fill" ? "asp" : (h.layer.id === "apt-circle" || h.layer.id === "apt-minor") ? "apt" : null;
           out.push({
-            layerName: NAV_SYM_LAYERS.includes(h.layer.id) || h.layer.id === "act-sym" ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
+            layerName: NAV_SYM_LAYERS.includes(h.layer.id) || h.layer.id === "act-sym" || h.layer.id === "act-model" ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
             properties: (h.properties ?? {}) as Record<string, unknown>,
           });
         }
@@ -774,18 +774,26 @@ export function MapView(props: MapViewProps) {
       else if (aeroData.current.get("act") !== activityData) src.setData(activityData);
       aeroData.current.set("act", activityData);
       if (!m.getLayer("act-sym")) {
-        m.addLayer({
-          id: "act-sym", type: "symbol", source: "act", minzoom: 6.5,
-          layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
-            "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 13],
-            "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
-          } as never,
-          paint: { "text-color": ["match", ["get", "sym"], "aeromodel-orange", "#e08a00", "aeromodel-purple", "#8a3f9b", "#e8202a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
-        }, m.getLayer("route-line") ? "route-line" : undefined);
+        // Parachutage, voltige, treuillage : toujours dessinés (ils sont souvent sur un terrain, dont le symbole les chassait) et décalés ; l'aéromodélisme, très dense, évite les chevauchements.
+        const key = ["match", ["get", "sym"], "aeromodel-orange", "#e08a00", "aeromodel-purple", "#8a3f9b", "#e8202a"] as never;
+        for (const [id, filter, overlap] of [
+          ["act-sym", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]], true],
+          ["act-model", ["!", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]]], false],
+        ] as const) {
+          m.addLayer({
+            id, type: "symbol", source: "act", minzoom: 6.5, filter: filter as never,
+            layout: {
+              "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
+              "icon-offset": ["match", ["get", "kind"], "glider", ["literal", [34, -20]], "para", ["literal", [20, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, -14]]] as never,
+              "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 13, 13],
+              "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
+            } as never,
+            paint: { "text-color": key, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
+          }, m.getLayer("route-line") ? "route-line" : undefined);
+        }
       }
     }
-    if (m.getLayer("act-sym")) m.setLayoutProperty("act-sym", "visibility", showActivities ? "visible" : "none");
+    for (const id of ["act-sym", "act-model"]) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showActivities ? "visible" : "none");
     raiseDocs();
   }
   /** Points cotés : petit point et altitude en pieds (gras au-dessus de 3 000 ft), comme sur la carte OACI. */
@@ -985,7 +993,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !loaded.current) return;
     const top = m.getLayer("route-line") ? "route-line" : undefined;
-    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle", "asp-ctl"]) if (m.getLayer(id)) m.moveLayer(id, top);
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-model", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle", "asp-ctl"]) if (m.getLayer(id)) m.moveLayer(id, top);
   }
   function raiseDocs() {
     raiseSymbols();
