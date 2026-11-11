@@ -77,15 +77,22 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const NAV_LAYERS = ["nav-sym", "nav-obs-mid", "nav-obs-low"];
+const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid"];
+const NAV_LAYERS = [...NAV_SYM_LAYERS, "nav-name", "nav-box"];
+/** Bleu et rouge de la carte OACI (légende SIA / IGN). */
+const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
 
-/** Symboles de la carte aéro, dessinés en canvas (à 2x) : balises (VOR hexagone, NDB cercle pointillé), points de report (triangle plein si obligatoire), obstacles (mât, éolienne). */
+/**
+ * Symboles de la carte aéro, dessinés en canvas selon la légende de la carte OACI (SIA / IGN, édition 2026) : balises (VOR hexagone, VOR/DME hexagone dans un carré,
+ * DME carré, NDB disque pointillé), points de report (triangle plein = obligatoire, vide = sur demande), obstacles (Λ avec point, Λ élevé, éolienne),
+ * terrains (disque barré en dur, cercle = bande, H = hélistation, ancre = hydro, double cercle = mixte, rouge = militaire, P = privé, croix = désaffecté).
+ * Grille de dessin de 40 agrandie 1,6 fois ; un filet blanc sous chaque trait garde les symboles lisibles sur le plan comme sur les photos.
+ */
 let iconCache: Map<string, ImageData> | null = null;
 function navIcons(): Map<string, ImageData> {
   if (iconCache) return iconCache;
   const out = new Map<string, ImageData>();
-  const S = 64, K = 1.6, C = 20; // dessin sur une grille de 40, agrandi 1,6 fois
-
+  const S = 64, K = 1.6, C = 20;
   const make = (name: string, draw: (c: CanvasRenderingContext2D) => void) => {
     const cv = document.createElement("canvas");
     cv.width = S; cv.height = S;
@@ -96,24 +103,74 @@ function navIcons(): Map<string, ImageData> {
     draw(c);
     out.set(name, c.getImageData(0, 0, S, S));
   };
-  /** Trait avec un filet blanc dessous : lisible sur le plan comme sur les photos. */
   const stroke = (c: CanvasRenderingContext2D, color: string, w: number, fill?: string) => {
     if (fill) { c.fillStyle = fill; c.fill(); }
-    c.strokeStyle = "#fff"; c.lineWidth = w + 3; c.stroke();
+    c.strokeStyle = "#fff"; c.lineWidth = w + 2.4; c.stroke();
     c.strokeStyle = color; c.lineWidth = w; c.stroke();
   };
-  const BLUE = "#1b4f9c", INK = "#111";
+  const circle = (c: CanvasRenderingContext2D, r: number) => { c.beginPath(); c.arc(C, C, r, 0, Math.PI * 2); };
+  const dot = (c: CanvasRenderingContext2D, r: number, color: string, x = C, y = C) => { c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fillStyle = color; c.fill(); };
   const hex = (c: CanvasRenderingContext2D, r: number) => { c.beginPath(); for (let i = 0; i < 6; i++) { const a = (Math.PI / 3) * i; c.lineTo(C + r * Math.cos(a), C + r * Math.sin(a)); } c.closePath(); };
-  const dot = (c: CanvasRenderingContext2D, r: number, color: string) => { c.beginPath(); c.arc(C, C, r, 0, Math.PI * 2); c.fillStyle = color; c.fill(); };
-  make("vor", (c) => { hex(c, 12); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
-  make("vordme", (c) => { c.beginPath(); c.rect(C - 14, C - 14, 28, 28); stroke(c, BLUE, 2.5); hex(c, 10); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
-  make("dme", (c) => { c.beginPath(); c.rect(C - 11, C - 11, 22, 22); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
-  make("ndb", (c) => { c.setLineDash([3, 4]); c.beginPath(); c.arc(C, C, 13, 0, Math.PI * 2); stroke(c, BLUE, 2.5); c.setLineDash([]); c.beginPath(); c.arc(C, C, 7, 0, Math.PI * 2); stroke(c, BLUE, 2); dot(c, 2.5, BLUE); });
-  const tri = (c: CanvasRenderingContext2D) => { c.beginPath(); c.moveTo(C, C - 12); c.lineTo(C + 11, C + 9); c.lineTo(C - 11, C + 9); c.closePath(); };
-  make("rp-c", (c) => { tri(c); stroke(c, BLUE, 2.5, BLUE); });
-  make("rp", (c) => { tri(c); stroke(c, BLUE, 2.5, "rgba(255,255,255,0.6)"); });
-  make("mast", (c) => { c.beginPath(); c.moveTo(C - 8, C + 11); c.lineTo(C, C - 11); c.lineTo(C + 8, C + 11); stroke(c, INK, 2.5); dot(c, 2.5, INK); });
-  make("wind", (c) => { c.beginPath(); c.moveTo(C, C + 12); c.lineTo(C, C - 2); stroke(c, INK, 2.5); c.beginPath(); c.arc(C, C - 4, 9, 0, Math.PI * 2); stroke(c, INK, 2, "rgba(255,255,255,0.6)"); dot(c, 2, INK); });
+  const B = OACI_BLUE;
+
+  // balises
+  make("vor", (c) => { hex(c, 10); stroke(c, B, 2); dot(c, 1.7, B); });
+  make("vordme", (c) => { c.beginPath(); c.rect(C - 12, C - 12, 24, 24); stroke(c, B, 1.8); hex(c, 8.5); stroke(c, B, 1.8); dot(c, 1.7, B); });
+  make("dme", (c) => { c.beginPath(); c.rect(C - 9, C - 9, 18, 18); stroke(c, B, 2); dot(c, 1.7, B); });
+  make("ndb", (c) => {
+    circle(c, 15); c.fillStyle = "rgba(255,255,255,0.7)"; c.fill();
+    for (const [r, n] of [[6.5, 8], [9.5, 12], [12.5, 16], [15, 20]] as const) for (let i = 0; i < n; i++) dot(c, 0.95, B, C + r * Math.cos((2 * Math.PI * i) / n), C + r * Math.sin((2 * Math.PI * i) / n));
+    circle(c, 3.2); c.strokeStyle = B; c.lineWidth = 1.4; c.stroke(); dot(c, 1.3, B);
+  });
+  // points de report
+  const tri = (c: CanvasRenderingContext2D) => { c.beginPath(); c.moveTo(C, C - 11); c.lineTo(C + 10, C + 8); c.lineTo(C - 10, C + 8); c.closePath(); };
+  make("rp-c", (c) => { tri(c); stroke(c, B, 2, B); });
+  make("rp", (c) => { tri(c); stroke(c, B, 2.2, "rgba(255,255,255,0.85)"); });
+  // obstacles
+  make("mast", (c) => { c.beginPath(); c.moveTo(C - 8, C + 9); c.lineTo(C, C - 11); c.lineTo(C + 8, C + 9); stroke(c, B, 2.4); dot(c, 1.7, B, C, C + 7); });
+  make("mast-hi", (c) => { c.beginPath(); c.moveTo(C - 6, C + 12); c.quadraticCurveTo(C - 1.2, C + 2, C, C - 14); c.quadraticCurveTo(C + 1.2, C + 2, C + 6, C + 12); c.closePath(); stroke(c, B, 1.6, B); });
+  make("wind", (c) => {
+    c.beginPath(); c.moveTo(C, C + 12); c.lineTo(C, C - 3); stroke(c, B, 2.2);
+    c.beginPath(); c.moveTo(C - 4.5, C + 12); c.lineTo(C + 4.5, C + 12); stroke(c, B, 2.2);
+    for (const [dx, dy] of [[0, -11], [-9.5, 5.5], [9.5, 5.5]] as const) { c.beginPath(); c.moveTo(C, C - 3); c.lineTo(C + dx, C - 3 + dy); stroke(c, B, 2.4); }
+    dot(c, 1.8, B, C, C - 3);
+  });
+  // terrains
+  const ticks = (c: CanvasRenderingContext2D, color: string) => { for (const [x, y, w, h] of [[C - 1.6, C - 14, 3.2, 5.5], [C - 1.6, C + 8.5, 3.2, 5.5], [C - 14, C - 1.6, 5.5, 3.2], [C + 8.5, C - 1.6, 5.5, 3.2]] as const) { c.fillStyle = "#fff"; c.fillRect(x - 1, y - 1, w + 2, h + 2); c.fillStyle = color; c.fillRect(x, y, w, h); } };
+  const glyph = (c: CanvasRenderingContext2D, kind: "H" | "P" | "X" | "anchor", color: string) => {
+    c.strokeStyle = color; c.fillStyle = color; c.lineWidth = 1.7;
+    c.beginPath();
+    if (kind === "H") { c.moveTo(C - 3.2, C - 4.5); c.lineTo(C - 3.2, C + 4.5); c.moveTo(C + 3.2, C - 4.5); c.lineTo(C + 3.2, C + 4.5); c.moveTo(C - 3.2, C); c.lineTo(C + 3.2, C); }
+    else if (kind === "P") { c.moveTo(C - 2.6, C + 4.8); c.lineTo(C - 2.6, C - 4.8); c.lineTo(C + 0.6, C - 4.8); c.arc(C + 0.6, C - 2.4, 2.4, -Math.PI / 2, Math.PI / 2); c.lineTo(C - 2.6, C); }
+    else if (kind === "X") { c.moveTo(C - 5, C - 5); c.lineTo(C + 5, C + 5); c.moveTo(C + 5, C - 5); c.lineTo(C - 5, C + 5); }
+    else { c.moveTo(C, C - 3.6); c.lineTo(C, C + 5); c.moveTo(C - 3, C - 0.8); c.lineTo(C + 3, C - 0.8); c.moveTo(C - 4.6, C + 1.2); c.quadraticCurveTo(C - 4, C + 5.4, C, C + 5.4); c.quadraticCurveTo(C + 4, C + 5.4, C + 4.6, C + 1.2); }
+    c.stroke();
+    if (kind === "anchor") { c.beginPath(); c.arc(C, C - 5, 1.5, 0, Math.PI * 2); c.stroke(); }
+  };
+  for (const cls of ["civil", "mixte", "mil"] as const) {
+    const col = cls === "mil" ? OACI_RED : B;
+    const r = cls === "mil" ? 10.5 : 9;
+    for (const kind of ["paved", "unpaved", "heli", "water"] as const) {
+      make(`ad-${cls}-${kind}`, (c) => {
+        if (cls !== "mil") ticks(c, col);
+        circle(c, r); stroke(c, col, 2.2, "rgba(255,255,255,0.9)");
+        const inner = cls === "civil" ? r : r - 3.2; // mixte et militaire : double cercle
+        if (cls !== "civil") { circle(c, inner); c.strokeStyle = col; c.lineWidth = 1.1; c.stroke(); }
+        if (kind === "paved") {
+          circle(c, inner - (cls === "civil" ? 0.6 : 0.4)); c.fillStyle = col; c.fill();
+          c.beginPath(); c.moveTo(C - inner * 0.62, C + inner * 0.62); c.lineTo(C + inner * 0.62, C - inner * 0.62); c.strokeStyle = "#fff"; c.lineWidth = cls === "mil" ? 3 : 3.6; c.stroke();
+        } else if (kind === "heli") glyph(c, "H", col);
+        else if (kind === "water") glyph(c, "anchor", col);
+      });
+    }
+  }
+  make("ad-p", (c) => { ticks(c, B); circle(c, 9); stroke(c, B, 2.2, "rgba(255,255,255,0.9)"); glyph(c, "P", B); });
+  make("ad-x", (c) => { circle(c, 9); stroke(c, "#111", 2.2, "rgba(255,255,255,0.9)"); glyph(c, "X", "#111"); });
+  // cadre des balises (image étirable : le texte lui donne sa taille)
+  const fcv = document.createElement("canvas");
+  fcv.width = 32; fcv.height = 32;
+  const fc = fcv.getContext("2d");
+  if (fc) { fc.fillStyle = "rgba(255,255,255,0.92)"; fc.fillRect(0, 0, 32, 32); fc.strokeStyle = OACI_BLUE; fc.lineWidth = 3; fc.strokeRect(1.5, 1.5, 29, 29); out.set("nav-frame", fc.getImageData(0, 0, 32, 32)); }
   iconCache = out;
   return out;
 }
@@ -267,7 +324,7 @@ export function MapView(props: MapViewProps) {
       latest.current.onAirfieldTap(null);
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
-        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill", ...NAV_LAYERS]).filter((l) => m.getLayer(l));
+        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill", ...NAV_SYM_LAYERS]).filter((l) => m.getLayer(l));
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - 12, y - 12], [x + 12, y + 12]];
         const hits = layers.length ? m.queryRenderedFeatures(box, { layers }) : [];
         const seen = new Set<string>();
@@ -279,7 +336,7 @@ export function MapView(props: MapViewProps) {
           // Espaces et terrains : l'application retrouve la fiche complète par l'identifiant.
           const aero = h.layer.id === "asp-fill" ? "asp" : h.layer.id === "apt-circle" ? "apt" : null;
           out.push({
-            layerName: NAV_LAYERS.includes(h.layer.id) ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
+            layerName: NAV_SYM_LAYERS.includes(h.layer.id) ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
             properties: (h.properties ?? {}) as Record<string, unknown>,
           });
         }
@@ -483,8 +540,17 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "asp-line", type: "line", source: "asp", paint: { "line-color": groupColor(tk), "line-width": 1.6 } }, before);
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
+      addIcons(m);
       m.addLayer(
-        { id: "apt-circle", type: "circle", source: "apt", minzoom: 6, paint: { "circle-radius": 7, "circle-color": tk.paper, "circle-stroke-color": tk.ink, "circle-stroke-width": 2.5 } },
+        {
+          id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
+          layout: {
+            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.75, 12, 1.15],
+            "text-field": ["step", ["zoom"], "", 8.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14],
+            "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
+          } as never,
+          paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
+        },
         before,
       );
     }
@@ -498,28 +564,48 @@ export function MapView(props: MapViewProps) {
     }
     if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
   }
-  /** Balises, points de report, obstacles : symboles dessinés sur la carte (aucune police nécessaire, donc utilisable hors-ligne). */
+  /** Balises, points de report, obstacles : symboles et étiquettes de la carte OACI, dessinés sur la carte (polices embarquées : utilisable hors-ligne). */
+  function addIcons(m: maplibregl.Map) {
+    for (const [name, img] of navIcons()) {
+      if (m.hasImage(name)) continue;
+      if (name === "nav-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
+      else m.addImage(name, img, { pixelRatio: 2 });
+    }
+  }
   function syncNav() {
     const m = map.current;
     if (!m || !loaded.current) return;
     const { navData, showNav } = latest.current;
     if (navData) {
-      for (const [name, img] of navIcons()) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
+      addIcons(m);
       const src = m.getSource("nav") as maplibregl.GeoJSONSource | undefined;
       if (!src) m.addSource("nav", { type: "geojson", data: navData });
       else if (aeroData.current.get("nav") !== navData) src.setData(navData);
       aeroData.current.set("nav", navData);
       if (!m.getLayer("nav-sym")) {
-        // Les filtres ne peuvent pas dépendre du zoom : un calque par niveau de détail des obstacles (les plus hauts de loin, tous de près).
-        const layout = { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.85, 12, 1.15],
-          "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14],
-          "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true } as never;
-        const paint = { "text-color": ["match", ["get", "grp"], "obstacle", "#111111", "#0b3d91"], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
+        const font = ["Open Sans Semibold"];
+        const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
+        const layout = {
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.85, 12, 1.15],
+          "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
+        } as never;
+        const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
         const obs = ["==", ["get", "grp"], "obstacle"];
-        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 150]] as never }, before);
-        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 60], ["<", ["get", "h"], 150]] as never }, before);
-        m.addLayer({ id: "nav-obs-low", type: "symbol", source: "nav", minzoom: 11.5, layout, paint, filter: ["all", obs, ["<", ["get", "h"], 60]] as never }, before);
+        // Obstacles : seuls ceux de 300 ft AGL et plus (comme sur la carte OACI) ; les plus hauts de loin, les autres dès le zoom 9,5. Les filtres ne dépendent pas du zoom : un calque par niveau.
+        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]] as never }, before);
+        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
+        const navaid = ["==", ["get", "grp"], "navaid"];
+        m.addLayer({
+          id: "nav-box", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
+          layout: { "text-field": ["get", "box"], "text-font": font, "text-size": size, "text-anchor": "left", "text-offset": [1.9, 0.3], "text-allow-overlap": false, "icon-image": "nav-frame", "icon-text-fit": "both", "icon-text-fit-padding": [1, 3, 1, 3] } as never,
+          paint: { "text-color": OACI_BLUE } as never,
+        }, before);
+        m.addLayer({
+          id: "nav-name", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
+          layout: { "text-field": ["get", "nm"], "text-font": font, "text-size": ["interpolate", ["linear"], ["zoom"], 7, 9, 12, 12], "text-anchor": "bottom-left", "text-offset": [1.9, -0.55], "text-optional": true } as never,
+          paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
+        }, before);
       }
     }
     for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");
@@ -643,10 +729,6 @@ export function MapView(props: MapViewProps) {
     if (m.getLayer("asp-line")) {
       m.setPaintProperty("asp-line", "line-color", groupColor(tk));
       m.setPaintProperty("asp-fill", "fill-color", groupColor(tk));
-    }
-    if (m.getLayer("apt-circle")) {
-      m.setPaintProperty("apt-circle", "circle-color", tk.paper);
-      m.setPaintProperty("apt-circle", "circle-stroke-color", tk.ink);
     }
     m.setPaintProperty("direct-line", "line-color", tk.good);
     for (const id of addedOverlays.current.keys()) {

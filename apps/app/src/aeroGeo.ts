@@ -23,12 +23,37 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
   };
 }
 
+/**
+ * Symbole d'un terrain d'après la légende de la carte OACI : civil (bleu, avec repères), mixte (double cercle), militaire (rouge, sans repères) ;
+ * piste en dur (disque barré), bande (cercle), hélistation (H), hydro-aérodrome (ancre) ; privé (P), désaffecté (croix).
+ * Le type est celui d'openAIP (0 mixte, 4 et 5 militaires, 7 hélistation, 8 fermé, 10 hydrobase : constaté sur l'export).
+ */
+export function airfieldSymbol(a: Pick<Airfield, "type" | "private" | "runways">): string {
+  if (a.type === 8) return "ad-x";
+  const mil = a.type === 4 || a.type === 5;
+  if (a.private && !mil) return "ad-p";
+  const cls = mil ? "mil" : a.type === 0 ? "mixte" : "civil";
+  if (a.type === 4 || a.type === 7) return `ad-${cls}-heli`;
+  if (a.type === 10) return `ad-${cls}-water`;
+  const longest = Math.max(0, ...a.runways.map((r) => r.lengthM ?? 0));
+  const paved = a.runways.some((r) => r.paved === true) || (a.runways.every((r) => r.paved === undefined) && longest >= 900);
+  return `ad-${cls}-${paved ? "paved" : "unpaved"}`;
+}
+
+/** Étiquette de terrain : code OACI, nom, puis altitude (ft), fréquence principale et longueur de la plus longue piste (hm), comme sur la carte. */
+export function airfieldLabel(a: Airfield): string {
+  const f = a.frequencies.find((x) => x.primary) ?? a.frequencies[0];
+  const longest = Math.max(0, ...a.runways.map((r) => r.lengthM ?? 0));
+  const tail = [a.elevation !== null ? String(Math.round(Number(a.elevation) * 3.28084)) : "", f?.mhz ?? "", longest > 0 ? String(Math.round(longest / 100)) : ""].filter(Boolean).join(" ");
+  return [a.icao ?? "", a.name.toUpperCase(), tail].filter(Boolean).join("\n");
+}
+
 export function airfieldsToGeoJSON(airfields: readonly Airfield[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: airfields.map((a) => ({
       type: "Feature" as const,
-      properties: { id: a.id, name: a.name, icao: a.icao ?? "" },
+      properties: { id: a.id, name: a.name, icao: a.icao ?? "", sym: airfieldSymbol(a), lbl: airfieldLabel(a), mil: a.type === 4 || a.type === 5 },
       geometry: { type: "Point" as const, coordinates: [a.position.lon, a.position.lat] },
     })),
   };
@@ -111,14 +136,13 @@ export function navToGeoJSON(d: NavDataset): FeatureCollection {
   const add = (lon: number, lat: number, properties: Record<string, unknown>) => features.push({ type: "Feature", properties, geometry: { type: "Point", coordinates: [lon, lat] } });
   for (const v of d.navaids) {
     const sym = navaidSymbol(v);
-    const freq = v.freq ? `${v.freq} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
-    add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: `${v.name}
-${[v.ident, freq].filter(Boolean).join(" ")}` });
+    const freq = v.freq ? `${Number.parseFloat(v.freq)} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
+    add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: "", nm: v.name.toUpperCase(), box: navaidBox(v, sym) });
   }
   for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
   for (const o of d.obstacles) {
     const h = o.heightM ?? 0;
-    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
+    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : h >= HIGH_OBSTACLE_M ? "mast-hi" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
   }
   return { type: "FeatureCollection", features };
 }
@@ -128,5 +152,15 @@ const FT_PER_M = 3.28084;
 export function obstacleLabel(o: { heightM: number | null; elevM: number | null }): string {
   if (o.heightM === null) return "";
   const h = Math.round(o.heightM * FT_PER_M);
-  return o.elevM === null ? `(${h})` : `${Math.round((o.elevM + o.heightM) * FT_PER_M)} (${h})`;
+  return o.elevM === null ? `(${h})` : `${Math.round((o.elevM + o.heightM) * FT_PER_M)}\n(${h})`;
+}
+
+/** La carte OACI n'indique que les obstacles de 300 ft AGL et plus ; au-delà de 500 ft AGL ils sont dessinés « élevés ». */
+export const MIN_OBSTACLE_M = 91.44;
+export const HIGH_OBSTACLE_M = 152.4;
+
+/** Cadre de balise : « (D) IDENT fréquence » (D = DME associé ; fréquence sans zéros inutiles : 108.25, 116.5, 378). */
+export function navaidBox(v: { ident: string; freq: string | null; channel: string | null }, sym: string): string {
+  const f = v.freq === null ? "" : String(Number.parseFloat(v.freq));
+  return `${sym === "vordme" || sym === "dme" ? "(D) " : ""}${v.ident}${f ? ` ${f}` : ""}`;
 }

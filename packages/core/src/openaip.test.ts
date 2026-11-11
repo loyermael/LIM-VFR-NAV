@@ -93,7 +93,7 @@ describe("terrains openAIP", () => {
     expect(a.icao).toBe("LFOI");
     expect(a.position).toEqual({ lat: 50.14306, lon: 1.8325 });
     expect(a.elevation).toBe(67);
-    expect(a.runways[0]).toEqual({ designator: "13", trueHeading: 133, lengthM: 570 });
+    expect(a.runways[0]).toEqual({ designator: "13", trueHeading: 133, lengthM: 570, paved: null });
   });
   it("altitude en pieds convertie ; position illisible écartée", () => {
     const r = parseOpenAipAirfields([{ ...apt, elevation: { value: 1000, unit: 1, referenceDatum: 1 } }, { ...apt, name: "SANS POSITION", geometry: null }]);

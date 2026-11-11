@@ -77,7 +77,7 @@ export interface Airfield {
   /** Altitude du terrain, mètres AMSL. */
   readonly elevation: Meters | null;
   readonly frequencies: readonly AirFrequency[];
-  readonly runways: readonly { readonly designator: string; readonly trueHeading: number | null; readonly lengthM: number | null }[];
+  readonly runways: readonly { readonly designator: string; readonly trueHeading: number | null; readonly lengthM: number | null; /** Piste en dur (asphalte, béton, bitume, brique, macadam) ; null = inconnu. */ readonly paved: boolean | null }[];
   readonly private: boolean;
 }
 
@@ -181,6 +181,12 @@ export function parseOpenAipAirspaces(raw: unknown): ParseResult<Airspace> {
   return { items, skipped };
 }
 
+/** Codes de revêtement openAIP (mainComposite) : 0 asphalte, 1 béton, 5 bitume, 6 brique, 7 macadam = en dur (codes lus sur l'export, mapping de mémoire). */
+const PAVED = new Set([0, 1, 5, 6, 7]);
+function pavedSurface(v: unknown): boolean | null {
+  return typeof v === "number" && Number.isFinite(v) ? PAVED.has(v) : null;
+}
+
 export function parseOpenAipAirfields(raw: unknown): ParseResult<Airfield> {
   if (!Array.isArray(raw)) throw new Error("Export openAIP des terrains invalide : un tableau était attendu");
   const items: Airfield[] = [];
@@ -200,7 +206,7 @@ export function parseOpenAipAirfields(raw: unknown): ParseResult<Airfield> {
       ? (a["runways"] as Record<string, unknown>[]).map((r) => {
           const dim = (r?.["dimension"] as { length?: { value?: unknown; unit?: unknown } } | undefined)?.length;
           const len = dim && isNum(dim.value) ? (dim.unit === 1 ? dim.value * 0.3048 : dim.value) : null;
-          return { designator: str(r?.["designator"]), trueHeading: isNum(r?.["trueHeading"]) ? (r["trueHeading"] as number) : null, lengthM: len };
+          return { designator: str(r?.["designator"]), trueHeading: isNum(r?.["trueHeading"]) ? (r["trueHeading"] as number) : null, lengthM: len, paved: pavedSurface((r?.["surface"] as { mainComposite?: unknown } | undefined)?.mainComposite) };
         })
       : [];
     items.push({

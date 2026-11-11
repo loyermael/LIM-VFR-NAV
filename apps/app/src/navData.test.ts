@@ -51,8 +51,29 @@ describe("symboles de la carte aéro", () => {
 import { obstacleLabel } from "./aeroGeo";
 describe("étiquettes", () => {
   it("obstacle : sommet (hauteur) en pieds, vide si hauteur inconnue", () => {
-    expect(obstacleLabel({ heightM: 80, elevM: 56 })).toBe("446 (262)");
+    expect(obstacleLabel({ heightM: 80, elevM: 56 })).toBe("446\n(262)");
     expect(obstacleLabel({ heightM: null, elevM: 56 })).toBe("");
     expect(obstacleLabel({ heightM: 100, elevM: null })).toBe("(328)");
+  });
+});
+
+import { airfieldLabel, airfieldSymbol, navaidBox } from "./aeroGeo";
+describe("symboles OACI des terrains et balises", () => {
+  const rw = (lengthM: number, paved: boolean | null) => ({ designator: "13", trueHeading: 133, lengthM, paved });
+  it("terrain : classe, revêtement, privé, fermé", () => {
+    expect(airfieldSymbol({ type: 2, private: false, runways: [rw(1200, true)] })).toBe("ad-civil-paved");
+    expect(airfieldSymbol({ type: 2, private: false, runways: [rw(600, false)] })).toBe("ad-civil-unpaved");
+    expect(airfieldSymbol({ type: 5, private: false, runways: [rw(2000, true)] })).toBe("ad-mil-paved");
+    expect(airfieldSymbol({ type: 0, private: false, runways: [rw(2000, true)] })).toBe("ad-mixte-paved");
+    expect(airfieldSymbol({ type: 7, private: false, runways: [] })).toBe("ad-civil-heli");
+    expect(airfieldSymbol({ type: 10, private: false, runways: [] })).toBe("ad-civil-water");
+    expect(airfieldSymbol({ type: 2, private: true, runways: [] })).toBe("ad-p");
+    expect(airfieldSymbol({ type: 8, private: false, runways: [] })).toBe("ad-x");
+  });
+  it("étiquette de terrain et cadre de balise comme sur la carte", () => {
+    const a = { id: "1", name: "Poitiers", icao: "LFBI", type: 9, position: { lat: 0, lon: 0 }, elevation: 129 as never, frequencies: [{ name: "Tour", mhz: "118.500", primary: true }], runways: [rw(2300, true)], private: false };
+    expect(airfieldLabel(a)).toBe("LFBI\nPOITIERS\n423 118.500 23");
+    expect(navaidBox({ ident: "STP", freq: "116.500", channel: "40X" }, "vordme")).toBe("(D) STP 116.5");
+    expect(navaidBox({ ident: "LU", freq: "378.000", channel: null }, "ndb")).toBe("LU 378");
   });
 });
