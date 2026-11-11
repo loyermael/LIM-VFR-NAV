@@ -16,3 +16,6 @@ Enroute (lu dans son code le 11/11) : un menu latéral en groupes (Aircraft, Rou
 
 ## Écran Route (11/11, 2e passage)
 Une seule page de 3 670 px (33 boutons, 21 champs, 6 sections) a été coupée en trois onglets : **Routes** (liste avec suppression en deux temps, nouvelle, import, route sélectionnée, export GPX/KML/FPL/PLN, dossier PDF), **Points et vents** (heure de départ, vent par défaut, points, vent par branche), **Log** (vitesse et consommation repliées, tableau, espaces traversés). Le Log reste long quand la route traverse beaucoup d'espaces.
+
+## Fiche avion (11/11, 3e passage)
+La fiche passait de 3 434 px (34 boutons, 32 champs, liste au-dessus) à : une **liste** de mes avions avec l'état de chaque fiche (complète / à compléter), et un **éditeur seul** (423 px liste, ~900 px éditeur replié) en 5 sections repliables avec badge « complet / à compléter » (Croisière, Masse, Carburant, Postes, Enveloppe) ; la première section à compléter s'ouvre toute seule ; le type de poste est une liste déroulante (4 boutons en moins par poste) ; l'enveloppe se dessine en direct pendant la saisie ; suppression en deux temps.

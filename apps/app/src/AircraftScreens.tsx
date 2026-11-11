@@ -80,18 +80,67 @@ export function BalanceChart(p: { aircraft: Aircraft; zeroFuel: BalanceState; ta
 
 const KINDS: StationKind[] = ["occupant", "baggage", "fuel", "other"];
 
-/** Éditeur d'une fiche avion. Aucune valeur par défaut : tout vient du manuel de vol et de la pesée de l'appareil. */
+/** Section repliable d'une fiche : titre, état (complète ou à compléter), contenu. */
+function Section(p: { id: string; title: string; ok: boolean; open: boolean; onToggle: (id: string) => void; okLabel: string; todoLabel: string; children: React.ReactNode }) {
+  return (
+    <section className={p.ok ? "sect done" : "sect todo"}>
+      <button className="secthead" aria-expanded={p.open} onClick={() => p.onToggle(p.id)}>
+        <span className="secttitle">{p.open ? "▾" : "▸"} {p.title}</span>
+        <span className={p.ok ? "badge okbadge" : "badge todobadge"}>{p.ok ? `✓ ${p.okLabel}` : p.todoLabel}</span>
+      </button>
+      {p.open && <div className="sectbody">{p.children}</div>}
+    </section>
+  );
+}
+
+/** Contour de l'enveloppe, tracé en direct pendant la saisie des sommets. */
+function EnvelopeSketch({ aircraft }: { aircraft: Aircraft }) {
+  const e = aircraft.envelope;
+  if (e.length < 2) return null;
+  const xs = e.map((v) => v[0]), ys = e.map((v) => v[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const W = 240, H = 130, m = 14;
+  const sx = (x: number) => m + ((x - x0) / (x1 - x0 || 1)) * (W - 2 * m);
+  const sy = (y: number) => H - m - ((y - y0) / (y1 - y0 || 1)) * (H - 2 * m);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="balchart" style={{ maxWidth: 320 }} role="img" aria-label="enveloppe">
+      <polygon points={e.map((v) => `${sx(v[0])},${sy(v[1])}`).join(" ")} fill="var(--paper-2)" stroke="var(--ink)" strokeWidth="2" />
+      {e.map((v, i) => (
+        <g key={i}>
+          <circle cx={sx(v[0])} cy={sy(v[1])} r="4" fill="var(--brand)" stroke="var(--ink)" />
+          <text x={sx(v[0]) + 6} y={sy(v[1]) - 5} fontSize="10" fontFamily="var(--font-mono)" fill="var(--ink)">{i + 1}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Éditeur d'une fiche avion, en sections repliables. Aucune valeur par défaut : tout vient du manuel de vol et de la pesée. */
 export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Aircraft; onChange: (a: Aircraft) => void; onDone: () => void }) {
   const T = (k: Key) => t(p.lang, k);
   const a = p.aircraft;
   const now = () => Date.now();
   const set = (patch: Partial<Aircraft>) => p.onChange(patchAircraft(a, patch, now()));
-  const defects = validateAircraft(a);
   const fuelUnit = unitLabel("fuel", p.prefs);
   const speedUnit = unitLabel("groundSpeed", p.prefs);
+  const ok = {
+    cruise: a.tasMps !== null && a.fuelFlowLph !== null,
+    mass: a.emptyMass > 0 && a.maxTakeoffMass > a.emptyMass,
+    fuel: a.fuel.capacity > 0 && a.fuel.density > 0,
+    stations: a.stations.length > 0 && a.stations.every((s) => s.arm !== 0),
+    envelope: a.envelope.length >= 3 && envelopeArea(a) > 1e-6,
+  };
+  const order = ["cruise", "mass", "fuel", "stations", "envelope"] as const;
+  const todo = order.filter((k) => !ok[k]);
+  // À l'ouverture : la première section à compléter est ouverte (les autres repliées).
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(todo.length > 0 ? [todo[0] as string] : []));
+  const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const sec = (id: (typeof order)[number], title: string, children: React.ReactNode) => (
+    <Section id={id} title={title} ok={ok[id]} open={open.has(id)} onToggle={toggle} okLabel={T("ac.secOk")} todoLabel={T("ac.secTodo")}>{children}</Section>
+  );
   return (
     <div className="navscreen">
-      <h3>{T("ac.title")}</h3>
+      <div className="choices"><button onClick={p.onDone}>← {T("ac.list")}</button></div>
       <label className="numfield">
         <span>{T("nav.name")}</span>
         <input className="field" defaultValue={a.name} key={`${a.id}-n`} onBlur={(e) => e.target.value.trim() && set({ name: e.target.value.trim() })} />
@@ -100,61 +149,75 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
         <span>{T("ac.registration")}</span>
         <input className="field" defaultValue={a.registration} key={`${a.id}-r`} onBlur={(e) => set({ registration: e.target.value.trim().toUpperCase() })} />
       </label>
+      <p className={todo.length === 0 ? "muted small" : "error"} role={todo.length === 0 ? undefined : "status"}>
+        {todo.length === 0 ? T("ac.ready") : `${T("ac.progress")} : ${order.length - todo.length} / ${order.length}`}
+      </p>
       <p className="muted small">{T("ac.warning")}</p>
-      {defects.length > 0 && <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>}
 
-      <h3>{T("ac.cruise")}</h3>
-      <div className="params">
-        <NumField label={`${T("nav.tas")} (${speedUnit})`} value={a.tasMps === null ? null : fromSI("groundSpeed", p.prefs, a.tasMps)} onCommit={(v) => set({ tasMps: v !== null && v > 0 ? toSI("groundSpeed", p.prefs, v) : null })} />
-        <NumField label={`${T("nav.fuelflow")} (${fuelUnit}/h)`} decimals={1} value={a.fuelFlowLph === null ? null : fromSI("fuel", p.prefs, a.fuelFlowLph)} onCommit={(v) => set({ fuelFlowLph: v !== null && v > 0 ? toSI("fuel", p.prefs, v) : null })} />
-      </div>
+      {sec("cruise", T("ac.cruise"), (
+        <div className="params">
+          <NumField label={`${T("nav.tas")} (${speedUnit})`} value={a.tasMps === null ? null : fromSI("groundSpeed", p.prefs, a.tasMps)} onCommit={(v) => set({ tasMps: v !== null && v > 0 ? toSI("groundSpeed", p.prefs, v) : null })} />
+          <NumField label={`${T("nav.fuelflow")} (${fuelUnit}/h)`} decimals={1} value={a.fuelFlowLph === null ? null : fromSI("fuel", p.prefs, a.fuelFlowLph)} onCommit={(v) => set({ fuelFlowLph: v !== null && v > 0 ? toSI("fuel", p.prefs, v) : null })} />
+        </div>
+      ))}
 
-      <h3>{T("ac.mass")}</h3>
-      <div className="params">
-        <NumField label={`${T("ac.emptyMass")} (kg)`} decimals={1} value={a.emptyMass || null} onCommit={(v) => set({ emptyMass: v ?? 0 })} />
-        <NumField label={`${T("ac.emptyArm")} (m)`} decimals={3} value={a.emptyMass ? a.emptyArm : null} onCommit={(v) => set({ emptyArm: v ?? 0 })} />
-        <NumField label={`${T("ac.mtow")} (kg)`} decimals={1} value={a.maxTakeoffMass || null} onCommit={(v) => set({ maxTakeoffMass: v ?? 0 })} />
-        <NumField label={`${T("ac.mlw")} (kg)`} decimals={1} value={a.maxLandingMass} onCommit={(v) => set({ maxLandingMass: v })} />
-      </div>
+      {sec("mass", T("ac.mass"), (
+        <div className="params">
+          <NumField label={`${T("ac.emptyMass")} (kg)`} decimals={1} value={a.emptyMass || null} onCommit={(v) => set({ emptyMass: v ?? 0 })} />
+          <NumField label={`${T("ac.emptyArm")} (m)`} decimals={3} value={a.emptyMass ? a.emptyArm : null} onCommit={(v) => set({ emptyArm: v ?? 0 })} />
+          <NumField label={`${T("ac.mtow")} (kg)`} decimals={1} value={a.maxTakeoffMass || null} onCommit={(v) => set({ maxTakeoffMass: v ?? 0 })} />
+          <NumField label={`${T("ac.mlw")} (kg)`} decimals={1} value={a.maxLandingMass} onCommit={(v) => set({ maxLandingMass: v })} />
+        </div>
+      ))}
 
-      <h3>{T("ac.fuel")}</h3>
-      <div className="params">
-        <NumField label={`${T("ac.capacity")} (${fuelUnit})`} decimals={1} value={a.fuel.capacity ? fromSI("fuel", p.prefs, a.fuel.capacity) : null} onCommit={(v) => p.onChange(patchFuel(a, { capacity: v !== null ? toSI("fuel", p.prefs, v) : 0 }, now()))} />
-        <NumField label={`${T("ac.unusable")} (${fuelUnit})`} decimals={1} value={a.fuel.unusable ? fromSI("fuel", p.prefs, a.fuel.unusable) : null} onCommit={(v) => p.onChange(patchFuel(a, { unusable: v !== null ? toSI("fuel", p.prefs, v) : 0 }, now()))} />
-        <NumField label={`${T("ac.density")} (kg/L)`} decimals={3} value={a.fuel.density} onCommit={(v) => v !== null && v > 0 && p.onChange(patchFuel(a, { density: v }, now()))} />
-      </div>
+      {sec("fuel", T("ac.fuel"), (
+        <div className="params">
+          <NumField label={`${T("ac.capacity")} (${fuelUnit})`} decimals={1} value={a.fuel.capacity ? fromSI("fuel", p.prefs, a.fuel.capacity) : null} onCommit={(v) => p.onChange(patchFuel(a, { capacity: v !== null ? toSI("fuel", p.prefs, v) : 0 }, now()))} />
+          <NumField label={`${T("ac.unusable")} (${fuelUnit})`} decimals={1} value={a.fuel.unusable ? fromSI("fuel", p.prefs, a.fuel.unusable) : null} onCommit={(v) => p.onChange(patchFuel(a, { unusable: v !== null ? toSI("fuel", p.prefs, v) : 0 }, now()))} />
+          <NumField label={`${T("ac.density")} (kg/L)`} decimals={3} value={a.fuel.density} onCommit={(v) => v !== null && v > 0 && p.onChange(patchFuel(a, { density: v }, now()))} />
+        </div>
+      ))}
 
-      <h3>{T("ac.stations")}</h3>
-      {a.stations.map((s, i) => (
-        <div className="station-row" key={s.id}>
-          <input className="field" defaultValue={s.name} key={`${s.id}-${s.name}`} aria-label={T("nav.name")} onBlur={(e) => p.onChange(patchStation(a, i, { name: e.target.value.trim() || s.name }, now()))} />
+      {sec("stations", T("ac.stations"), (
+        <>
+          {a.stations.map((s, i) => (
+            <div className="stationcard" key={s.id}>
+              <div className="stationhead">
+                <input className="field" defaultValue={s.name} key={`${s.id}-${s.name}`} aria-label={T("nav.name")} onBlur={(e) => p.onChange(patchStation(a, i, { name: e.target.value.trim() || s.name }, now()))} />
+                <select className="field" value={s.kind} aria-label={T("ac.kindLabel")} onChange={(e) => p.onChange(patchStation(a, i, { kind: e.target.value as StationKind }, now()))}>
+                  {KINDS.map((k) => <option key={k} value={k}>{T(`ac.kind.${k}` as Key)}</option>)}
+                </select>
+                <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeStation(a, i, now()))}>✕</button>
+              </div>
+              <div className="params">
+                <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={s.arm || null} onCommit={(v) => p.onChange(patchStation(a, i, { arm: v ?? 0 }, now()))} />
+                {s.kind !== "fuel" && <NumField label={`${T("ac.maxMass")} (kg)`} decimals={1} value={s.maxMass} onCommit={(v) => p.onChange(patchStation(a, i, { maxMass: v }, now()))} />}
+              </div>
+            </div>
+          ))}
+          <div className="choices"><button onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</button></div>
+        </>
+      ))}
+
+      {sec("envelope", T("ac.envelope"), (
+        <>
+          <p className="muted small">{T("ac.envelopeHelp")}</p>
+          <EnvelopeSketch aircraft={a} />
+          {a.envelope.map((v, i) => (
+            <div className="point-row" key={i} style={{ gridTemplateColumns: "28px 1fr 1fr auto" }}>
+              <b className="mono">{i + 1}</b>
+              <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={v[0]} onCommit={(x) => x !== null && p.onChange(patchVertex(a, i, x, v[1], now()))} />
+              <NumField label={`${T("ac.mass")} (kg)`} decimals={1} value={v[1]} onCommit={(m) => m !== null && p.onChange(patchVertex(a, i, v[0], m, now()))} />
+              <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))}>✕</button>
+            </div>
+          ))}
           <div className="choices">
-            {KINDS.map((k) => (
-              <button key={k} aria-pressed={s.kind === k} onClick={() => p.onChange(patchStation(a, i, { kind: k }, now()))}>{T(`ac.kind.${k}` as Key)}</button>
-            ))}
+            <button onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</button>
+            <button disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</button>
           </div>
-          <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={s.arm || null} onCommit={(v) => p.onChange(patchStation(a, i, { arm: v ?? 0 }, now()))} />
-          {s.kind !== "fuel" && <NumField label={`${T("ac.maxMass")} (kg)`} decimals={1} value={s.maxMass} onCommit={(v) => p.onChange(patchStation(a, i, { maxMass: v }, now()))} />}
-          <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeStation(a, i, now()))}>✕</button>
-        </div>
+          {a.envelope.length >= 3 && envelopeArea(a) < 1e-6 && <p className="error" role="alert">{T("ac.degenerate")}</p>}
+        </>
       ))}
-      <div className="choices"><button onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</button></div>
-
-      <h3>{T("ac.envelope")}</h3>
-      <p className="muted small">{T("ac.envelopeHelp")}</p>
-      {a.envelope.map((v, i) => (
-        <div className="point-row" key={i} style={{ gridTemplateColumns: "28px 1fr 1fr auto" }}>
-          <b className="mono">{i + 1}</b>
-          <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={v[0]} onCommit={(x) => x !== null && p.onChange(patchVertex(a, i, x, v[1], now()))} />
-          <NumField label={`${T("ac.mass")} (kg)`} decimals={1} value={v[1]} onCommit={(m) => m !== null && p.onChange(patchVertex(a, i, v[0], m, now()))} />
-          <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))}>✕</button>
-        </div>
-      ))}
-      <div className="choices">
-        <button onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</button>
-        <button disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</button>
-      </div>
-      {a.envelope.length >= 3 && envelopeArea(a) < 1e-6 && <p className="error" role="alert">{T("ac.degenerate")}</p>}
       <div className="choices"><button className="brand" onClick={p.onDone}>{T("ac.done")}</button></div>
     </div>
   );
@@ -170,41 +233,46 @@ interface AircraftTabProps {
   onRemove: (id: string) => void;
 }
 
-/** Onglet « Fiche » : mes avions, choix de l'avion actif, édition de la fiche. */
+/** Onglet « Fiche » : liste de mes avions (état de chaque fiche), puis édition d'une seule fiche à la fois. */
 export function AircraftTab(p: AircraftTabProps) {
   const T = (k: Key) => t(p.lang, k);
   const [editing, setEditing] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const a = p.active;
-  const defects = a ? validateAircraft(a) : [];
+  if (a && editing) return <AircraftEditor lang={p.lang} prefs={p.prefs} aircraft={a} onChange={p.onPut} onDone={() => setEditing(false)} />;
   const create = () => {
     const na = newAircraft(crypto.randomUUID(), `${T("ac.new")} ${p.aircraft.length + 1}`, Date.now());
     p.onPut(na);
     p.onSelect(na.id);
     setEditing(true);
   };
+  const status = (x: Aircraft) => { const d = validateAircraft(x); return d.length === 0 ? T("ac.statusOk") : `${T("ac.statusTodo")} (${d.length})`; };
   return (
     <div className="navscreen">
       <h3>{T("ac.list")}</h3>
+      {p.aircraft.length === 0 && <p className="muted">{T("ac.none")}</p>}
       <div className="route-list">
         {p.aircraft.map((x) => (
-          <div className="route-item" key={x.id}>
-            <button className="row" aria-pressed={a?.id === x.id} onClick={() => { p.onSelect(x.id); setEditing(false); setConfirm(null); }}>{x.registration ? `${x.registration} · ` : ""}{x.name}</button>
-            {confirm === x.id
-              ? <button className="brand" onClick={() => { p.onRemove(x.id); setConfirm(null); }}>{T("tr.confirmDelete")}</button>
-              : <button aria-label={T("nav.delete")} onClick={() => setConfirm(x.id)}>✕</button>}
+          <div className={a?.id === x.id ? "aircard active" : "aircard"} key={x.id}>
+            <button className="row" aria-pressed={a?.id === x.id} onClick={() => { p.onSelect(x.id); setConfirm(null); }}>
+              <b>{x.registration ? `${x.registration} · ` : ""}{x.name}</b>
+              <span className="muted small"> — {status(x)}</span>
+            </button>
+            {a?.id === x.id && (
+              <div className="choices">
+                <button className="brand" onClick={() => setEditing(true)}>{T("ac.edit")}</button>
+                <button onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>
+                {confirm === x.id
+                  ? <button className="brand" onClick={() => { p.onRemove(x.id); setConfirm(null); }}>{T("tr.confirmDelete")}</button>
+                  : <button onClick={() => setConfirm(x.id)}>{T("nav.delete")}</button>}
+              </div>
+            )}
           </div>
         ))}
-        {p.aircraft.length === 0 && <p className="muted small">{T("ac.none")}</p>}
       </div>
-      <div className="choices">
-        <button onClick={create}>{T("ac.new")}</button>
-        {a && <button aria-pressed={editing} onClick={() => setEditing(!editing)}>{T("ac.edit")}</button>}
-        {a && <button onClick={() => { const c = duplicateAircraft(a, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>}
-      </div>
-      {a && editing && <AircraftEditor lang={p.lang} prefs={p.prefs} aircraft={a} onChange={p.onPut} onDone={() => setEditing(false)} />}
-      {a && !editing && defects.length > 0 && <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>}
-      {a && !editing && defects.length === 0 && <p className="muted small">{T("ac.ready")}</p>}
+      <div className="choices"><button onClick={create}>{T("ac.new")}</button></div>
+      {a && validateAircraft(a).length === 0 && <p className="muted small">{T("ac.ready")}</p>}
+      <p className="muted small">{T("ac.warning")}</p>
     </div>
   );
 }

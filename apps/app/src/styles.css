@@ -250,3 +250,15 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 
 .perfbox { border: var(--rule-line); padding: var(--sp-3); margin: var(--sp-3) 0; background: var(--paper); }
 .perfbox summary { cursor: pointer; font-weight: 600; font-family: var(--font-mono); }
+
+/* Fiches : sections repliables et cartes */
+.sect { border: var(--rule-line); margin: var(--sp-3) 0; background: var(--paper); }
+.secthead { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); width: 100%; text-align: left; border: 0; background: transparent; padding: var(--sp-3); min-height: 48px; }
+.sectbody { padding: 0 var(--sp-3) var(--sp-3); }
+.secttitle { font-weight: 700; }
+.badge.okbadge { color: var(--zone-good); border-color: var(--zone-good); background: transparent; }
+.badge.todobadge { background: var(--brand); color: var(--on-brand); }
+.stationcard { border: 1px solid var(--hair); padding: var(--sp-2); margin-bottom: var(--sp-2); display: grid; gap: var(--sp-2); }
+.stationhead { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-2); align-items: center; }
+.aircard { border: var(--rule-line); padding: var(--sp-2); margin-bottom: var(--sp-2); background: var(--paper); display: grid; gap: var(--sp-2); }
+.aircard.active { border-width: 3px; }
