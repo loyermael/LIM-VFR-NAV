@@ -3,6 +3,7 @@ import { fitGeoref, georefMetrics, parseCoordinate, type ControlPoint } from "@l
 import { t, type Key, type Lang } from "./i18n";
 import { DOC_KINDS, isPdf, newDoc, type DocKind, type DocRecord } from "./docStore";
 import { imageSize, renderPdfPage } from "./pdfRender";
+import { Section } from "./Section";
 
 const KIND_KEYS: Record<DocKind, Key> = { vac: "dc.kind.vac", aip: "dc.kind.aip", sup: "dc.kind.sup", other: "dc.kind.other" };
 
@@ -147,49 +148,60 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; onPut: (d: DocRecord) => voi
   const [zoom, setZoom] = useState(1);
   const [mode, setMode] = useState<"view" | "calibrate">("view");
   const [confirm, setConfirm] = useState(false);
+  const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(d.georef || d.kind !== "vac" ? [] : ["geo"]));
+  const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const { r, error } = useRendered(d, page);
   const g = d.georef;
   const metrics = g ? georefMetrics(g.georef, g.width, g.height) : null;
   return (
     <div className="navscreen">
       <div className="choices"><button onClick={p.onBack}>← {T("dc.back")}</button></div>
-      <label className="numfield"><span>{T("nav.name")}</span><input className="field" defaultValue={d.name} key={`${d.id}-n`} onBlur={(e) => e.target.value.trim() && p.onPut({ ...d, name: e.target.value.trim() })} /></label>
-      <div className="choices">
-        {DOC_KINDS.map((k) => <button key={k} aria-pressed={d.kind === k} onClick={() => p.onPut({ ...d, kind: k })}>{T(KIND_KEYS[k])}</button>)}
-      </div>
-      <div className="params">
-        <label className="numfield"><span>{T("dc.icao")}</span><input className="field" defaultValue={d.icao} key={`${d.id}-i`} maxLength={4} onBlur={(e) => p.onPut({ ...d, icao: e.target.value.trim().toUpperCase() })} /></label>
-        <label className="numfield"><span>{T("dc.sourceDate")}</span><input className="field" defaultValue={d.sourceDate} key={`${d.id}-s`} placeholder="AIRAC 13/2026" onBlur={(e) => p.onPut({ ...d, sourceDate: e.target.value.trim() })} /></label>
-      </div>
-      <p className="muted small">{T("dc.stale")}</p>
+      <h3 className="doctitle">{d.icao ? `${d.icao} · ` : ""}{d.name}</h3>
+      <p className="muted small">{T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""}{g ? ` · ${T("dc.geo.badge")}` : ""}</p>
 
       {error && <p className="error" role="alert">{T("dc.renderError")} : {error}</p>}
       {!r && !error && <p className="muted">{T("dc.rendering")}</p>}
       {r && mode === "view" && (
         <>
-          {r.pages > 1 && (
-            <div className="choices">
-              <button disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
-              <span className="mono">{page} / {r.pages}</span>
-              <button disabled={page >= r.pages} onClick={() => setPage(page + 1)}>›</button>
-            </div>
-          )}
-          <ZoomBar zoom={zoom} onZoom={setZoom} />
-          <ChartImage r={r} zoom={zoom} alt={d.name} />
-          <h3>{T("dc.geo")}</h3>
-          {g && metrics ? (
-            <>
-              <p className="muted small">{T("dc.geo.done")} · {g.points.length} {T("dc.geo.points")} · {T("dc.cal.rms")} {Math.round(g.rmsError)} m · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
-              <div className="choices">
-                {(["auto", "on", "off"] as const).map((s) => <button key={s} aria-pressed={d.show === s} onClick={() => p.onPut({ ...d, show: s })}>{T(`dc.show.${s}` as Key)}</button>)}
-              </div>
-              <p className="muted small">{T("dc.show.note")}</p>
-            </>
-          ) : <p className="muted small">{T("dc.geo.none")}</p>}
           <div className="choices">
-            <button onClick={() => setMode("calibrate")}>{g ? T("dc.geo.redo") : T("dc.geo.start")}</button>
-            {g && <button onClick={() => p.onPut({ ...d, georef: null })}>{T("dc.geo.remove")}</button>}
+            {r.pages > 1 && (
+              <>
+                <button disabled={page <= 1} aria-label="‹" onClick={() => setPage(page - 1)}>‹</button>
+                <span className="mono">{page} / {r.pages}</span>
+                <button disabled={page >= r.pages} aria-label="›" onClick={() => setPage(page + 1)}>›</button>
+              </>
+            )}
+            <ZoomBar zoom={zoom} onZoom={setZoom} />
           </div>
+          <ChartImage r={r} zoom={zoom} alt={d.name} />
+
+          <Section plain id="info" title={T("dc.info")} ok open={open.has("info")} onToggle={toggle}>
+            <label className="numfield"><span>{T("nav.name")}</span><input className="field" defaultValue={d.name} key={`${d.id}-n`} onBlur={(e) => e.target.value.trim() && p.onPut({ ...d, name: e.target.value.trim() })} /></label>
+            <div className="choices">
+              {DOC_KINDS.map((k) => <button key={k} aria-pressed={d.kind === k} onClick={() => p.onPut({ ...d, kind: k })}>{T(KIND_KEYS[k])}</button>)}
+            </div>
+            <div className="params">
+              <label className="numfield"><span>{T("dc.icao")}</span><input className="field" defaultValue={d.icao} key={`${d.id}-i`} maxLength={4} onBlur={(e) => p.onPut({ ...d, icao: e.target.value.trim().toUpperCase() })} /></label>
+              <label className="numfield"><span>{T("dc.sourceDate")}</span><input className="field" defaultValue={d.sourceDate} key={`${d.id}-s`} placeholder="AIRAC 13/2026" onBlur={(e) => p.onPut({ ...d, sourceDate: e.target.value.trim() })} /></label>
+            </div>
+            <p className="muted small">{T("dc.stale")}</p>
+          </Section>
+
+          <Section id="geo" title={T("dc.geo")} ok={!!g} open={open.has("geo")} onToggle={toggle} okLabel={T("dc.geo.done")} todoLabel={T("dc.geo.todo")}>
+            {g && metrics ? (
+              <>
+                <p className="muted small">{g.points.length} {T("dc.geo.points")} · {T("dc.cal.rms")} {Math.round(g.rmsError)} m · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
+                <div className="choices">
+                  {(["auto", "on", "off"] as const).map((sh) => <button key={sh} aria-pressed={d.show === sh} onClick={() => p.onPut({ ...d, show: sh })}>{T(`dc.show.${sh}` as Key)}</button>)}
+                </div>
+                <p className="muted small">{T("dc.show.note")}</p>
+              </>
+            ) : <p className="muted small">{T("dc.geo.none")}</p>}
+            <div className="choices">
+              <button className={g ? undefined : "brand"} onClick={() => setMode("calibrate")}>{g ? T("dc.geo.redo") : T("dc.geo.start")}</button>
+              {g && <button onClick={() => p.onPut({ ...d, georef: null })}>{T("dc.geo.remove")}</button>}
+            </div>
+          </Section>
         </>
       )}
       {r && mode === "calibrate" && (
@@ -225,6 +237,9 @@ export function DocsTab(p: DocsProps) {
   const shown = [...p.docs]
     .filter((d) => (filter === "all" || d.kind === filter) && (q === "" || `${d.name} ${d.icao}`.toLowerCase().includes(q.toLowerCase())))
     .sort((a, b) => (a.icao || "~").localeCompare(b.icao || "~") || a.name.localeCompare(b.name));
+  const groups = new Map<string, DocRecord[]>();
+  for (const d of shown) groups.set(d.icao || "", [...(groups.get(d.icao || "") ?? []), d]);
+  const count = (k: DocKind | "all") => (k === "all" ? p.docs.length : p.docs.filter((d) => d.kind === k).length);
   const onFiles = (files: FileList | null) => {
     setImportError(null);
     for (const f of Array.from(files ?? [])) {
@@ -234,26 +249,36 @@ export function DocsTab(p: DocsProps) {
   };
   return (
     <div className="navscreen">
-      <label className="choices filebtn">
+      <label className="filebtn">
         <span className="button">{T("dc.import")}</span>
         <input type="file" accept=".pdf,application/pdf,image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
       </label>
       {importError && <p className="error" role="alert">{importError}</p>}
-      <div className="choices">
-        <button aria-pressed={filter === "all"} onClick={() => setFilter("all")}>{T("dc.all")}</button>
-        {DOC_KINDS.map((k) => <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{T(KIND_KEYS[k])}</button>)}
-      </div>
-      <label className="numfield"><span>{T("dc.search")}</span><input className="field" value={q} onChange={(e) => setQ(e.target.value)} /></label>
-      {shown.length === 0 && <p className="muted">{T("dc.none")}</p>}
-      <div className="route-list">
-        {shown.map((d) => (
-          <div className="route-item" key={d.id}>
-            <button className="row" onClick={() => p.onOpen(d.id)}>
-              {d.icao ? `${d.icao} · ` : ""}{d.name} · {T(KIND_KEYS[d.kind])}{d.georef ? ` · ${T("dc.geo.badge")}` : ""} · {(d.size / 1048576).toFixed(1)} Mo
-            </button>
+      {p.docs.length === 0 && <p className="muted">{T("dc.none")}</p>}
+      {p.docs.length > 0 && (
+        <>
+          <div className="choices">
+            {(["all", ...DOC_KINDS] as const).filter((k) => k === "all" || count(k) > 0).map((k) => (
+              <button key={k} aria-pressed={filter === k} onClick={() => setFilter(k)}>{k === "all" ? T("dc.all") : T(KIND_KEYS[k])} ({count(k)})</button>
+            ))}
           </div>
-        ))}
-      </div>
+          {p.docs.length > 5 && <label className="numfield"><span>{T("dc.search")}</span><input className="field" value={q} onChange={(e) => setQ(e.target.value)} /></label>}
+          {shown.length === 0 && <p className="muted">{T("dc.noMatch")}</p>}
+          {[...groups.entries()].map(([icao, list]) => (
+            <div key={icao || "none"}>
+              <h3>{icao || T("dc.noAirfield")}</h3>
+              {list.map((d) => (
+                <button className="doccard" key={d.id} onClick={() => p.onOpen(d.id)}>
+                  <b>{d.name}</b>
+                  <span className="muted small">
+                    {T(KIND_KEYS[d.kind])}{d.georef ? ` · ${T("dc.geo.badge")}` : ""}{d.sourceDate ? ` · ${d.sourceDate}` : ""} · {(d.size / 1048576).toFixed(1)} {T("dp.mb")}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
       <p className="muted small">{T("dc.note")}</p>
     </div>
   );

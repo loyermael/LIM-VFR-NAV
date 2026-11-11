@@ -262,3 +262,7 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .stationhead { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-2); align-items: center; }
 .aircard { border: var(--rule-line); padding: var(--sp-2); margin-bottom: var(--sp-2); background: var(--paper); display: grid; gap: var(--sp-2); }
 .aircard.active { border-width: 3px; }
+
+/* Listes : cartes cliquables */
+.doccard, .trackcard { display: grid; gap: 2px; width: 100%; text-align: left; margin-bottom: var(--sp-2); padding: var(--sp-3); min-height: 56px; }
+.doctitle { margin: var(--sp-2) 0 0; }

@@ -3,6 +3,7 @@ import {
   exportTrackGPX, exportTrackIGC, exportTrackKML, formatQuantity, fromSI, pointAt, trackStats, unitLabel, type TrackPoint, type UnitPrefs,
 } from "@lim/core";
 import { NumField } from "./NavScreen";
+import { Section } from "./Section";
 import { t, type Key, type Lang } from "./i18n";
 import { downloadFile, safeName } from "./download";
 import { cdCancel, cdRemaining, cdStart, hms, swElapsed, swStart, swStop, STOPWATCH_ZERO, type Countdown, type Stopwatch } from "./timers";
@@ -140,6 +141,9 @@ export function TracesTab(p: TracesProps) {
   const T = (k: Key) => t(p.lang, k);
   const [sel, setSel] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const [confirmClean, setConfirmClean] = useState(false);
+  const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sorted = [...p.tracks].sort((a, b) => b.startMs - a.startMs);
   const track = sel ? p.tracks.find((x) => x.id === sel) ?? null : null;
   const dist = (v: number) => `${formatQuantity("distance", p.prefs, v)} ${unitLabel("distance", p.prefs)}`;
@@ -152,43 +156,50 @@ export function TracesTab(p: TracesProps) {
     const alt = (v: number) => fromSI("altitude", p.prefs, v);
     const spd = (v: number) => fromSI("groundSpeed", p.prefs, v);
     const rp = p.replay && p.replay.id === track.id ? p.replay : null;
+    const isOpen = (id: string) => open.has(id) || (id === "replay" && rp !== null);
     return (
       <div className="navscreen">
         <div className="choices"><button onClick={() => { setSel(null); setConfirm(null); }}>← {T("tr.back")}</button></div>
-        <label className="numfield">
-          <span>{T("nav.name")}</span>
-          <input className="field" defaultValue={track.name} key={track.id} onBlur={(e) => e.target.value.trim() && p.onRename(track.id, e.target.value.trim())} />
-        </label>
+        <h3 className="doctitle">{track.name}</h3>
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}
         {track.interrupted && <p className="error" role="alert">{T("tr.interrupted")}</p>}
         <table className="navlog"><tbody>
           <tr><td className="legname">{T("tr.date")}</td><td>{new Date(first).toISOString().replace("T", " ").slice(0, 16)} UTC</td></tr>
-          <tr><td className="legname">{T("tr.duration")}</td><td>{hms(st.duration * 1000)}</td></tr>
           <tr><td className="legname">{T("tr.flightTime")}</td><td>{flying === null ? "---" : hms(flying)}</td></tr>
+          <tr><td className="legname">{T("tr.duration")}</td><td>{hms(st.duration * 1000)}</td></tr>
           <tr><td className="legname">{T("tr.distance")}</td><td>{dist(st.distance)}</td></tr>
           <tr><td className="legname">{T("tr.maxAlt")}</td><td>{st.maxAltitude === null ? "---" : `${formatQuantity("altitude", p.prefs, st.maxAltitude)} ${unitLabel("altitude", p.prefs)}`}</td></tr>
           <tr><td className="legname">{T("tr.maxGs")}</td><td>{st.maxGroundSpeed === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, st.maxGroundSpeed)} ${unitLabel("groundSpeed", p.prefs)}`}</td></tr>
-          <tr><td className="legname">{T("tr.points")}</td><td>{st.points}</td></tr>
         </tbody></table>
-
-        <h3>{T("tr.profiles")}</h3>
-        <Profile points={track.points} pick={(pt) => pt.alt} unit={unitLabel("altitude", p.prefs)} conv={alt} cursorT={rp?.t ?? null} label={T("tr.altitude")} />
-        <Profile points={track.points} pick={(pt) => pt.gs} unit={unitLabel("groundSpeed", p.prefs)} conv={spd} cursorT={rp?.t ?? null} label={T("tr.speed")} />
-
-        <h3>{T("tr.replay")}</h3>
         <div className="choices">
-          <button disabled={track.points.length < 2} onClick={() => { p.onReplay({ id: track.id, t: first, playing: true, speed: 4 }); p.onShowOnMap(); }}>{T("tr.replayMap")}</button>
+          <button className="brand" disabled={track.points.length < 2} onClick={() => { p.onReplay({ id: track.id, t: first, playing: true, speed: 4 }); p.onShowOnMap(); }}>{T("tr.replayMap")}</button>
         </div>
-        {rp && <ReplayBar lang={p.lang} track={track} replay={rp} onChange={p.onReplay} onClose={() => p.onReplay(null)} />}
-        {rp && (() => { const q = pointAt(track.points, rp.t); return q ? <p className="mono small">{q.alt === null ? "---" : `${formatQuantity("altitude", p.prefs, q.alt)} ${unitLabel("altitude", p.prefs)}`} · {q.gs === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, q.gs)} ${unitLabel("groundSpeed", p.prefs)}`}</p> : null; })()}
 
-        <h3>{T("tr.export")}</h3>
-        <div className="choices">
-          <button onClick={() => downloadFile(`${base}.gpx`, exportTrackGPX(track.name, track.points), "application/gpx+xml")}>GPX</button>
-          <button onClick={() => downloadFile(`${base}.kml`, exportTrackKML(track.name, track.points), "application/vnd.google-earth.kml+xml")}>KML</button>
-          <button onClick={() => downloadFile(`${base}.igc`, exportTrackIGC(track.points, { aircraftType: p.aircraftName, registration: p.registration }), "text/plain")}>IGC</button>
-        </div>
-        <p className="muted small">{T("tr.igcNote")}</p>
+        {rp && (
+          <Section plain id="replay" title={T("tr.replay")} ok open={isOpen("replay")} onToggle={toggle}>
+            <ReplayBar lang={p.lang} track={track} replay={rp} onChange={p.onReplay} onClose={() => p.onReplay(null)} />
+            {(() => { const q = pointAt(track.points, rp.t); return q ? <p className="mono small">{q.alt === null ? "---" : `${formatQuantity("altitude", p.prefs, q.alt)} ${unitLabel("altitude", p.prefs)}`} · {q.gs === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, q.gs)} ${unitLabel("groundSpeed", p.prefs)}`}</p> : null; })()}
+          </Section>
+        )}
+        <Section plain id="profiles" title={T("tr.profiles")} ok open={isOpen("profiles")} onToggle={toggle}>
+          <Profile points={track.points} pick={(pt) => pt.alt} unit={unitLabel("altitude", p.prefs)} conv={alt} cursorT={rp?.t ?? null} label={T("tr.altitude")} />
+          <Profile points={track.points} pick={(pt) => pt.gs} unit={unitLabel("groundSpeed", p.prefs)} conv={spd} cursorT={rp?.t ?? null} label={T("tr.speed")} />
+        </Section>
+        <Section plain id="export" title={T("tr.export")} ok open={isOpen("export")} onToggle={toggle}>
+          <div className="choices">
+            <button onClick={() => downloadFile(`${base}.gpx`, exportTrackGPX(track.name, track.points), "application/gpx+xml")}>GPX</button>
+            <button onClick={() => downloadFile(`${base}.kml`, exportTrackKML(track.name, track.points), "application/vnd.google-earth.kml+xml")}>KML</button>
+            <button onClick={() => downloadFile(`${base}.igc`, exportTrackIGC(track.points, { aircraftType: p.aircraftName, registration: p.registration }), "text/plain")}>IGC</button>
+          </div>
+          <p className="muted small">{T("tr.igcNote")}</p>
+        </Section>
+        <Section plain id="rename" title={T("tr.rename")} ok open={isOpen("rename")} onToggle={toggle}>
+          <label className="numfield">
+            <span>{T("nav.name")}</span>
+            <input className="field" defaultValue={track.name} key={track.id} onBlur={(e) => e.target.value.trim() && p.onRename(track.id, e.target.value.trim())} />
+          </label>
+          <p className="muted small">{track.points.length} {T("tr.points")}</p>
+        </Section>
         <div className="choices">
           {confirm === track.id
             ? <button className="brand" onClick={() => { p.onRemove(track.id); setSel(null); setConfirm(null); if (rp) p.onReplay(null); }}>{T("tr.confirmDelete")}</button>
@@ -198,21 +209,38 @@ export function TracesTab(p: TracesProps) {
     );
   }
 
+  // Liste : regroupée par mois, la plus récente d'abord.
+  const month = (ms: number) => new Date(ms).toLocaleDateString(p.lang === "fr" ? "fr-FR" : "en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+  // Traces de moins de 2 minutes (essais, redémarrages) : proposées au nettoyage, jamais supprimées d'office.
+  const short = sorted.filter((x) => x.id !== p.activeId && trackStats(x.points).duration < 120);
+  const groups = new Map<string, TrackRecord[]>();
+  for (const x of sorted) groups.set(month(x.startMs), [...(groups.get(month(x.startMs)) ?? []), x]);
   return (
     <div className="navscreen">
       {sorted.length === 0 && <p className="muted">{T("tr.none")}</p>}
-      <div className="route-list">
-        {sorted.map((x) => {
-          const s = trackStats(x.points);
-          return (
-            <div className="route-item" key={x.id}>
-              <button className="row" onClick={() => setSel(x.id)}>
-                {x.name} · {hms(s.duration * 1000)} · {dist(s.distance)}{x.interrupted ? ` · ${T("tr.interruptedShort")}` : ""}{x.id === p.activeId ? ` · ${T("tr.inProgressShort")}` : ""}
+      {short.length > 0 && (
+        <div className="choices">
+          {confirmClean
+            ? <button className="brand" onClick={() => { short.forEach((x) => p.onRemove(x.id)); setConfirmClean(false); }}>{T("tr.cleanConfirm")} ({short.length})</button>
+            : <button onClick={() => setConfirmClean(true)}>{T("tr.clean")} ({short.length})</button>}
+        </div>
+      )}
+      {[...groups.entries()].map(([m, list]) => (
+        <div key={m}>
+          <h3>{m}</h3>
+          {list.map((x) => {
+            const s = trackStats(x.points);
+            return (
+              <button className="trackcard" key={x.id} onClick={() => setSel(x.id)}>
+                <b>{x.name}</b>
+                <span className="muted small">
+                  {hms(s.duration * 1000)} · {dist(s.distance)}{x.interrupted ? ` · ${T("tr.interruptedShort")}` : ""}{x.id === p.activeId ? ` · ${T("tr.inProgressShort")}` : ""}
+                </span>
               </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      ))}
       <p className="muted small">{T("tr.note")}</p>
     </div>
   );

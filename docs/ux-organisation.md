@@ -19,3 +19,7 @@ Une seule page de 3 670 px (33 boutons, 21 champs, 6 sections) a été coupée e
 
 ## Fiche avion (11/11, 3e passage)
 La fiche passait de 3 434 px (34 boutons, 32 champs, liste au-dessus) à : une **liste** de mes avions avec l'état de chaque fiche (complète / à compléter), et un **éditeur seul** (423 px liste, ~900 px éditeur replié) en 5 sections repliables avec badge « complet / à compléter » (Croisière, Masse, Carburant, Postes, Enveloppe) ; la première section à compléter s'ouvre toute seule ; le type de poste est une liste déroulante (4 boutons en moins par poste) ; l'enveloppe se dessine en direct pendant la saisie ; suppression en deux temps.
+
+## Docs et traces (11/11, 4e passage)
+**Docs** : liste groupée par terrain (LFXX, LFYY, « Sans terrain »), filtres avec compteurs, recherche seulement au-delà de 5 documents ; une carte par document (nom, type, calée, date de source, taille). Fiche : le lecteur d'abord, puis deux sections repliables (Informations, Géoréférencement avec badge « calée / non calée ») ; la section de calage s'ouvre seule pour une VAC non calée. **Traces** : liste groupée par mois (la plus récente d'abord) ; détail = chiffres clés et bouton de rejeu, puis sections repliables (Rejeu, Profils, Export, Renommer) ; bouton « Supprimer les traces de moins de 2 min » (confirmation) pour les essais et redémarrages. Composant partagé : `Section.tsx`.
+Limite connue : une trace interrompue par un redémarrage n'est pas recollée à celle qui reprend ensuite (chaque redémarrage en vol crée une nouvelle trace).

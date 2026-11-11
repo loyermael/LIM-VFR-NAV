@@ -4,6 +4,7 @@ import {
   type Aircraft, type BalanceIssue, type BalanceState, type Loads, type StationKind, type UnitPrefs,
 } from "@lim/core";
 import { NumField } from "./NavScreen";
+import { Section } from "./Section";
 import { t, type Key, type Lang } from "./i18n";
 import {
   addStation, addVertex, duplicateAircraft, envelopeArea, newAircraft, orderEnvelope, patchAircraft, patchFuel, patchStation,
@@ -79,19 +80,6 @@ export function BalanceChart(p: { aircraft: Aircraft; zeroFuel: BalanceState; ta
 }
 
 const KINDS: StationKind[] = ["occupant", "baggage", "fuel", "other"];
-
-/** Section repliable d'une fiche : titre, état (complète ou à compléter), contenu. */
-function Section(p: { id: string; title: string; ok: boolean; open: boolean; onToggle: (id: string) => void; okLabel: string; todoLabel: string; children: React.ReactNode }) {
-  return (
-    <section className={p.ok ? "sect done" : "sect todo"}>
-      <button className="secthead" aria-expanded={p.open} onClick={() => p.onToggle(p.id)}>
-        <span className="secttitle">{p.open ? "▾" : "▸"} {p.title}</span>
-        <span className={p.ok ? "badge okbadge" : "badge todobadge"}>{p.ok ? `✓ ${p.okLabel}` : p.todoLabel}</span>
-      </button>
-      {p.open && <div className="sectbody">{p.children}</div>}
-    </section>
-  );
-}
 
 /** Contour de l'enveloppe, tracé en direct pendant la saisie des sommets. */
 function EnvelopeSketch({ aircraft }: { aircraft: Aircraft }) {
