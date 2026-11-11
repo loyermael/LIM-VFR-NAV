@@ -4,6 +4,7 @@ import {
   type LatLon, type LegWindEstimate, type UnitPrefs, type WindForecast,
 } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
+import { Section } from "./Section";
 import { windKey, WIND_STALE_MS } from "./windClient";
 import type { RouteRecord } from "./routeEdit";
 
@@ -27,6 +28,7 @@ interface WindsProps {
 
 /** Onglet « Vents » : tableau des 18 niveaux de pression sur 24 h en un point, et vents de la route issus du modèle. */
 export function WindsTab(p: WindsProps) {
+  const [openTable, setOpenTable] = useState(false);
   const T = (k: Key) => t(p.lang, k);
   const points = useMemo(() => (p.route?.points ?? []).map((pt) => ({ id: pt.id, label: pt.name, position: pt.position })), [p.route]);
   const [selected, setSelected] = useState<string>("gps");
@@ -71,6 +73,37 @@ export function WindsTab(p: WindsProps) {
     <div className="navscreen">
       <p className="muted small">{T("wxw.model")}</p>
       {!fallback && <p className="muted">{T("wxw.noPoint")}</p>}
+      <div className="choices">
+        <button className="brand" disabled={!fallback || p.busy} onClick={() => p.onLoad(allPoints())}>
+          {p.busy ? T("wxw.loading") : T("wxw.load")}
+        </button>
+      </div>
+      {p.error && <p className="error" role="alert">{T("wxw.error")} — {p.error}</p>}
+
+      {p.route && p.route.points.length >= 2 && (
+        <>
+          <h3>{T("wxw.routeWinds")}</h3>
+          {p.tasMps === null && <p className="muted small">{T("wxw.needTas")}</p>}
+          {estimates && estimates.length > 0 && estimates.every((e) => e.reason === "no-altitude") && <p className="error" role="alert">{T("wxw.needAltAll")}</p>}
+          {estimates && !estimates.every((e) => e.reason === "no-altitude") && estimates.map((e) => (
+            <div className="point-row" key={e.leg} style={{ gridTemplateColumns: "28px 1fr auto" }}>
+              <b className="mono">{e.leg + 1}</b>
+              <span className="mono">
+                {e.wind
+                  ? `${pad(Math.round(e.wind.direction) % 360, 3)}°V / ${spd(e.wind.speed)} ${unitLabel("groundSpeed", p.prefs)} · ${altShown(e.altitude as number | null)} ${unitLabel("altitude", p.prefs)} · ${hourLabel(e.timeMs)}`
+                  : reasonText(e.reason)}
+              </span>
+            </div>
+          ))}
+          <div className="choices">
+            <button disabled={!estimates || !estimates.some((e) => e.wind !== null)} onClick={() => estimates && p.onApply(estimates)}>
+              {T("wxw.apply")}
+            </button>
+          </div>
+          <p className="muted small">{T("wxw.applyHelp")}</p>
+        </>
+      )}
+      <Section plain id="table" title={T("wxw.tableTitle")} ok open={openTable} onToggle={() => setOpenTable(!openTable)}>
       {(points.length > 0 || p.gps) && (
         <>
           <h3>{T("wxw.at")}</h3>
@@ -82,13 +115,6 @@ export function WindsTab(p: WindsProps) {
           </div>
         </>
       )}
-      <div className="choices">
-        <button className="brand" disabled={!fallback || p.busy} onClick={() => p.onLoad(allPoints())}>
-          {p.busy ? T("wxw.loading") : T("wxw.load")}
-        </button>
-      </div>
-      {p.error && <p className="error" role="alert">{T("wxw.error")} — {p.error}</p>}
-
       {forecast && (
         <>
           <p className={stale ? "error" : "muted small"}>
@@ -130,28 +156,7 @@ export function WindsTab(p: WindsProps) {
         </>
       )}
 
-      {p.route && p.route.points.length >= 2 && (
-        <>
-          <h3>{T("wxw.routeWinds")}</h3>
-          {p.tasMps === null && <p className="muted small">{T("wxw.needTas")}</p>}
-          {estimates && estimates.map((e) => (
-            <div className="point-row" key={e.leg} style={{ gridTemplateColumns: "28px 1fr auto" }}>
-              <b className="mono">{e.leg + 1}</b>
-              <span className="mono">
-                {e.wind
-                  ? `${pad(Math.round(e.wind.direction) % 360, 3)}°V / ${spd(e.wind.speed)} ${unitLabel("groundSpeed", p.prefs)} · ${altShown(e.altitude as number | null)} ${unitLabel("altitude", p.prefs)} · ${hourLabel(e.timeMs)}`
-                  : reasonText(e.reason)}
-              </span>
-            </div>
-          ))}
-          <div className="choices">
-            <button disabled={!estimates || !estimates.some((e) => e.wind !== null)} onClick={() => estimates && p.onApply(estimates)}>
-              {T("wxw.apply")}
-            </button>
-          </div>
-          <p className="muted small">{T("wxw.applyHelp")}</p>
-        </>
-      )}
+      </Section>
     </div>
   );
 }

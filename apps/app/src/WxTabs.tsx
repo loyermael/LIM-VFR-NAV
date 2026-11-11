@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  ageMinutes, distance, formatQuantity, latestMetarByStation, latestTafByStation, METAR_STALE_MINUTES, nmToMeters, nauticalMiles,
-  sigmetsAlongRoute, stationsNearRoute, tafPeriodsAt, tafStatus, unitLabel,
-  type Conditions, type LatLon, type Metar, type Taf, type TafPeriod, type UnitPrefs,
-} from "@lim/core";
+import { ageMinutes, distance, formatQuantity, latestMetarByStation, latestTafByStation, METAR_STALE_MINUTES, nmToMeters, nauticalMiles, sigmetsAlongRoute, stationsNearRoute, tafPeriodsAt, tafStatus, unitLabel, type Conditions, type LatLon, type Metar, type Taf, type TafPeriod, type UnitPrefs, type Sigmet } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import type { RouteRecord } from "./routeEdit";
 import type { MetarSet, SigmetSet, TafSet } from "./wxData";
@@ -29,11 +25,15 @@ export interface WxCommon {
   problems: string[];
   busy: boolean;
   onImport: (files: File[]) => void;
+  /** Relance le téléchargement automatique des données (Données → Pays). */
+  onRefresh: () => void;
+  refreshing: boolean;
+  onOpenData: () => void;
 }
 
 const Category = ({ c }: { c: Conditions["category"] }) => <span className={`cat cat-${c ?? "none"}`}>{c ?? "?"}</span>;
 
-/** Import des fichiers météo + âge des données. */
+/** État des données météo (âge, actualisation) ; l'import de fichiers n'est plus qu'un secours replié. */
 export function WxSource(p: WxCommon) {
   const T = (k: Key) => t(p.lang, k);
   const sets = [p.metars, p.tafs, p.sigmets].filter((s) => s !== null);
@@ -41,18 +41,27 @@ export function WxSource(p: WxCommon) {
   const age = oldest === null ? null : ageMinutes(oldest, p.nowMs);
   return (
     <div className="wx-source">
-      {sets.length === 0 && <p className="muted">{T("wxd.none")}</p>}
-      {age !== null && (
-        <p className={age > DATASET_STALE_MIN ? "error" : "muted small"}>
-          {T("wxd.fetched")} {ageText(age)}{!sets.every((s) => s.meta.exactDate) ? ` ${T("aero.approx")}` : ""}
-          {age > DATASET_STALE_MIN ? ` — ${T("wxd.stale")}` : ""}
-        </p>
+      {sets.length === 0 ? (
+        <>
+          <p className="muted">{T("wxd.none")}</p>
+          <div className="choices"><button className="brand" onClick={p.onOpenData}>{T("wxd.goData")}</button></div>
+        </>
+      ) : (
+        <div className="choices">
+          <span className={age !== null && age > DATASET_STALE_MIN ? "error" : "muted small"}>
+            {T("wxd.fetched")} {age === null ? "" : ageText(age)}{age !== null && age > DATASET_STALE_MIN ? ` — ${T("wxd.stale")}` : ""}
+          </span>
+          <button disabled={p.refreshing} onClick={p.onRefresh}>{p.refreshing ? T("dp.checking") : T("wxd.refresh")}</button>
+        </div>
       )}
-      <label className="filebtn">
-        {T("wxd.import")}
-        <input type="file" hidden multiple accept=".json" disabled={p.busy} onChange={(e) => { p.onImport(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-      </label>
-      <p className="muted small">{T("wxd.help")}</p>
+      <details className="rawbox">
+        <summary>{T("wxd.manual")}</summary>
+        <label className="filebtn">
+          {T("wxd.import")}
+          <input type="file" hidden multiple accept=".json" disabled={p.busy} onChange={(e) => { p.onImport(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        </label>
+        <p className="muted small">{T("wxd.help")}</p>
+      </details>
       {p.problems.map((m, i) => <p className="error" role="alert" key={i}>{T("wxd.problem")} — {m}</p>)}
     </div>
   );
@@ -103,7 +112,7 @@ function MetarCard({ m, p }: { m: Metar; p: WxCommon }) {
         <div><dt>{T("wxm.temp")}</dt><dd>{temperatureText(m.temperature, m.dewpoint)}</dd></div>
         <div><dt>QNH</dt><dd>{m.qnh === null ? "—" : `${formatQuantity("pressure", p.prefs, m.qnh)} ${unitLabel("pressure", p.prefs)}`}</dd></div>
       </dl>
-      <pre className="wx-raw">{m.raw}</pre>
+      <details className="rawbox"><summary>{t(p.lang, "wx.raw")}</summary><pre className="wx-raw">{m.raw}</pre></details>
     </div>
   );
 }
@@ -171,7 +180,7 @@ function TafCard({ taf, p }: { taf: Taf; p: WxCommon }) {
         </tbody>
       </table>
       <p className="muted small">{T("wxt.nowNote")}</p>
-      <pre className="wx-raw">{taf.raw}</pre>
+      <details className="rawbox"><summary>{t(p.lang, "wx.raw")}</summary><pre className="wx-raw">{taf.raw}</pre></details>
     </div>
   );
 }
@@ -196,8 +205,20 @@ export function TafTab(p: WxCommon) {
   );
 }
 
+/** Un SIGMET concerne « ma zone » si l'un de ses polygones passe à moins de 400 NM de la route ou de la position. */
+function sigmetNearby(s: Sigmet, anchors: readonly LatLon[]): boolean {
+  if (anchors.length === 0) return true;
+  const R = 400 * 1852;
+  return s.areas.some((ring) => {
+    const lons = ring.map((v) => v[0]), lats = ring.map((v) => v[1]);
+    const inBox = (a: LatLon) => a.lon >= Math.min(...lons) && a.lon <= Math.max(...lons) && a.lat >= Math.min(...lats) && a.lat <= Math.max(...lats);
+    return anchors.some((a) => inBox(a) || ring.some((v) => distance(a, { lat: v[1], lon: v[0] } as LatLon) < R));
+  });
+}
+
 export function SigmetTab(p: WxCommon) {
   const T = (k: Key) => t(p.lang, k);
+  const [all, setAll] = useState(false);
   const items = p.sigmets?.items ?? [];
   const onRoute = useMemo(
     () => (p.route && p.route.points.length >= 2 ? sigmetsAlongRoute(p.route, items, p.window.startMs, p.window.endMs) : []),
@@ -205,14 +226,18 @@ export function SigmetTab(p: WxCommon) {
   );
   const routeIds = new Set(onRoute.map((x) => x.sigmet.id));
   const active = items.filter((s) => s.validTo >= p.nowMs);
+  const anchors: LatLon[] = [...(p.route?.points.map((x) => x.position) ?? []), ...(p.gps ? [p.gps] : [])];
+  const nearby = active.filter((s) => routeIds.has(s.id) || sigmetNearby(s, anchors));
+  const shown = (all ? active : nearby).slice().sort((a, b) => Number(routeIds.has(b.id)) - Number(routeIds.has(a.id)));
   return (
     <div className="navscreen">
       <WxSource {...p} />
       {p.sigmets && (
         <>
-          <h3>{T("wxs.title")} ({active.length})</h3>
-          {active.length === 0 && <p className="muted small">{T("wxs.none")}</p>}
-          {[...active].sort((a, b) => Number(routeIds.has(b.id)) - Number(routeIds.has(a.id))).map((s) => (
+          <h3>{all ? T("wxs.allTitle") : T("wxs.nearTitle")} ({shown.length})</h3>
+          {anchors.length === 0 && !all && <p className="muted small">{T("wxs.noAnchor")}</p>}
+          {shown.length === 0 && <p className="muted small">{T("wxs.none")}</p>}
+          {shown.map((s) => (
             <div className={`wx-card${routeIds.has(s.id) ? " onroute" : ""}`} key={s.id}>
               <div className="wx-head">
                 <b>{hazardLabel(s.hazard)}</b>{s.qualifier ? ` ${s.qualifier}` : ""} <span className="muted small">{s.firName}</span>
@@ -221,9 +246,14 @@ export function SigmetTab(p: WxCommon) {
               <div className="muted small">
                 {utcDateTime(s.validFrom)} → {utcDateTime(s.validTo)} · {levelsText(s.base, s.top)}
               </div>
-              <pre className="wx-raw">{s.raw}</pre>
+              <details className="rawbox"><summary>{T("wx.raw")}</summary><pre className="wx-raw">{s.raw}</pre></details>
             </div>
           ))}
+          {active.length > nearby.length && (
+            <div className="choices">
+              <button onClick={() => setAll(!all)}>{all ? T("wxs.onlyNear") : `${T("wxs.showAll")} (${active.length})`}</button>
+            </div>
+          )}
           <p className="muted small">{T("wxs.note")}</p>
         </>
       )}

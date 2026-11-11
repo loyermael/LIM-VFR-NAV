@@ -1126,6 +1126,7 @@ export function App() {
                   lang, prefs, route, gps: fix && status !== "lost" ? fix.position : null, nowMs: now,
                   metars: metarSet, tafs: tafSet, sigmets: sigmetSet, window: { startMs, endMs: startMs + km * 1000 },
                   problems: wxProblems, busy: wxBusy, onImport: (f) => void importWx(f),
+                  onRefresh: pack.refresh, refreshing: pack.checking, onOpenData: () => open("data"),
                 };
                 return tab === 0 ? <BriefingTab {...common} /> : tab === 1 ? <MetarTab {...common} /> : tab === 2 ? <TafTab {...common} /> : <SigmetTab {...common} />;
               })()
