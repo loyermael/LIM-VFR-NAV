@@ -7,7 +7,7 @@ const file = (name: string, data: unknown) => new File([JSON.stringify(data)], n
 describe("données de navigation", () => {
   it("balises : champs lus, éléments sans position écartés", () => {
     const r = parseNavaids([{ name: "AUXERRE", identifier: "AX", type: 2, frequency: { value: "417.000", unit: 1 }, geometry: pt(3.5, 47.8), elevation: { value: 147, unit: 0 }, range: { value: 25, unit: 2 } }, { name: "X" }, null, { geometry: pt(500, 0) }]);
-    expect(r).toEqual([{ lat: 47.8, lon: 3.5, name: "AUXERRE", ident: "AX", kind: 2, freq: "417.000", elevM: 147, rangeNm: 25 }]);
+    expect(r).toEqual([{ lat: 47.8, lon: 3.5, name: "AUXERRE", ident: "AX", kind: 2, freq: "417.000", freqUnit: 1, channel: null, elevM: 147, rangeNm: 25 }]);
   });
   it("points de report et obstacles (hauteur parfois absente)", () => {
     expect(parseReporting([{ name: "NA", compulsory: true, geometry: pt(2.6, 50) }])[0]?.compulsory).toBe(true);
@@ -20,5 +20,30 @@ describe("données de navigation", () => {
     expect(r.problems).toHaveLength(1);
     expect(r.dataset.reporting).toHaveLength(1);
     expect(r.dataset.meta.exportedAtMs).toBe(Date.parse("Wed, 11 Nov 2026 01:55:39 GMT"));
+  });
+});
+
+import { navToGeoJSON } from "./aeroGeo";
+import { navaidSymbol, type NavDataset } from "./navData";
+
+describe("symboles de la carte aéro", () => {
+  it("balise : symbole d'après la fréquence", () => {
+    expect(navaidSymbol({ freq: "417.000", freqUnit: 1, channel: null })).toBe("ndb");
+    expect(navaidSymbol({ freq: "108.450", freqUnit: 2, channel: "21Y" })).toBe("vordme");
+    expect(navaidSymbol({ freq: "113.000", freqUnit: 2, channel: null })).toBe("vor");
+    expect(navaidSymbol({ freq: null, freqUnit: null, channel: "40X" })).toBe("dme");
+  });
+  it("jeu de points unique : famille, symbole, hauteur", () => {
+    const d: NavDataset = {
+      id: "navdata", meta: { source: "openAIP", licence: "x", exportedAtMs: 0, importedAtMs: 0 },
+      navaids: [{ lat: 47, lon: 3, name: "AUXERRE", ident: "AX", kind: 2, freq: "417.000", freqUnit: 1, channel: null, elevM: 1, rangeNm: 25 }],
+      reporting: [{ lat: 50, lon: 2, name: "NA", compulsory: true }],
+      obstacles: [{ lat: 46, lon: 1, name: "Obstacle", kind: 0, elevM: 5, heightM: 80, what: "wind" }, { lat: 46, lon: 1.1, name: "Obstacle", kind: 4, elevM: 5, heightM: null, what: null }],
+      hang: [], hotspots: [],
+    };
+    const f = navToGeoJSON(d).features.map((x) => x.properties);
+    expect(f.map((p) => p?.["sym"])).toEqual(["ndb", "rp-c", "wind", "mast"]);
+    expect(f.map((p) => p?.["grp"])).toEqual(["navaid", "report", "obstacle", "obstacle"]);
+    expect(f[3]?.["h"]).toBe(0);
   });
 });

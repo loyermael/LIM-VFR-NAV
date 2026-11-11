@@ -37,6 +37,9 @@ export interface MapViewProps {
   /** Espaces aériens et terrains importés (openAIP), déjà convertis en GeoJSON. */
   airspaceData: FeatureCollection | null;
   airfieldData: FeatureCollection | null;
+  /** Balises, points de report et obstacles (carte aéro) et leur affichage. */
+  navData: FeatureCollection | null;
+  showNav: boolean;
   showAirspaces: boolean;
   showAirfields: boolean;
   /** Modèle d'URL des tuiles du radar de pluie (réseau requis), ou null. */
@@ -74,6 +77,45 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
+const NAV_LAYERS = ["nav-sym", "nav-obs-mid", "nav-obs-low"];
+
+/** Symboles de la carte aéro, dessinés en canvas (à 2x) : balises (VOR hexagone, NDB cercle pointillé), points de report (triangle plein si obligatoire), obstacles (mât, éolienne). */
+let iconCache: Map<string, ImageData> | null = null;
+function navIcons(): Map<string, ImageData> {
+  if (iconCache) return iconCache;
+  const out = new Map<string, ImageData>();
+  const S = 40, C = S / 2;
+  const make = (name: string, draw: (c: CanvasRenderingContext2D) => void) => {
+    const cv = document.createElement("canvas");
+    cv.width = S; cv.height = S;
+    const c = cv.getContext("2d");
+    if (!c) return;
+    c.lineJoin = "round"; c.lineCap = "round";
+    draw(c);
+    out.set(name, c.getImageData(0, 0, S, S));
+  };
+  /** Trait avec un filet blanc dessous : lisible sur le plan comme sur les photos. */
+  const stroke = (c: CanvasRenderingContext2D, color: string, w: number, fill?: string) => {
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    c.strokeStyle = "#fff"; c.lineWidth = w + 3; c.stroke();
+    c.strokeStyle = color; c.lineWidth = w; c.stroke();
+  };
+  const BLUE = "#1b4f9c", INK = "#111";
+  const hex = (c: CanvasRenderingContext2D, r: number) => { c.beginPath(); for (let i = 0; i < 6; i++) { const a = (Math.PI / 3) * i; c.lineTo(C + r * Math.cos(a), C + r * Math.sin(a)); } c.closePath(); };
+  const dot = (c: CanvasRenderingContext2D, r: number, color: string) => { c.beginPath(); c.arc(C, C, r, 0, Math.PI * 2); c.fillStyle = color; c.fill(); };
+  make("vor", (c) => { hex(c, 12); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
+  make("vordme", (c) => { c.beginPath(); c.rect(C - 14, C - 14, 28, 28); stroke(c, BLUE, 2.5); hex(c, 10); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
+  make("dme", (c) => { c.beginPath(); c.rect(C - 11, C - 11, 22, 22); stroke(c, BLUE, 2.5); dot(c, 2.5, BLUE); });
+  make("ndb", (c) => { c.setLineDash([3, 4]); c.beginPath(); c.arc(C, C, 13, 0, Math.PI * 2); stroke(c, BLUE, 2.5); c.setLineDash([]); c.beginPath(); c.arc(C, C, 7, 0, Math.PI * 2); stroke(c, BLUE, 2); dot(c, 2.5, BLUE); });
+  const tri = (c: CanvasRenderingContext2D) => { c.beginPath(); c.moveTo(C, C - 12); c.lineTo(C + 11, C + 9); c.lineTo(C - 11, C + 9); c.closePath(); };
+  make("rp-c", (c) => { tri(c); stroke(c, BLUE, 2.5, BLUE); });
+  make("rp", (c) => { tri(c); stroke(c, BLUE, 2.5, "rgba(255,255,255,0.6)"); });
+  make("mast", (c) => { c.beginPath(); c.moveTo(C - 8, C + 11); c.lineTo(C, C - 11); c.lineTo(C + 8, C + 11); stroke(c, INK, 2.5); dot(c, 2.5, INK); });
+  make("wind", (c) => { c.beginPath(); c.moveTo(C, C + 12); c.lineTo(C, C - 2); stroke(c, INK, 2.5); c.beginPath(); c.arc(C, C - 4, 9, 0, Math.PI * 2); stroke(c, INK, 2, "rgba(255,255,255,0.6)"); dot(c, 2, INK); });
+  iconCache = out;
+  return out;
+}
+
 function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string) => css.getPropertyValue(n).trim();
@@ -178,6 +220,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       syncBase();
+      syncNav();
       syncCharts();
       syncOverlays();
       syncRoute();
@@ -220,7 +263,7 @@ export function MapView(props: MapViewProps) {
       latest.current.onAirfieldTap(null);
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
-        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill"]).filter((l) => m.getLayer(l));
+        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill", ...NAV_LAYERS]).filter((l) => m.getLayer(l));
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - 12, y - 12], [x + 12, y + 12]];
         const hits = layers.length ? m.queryRenderedFeatures(box, { layers }) : [];
         const seen = new Set<string>();
@@ -232,7 +275,7 @@ export function MapView(props: MapViewProps) {
           // Espaces et terrains : l'application retrouve la fiche complète par l'identifiant.
           const aero = h.layer.id === "asp-fill" ? "asp" : h.layer.id === "apt-circle" ? "apt" : null;
           out.push({
-            layerName: aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
+            layerName: NAV_LAYERS.includes(h.layer.id) ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
             properties: (h.properties ?? {}) as Record<string, unknown>,
           });
         }
@@ -451,6 +494,29 @@ export function MapView(props: MapViewProps) {
     }
     if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
   }
+  /** Balises, points de report, obstacles : symboles dessinés sur la carte (aucune police nécessaire, donc utilisable hors-ligne). */
+  function syncNav() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const { navData, showNav } = latest.current;
+    if (navData) {
+      for (const [name, img] of navIcons()) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
+      const src = m.getSource("nav") as maplibregl.GeoJSONSource | undefined;
+      if (!src) m.addSource("nav", { type: "geojson", data: navData });
+      else if (aeroData.current.get("nav") !== navData) src.setData(navData);
+      aeroData.current.set("nav", navData);
+      if (!m.getLayer("nav-sym")) {
+        // Les filtres ne peuvent pas dépendre du zoom : un calque par niveau de détail des obstacles (les plus hauts de loin, tous de près).
+        const layout = { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.9, 12, 1.3] } as never;
+        const before = m.getLayer("route-line") ? "route-line" : undefined;
+        const obs = ["==", ["get", "grp"], "obstacle"];
+        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 150]] as never }, before);
+        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, filter: ["all", obs, [">=", ["get", "h"], 60], ["<", ["get", "h"], 150]] as never }, before);
+        m.addLayer({ id: "nav-obs-low", type: "symbol", source: "nav", minzoom: 11.5, layout, filter: ["all", obs, ["<", ["get", "h"], 60]] as never }, before);
+      }
+    }
+    for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");
+  }
   /** Radar de pluie : tuiles distantes (le seul calque qui exige le réseau), sous la route et au-dessus des cartes. */
   function syncRadar() {
     const m = map.current;
@@ -464,6 +530,7 @@ export function MapView(props: MapViewProps) {
   }
   useEffect(syncRadar, [props.radarTemplate]);
 
+  useEffect(syncNav, [props.navData, props.showNav]);
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   /** Fond IGN et relief : sources raster sous tout le reste. */

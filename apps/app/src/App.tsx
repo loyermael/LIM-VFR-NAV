@@ -10,7 +10,7 @@ import { MAX_ZOOM, getLostCharts, importMbtiles, loadCharts, pickMbtiles, remove
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
-import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
+import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, navToGeoJSON, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
@@ -142,6 +142,7 @@ export function App() {
   const [visibleGroups, setVisibleGroups] = useState<string[]>(loadVisibleGroups);
   const [showAsp, setShowAsp] = useState(true);
   const [showApt, setShowApt] = useState(true);
+  const [showNav, setShowNav] = useState(true);
   const [adhoc, setAdhoc] = useState<{ name: string; position: LatLon } | null>(null);
   const aeroInput = useRef<HTMLInputElement>(null);
   // Météo : prévisions de vent (réseau pour les charger, cache sur l'appareil pour l'ensuite).
@@ -498,6 +499,7 @@ export function App() {
   const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
   const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
+  const navGeo = useMemo(() => (navSet ? navToGeoJSON(navSet) : null), [navSet]);
   const airfieldGeo = useMemo(() => (aptSet ? airfieldsToGeoJSON(aptSet.items) : null), [aptSet]);
   const aspById = useMemo(() => new Map((aspSet?.items ?? []).map((a) => [a.id, a])), [aspSet]);
   const aptById = useMemo(() => new Map((aptSet?.items ?? []).map((a) => [a.id, a])), [aptSet]);
@@ -845,6 +847,8 @@ export function App() {
           radarTemplate={radar?.template ?? null}
           airspaceData={airspaceGeo}
           airfieldData={airfieldGeo}
+          navData={navGeo}
+          showNav={showNav}
           showAirspaces={showAsp}
           showAirfields={showApt}
           visibleGroups={visibleGroups}
@@ -1045,6 +1049,7 @@ export function App() {
                 <div className="choices">
                   <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
                   <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
+                  <button aria-pressed={showNav} disabled={!navSet} onClick={() => setShowNav(!showNav)}>{T("aero.nav")}</button>
                 </div>
                 <div className="choices">
                   {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (

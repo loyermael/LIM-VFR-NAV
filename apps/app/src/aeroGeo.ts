@@ -1,3 +1,4 @@
+import { navaidSymbol, type NavDataset } from "./navData";
 /** Conversion des espaces et terrains en GeoJSON pour la carte, et textes de détail. Fonctions pures (testées). */
 import type { FeatureCollection } from "geojson";
 import {
@@ -99,4 +100,24 @@ export function freshnessWarnings(f: DatasetFreshness): string[] {
   if (f.stale) w.push(`Données de ${f.ageDays} jours (plus de 28) : à mettre à jour.`);
   else if (f.beforeCurrentCycle) w.push("Données antérieures au cycle AIRAC en cours.");
   return w;
+}
+
+/**
+ * Balises, points de report et obstacles pour la carte aéro, en un seul jeu de points. `sym` = image à dessiner, `cat` = nom affiché à l'appui,
+ * `grp` = famille (filtre d'affichage), `h` = hauteur au-dessus du sol (m) pour trier les obstacles par importance.
+ */
+export function navToGeoJSON(d: NavDataset): FeatureCollection {
+  const features: FeatureCollection["features"] = [];
+  const add = (lon: number, lat: number, properties: Record<string, unknown>) => features.push({ type: "Feature", properties, geometry: { type: "Point", coordinates: [lon, lat] } });
+  for (const v of d.navaids) {
+    const sym = navaidSymbol(v);
+    const freq = v.freq ? `${v.freq} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
+    add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0 });
+  }
+  for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0 });
+  for (const o of d.obstacles) {
+    const h = o.heightM ?? 0;
+    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h });
+  }
+  return { type: "FeatureCollection", features };
 }

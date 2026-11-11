@@ -5,7 +5,7 @@
  */
 export interface NavPoint { readonly lat: number; readonly lon: number }
 /** `kind` = code numérique openAIP du type (balise : VOR, NDB… ; obstacle : catégorie) ; sa correspondance exacte reste à confirmer. */
-export interface Navaid extends NavPoint { readonly name: string; readonly ident: string; readonly kind: number; readonly freq: string | null; readonly elevM: number | null; readonly rangeNm: number | null }
+export interface Navaid extends NavPoint { readonly name: string; readonly ident: string; readonly kind: number; readonly freq: string | null; /** 1 = kHz, 2 = MHz (constaté sur l'export : NDB 417 en unité 1, VOR 108,45 en unité 2). */ readonly freqUnit: number | null; readonly channel: string | null; readonly elevM: number | null; readonly rangeNm: number | null }
 export interface ReportingPoint extends NavPoint { readonly name: string; readonly compulsory: boolean }
 export interface Obstacle extends NavPoint { readonly name: string; readonly kind: number; readonly elevM: number | null; readonly heightM: number | null; readonly what: string | null }
 export interface SitePoint extends NavPoint { readonly name: string; readonly kind: number; readonly elevM: number | null }
@@ -45,7 +45,7 @@ export const parseNavaids = (json: unknown): Navaid[] => {
   const out: Navaid[] = [];
   each(json, (o, p) => {
     const f = isRec(o["frequency"]) ? o["frequency"] : null;
-    out.push({ ...p, name: str(o["name"]), ident: str(o["identifier"]), kind: num(o["type"]) ?? -1, freq: f && typeof f["value"] === "string" ? f["value"] : null, elevM: val(o["elevation"]), rangeNm: val(o["range"]) });
+    out.push({ ...p, name: str(o["name"]), ident: str(o["identifier"]), kind: num(o["type"]) ?? -1, freq: f && typeof f["value"] === "string" ? f["value"] : null, freqUnit: f ? num(f["unit"]) : null, channel: typeof o["channel"] === "string" ? o["channel"] : null, elevM: val(o["elevation"]), rangeNm: val(o["range"]) });
   });
   return out;
 };
@@ -95,4 +95,13 @@ export async function importNavFiles(files: readonly File[], now: number): Promi
     }
   }
   return { dataset: dates.length > 0 ? { ...ds, meta: { ...ds.meta, exportedAtMs: Math.min(...dates) } } : ds, problems };
+}
+
+/** Symbole d'une balise d'après l'unité et la valeur de sa fréquence (les codes numériques de type d'openAIP ne sont pas confirmés) : kHz = NDB, 108-118 MHz = VOR (VOR/DME si canal DME), sinon DME. */
+export function navaidSymbol(n: Pick<Navaid, "freq" | "freqUnit" | "channel">): "ndb" | "vor" | "vordme" | "dme" {
+  const f = n.freq === null ? NaN : Number.parseFloat(n.freq);
+  if (!Number.isFinite(f)) return "dme";
+  if (n.freqUnit === 1) return "ndb";
+  if (n.freqUnit === 2 && f >= 108 && f <= 118) return n.channel ? "vordme" : "vor";
+  return "dme";
 }
