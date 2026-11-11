@@ -932,6 +932,14 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
     add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f5a838", "fill-opacity": 0.92 } });
+    // Agglomérations comme la légende OACI : disque orange pour les villes, jaune pour les bourgs et villages (plus petits) ; le contour des zones bâties reste en dessous.
+    add({
+      id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
+      paint: {
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, ["match", ["get", "class"], "city", 5, "town", 2.5, 1.5], 9, ["match", ["get", "class"], "city", 11, "town", 5.5, 3], 12, ["match", ["get", "class"], "city", 16, "town", 9, 5]],
+        "circle-color": ["match", ["get", "class"], "city", "#f5a838", "#f7e04a"], "circle-stroke-color": "#d08a1c", "circle-stroke-width": ["match", ["get", "class"], "city", 1, 0.6], "circle-opacity": 0.95,
+      },
+    });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
     add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
