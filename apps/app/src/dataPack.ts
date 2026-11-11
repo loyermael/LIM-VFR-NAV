@@ -86,6 +86,8 @@ export async function downloadDataset(base: string, ds: PackDataset, fetchFn: ty
   return files;
 }
 
+/** Paquet officiel du projet (GitHub Pages du dépôt de données). */
+export const DEFAULT_PACK_URL = "https://loyermael.github.io/lim-vfr-nav-data";
 const STATE_KEY = "lim.datapack.v1";
 const URL_KEY = "lim.dataurl.v1";
 
@@ -121,7 +123,7 @@ export function packBaseUrl(): string {
     if (u && /^https?:\/\//i.test(u)) return u.trim();
   } catch { /* ignoré */ }
   const env = (import.meta.env as Record<string, string | undefined>)["VITE_DATA_URL"];
-  return env && /^https?:\/\//i.test(env) ? env : "";
+  return env && /^https?:\/\//i.test(env) ? env : DEFAULT_PACK_URL;
 }
 export function setPackBaseUrl(u: string): void {
   try {
