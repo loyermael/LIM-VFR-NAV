@@ -46,3 +46,8 @@ Lacunes et points d'attention :
 
 ## Premier lot proposé
 Espaces + terrains (déjà là) + balises + points de report + obstacles : tout est dans le même format que les données déjà chargées, donc ajoutable au paquet de données sans nouvelle source.
+
+## État du dessin (carte aéro inspirée de l'OACI, légende SIA/IGN 2026 fournie par l'utilisateur)
+Fait : balises (VOR, VOR/DME, DME, NDB), points de report, obstacles ≥ 300 ft AGL (mât, mât élevé ≥ 500 ft, éolienne), terrains (civil / mixte / militaire × piste en dur / bande / héli / hydro, privé, désaffecté) avec étiquettes ; espaces : bandes colorées A/B-C-D/E, hachures R/D, quadrillage P, trait mixte RMZ/TMZ, pointillés ATZ/SIV, étiquettes nom + plafond + plancher.
+Pas fait : TACAN / VOR-TACAN, groupes d'obstacles, balisage de nuit, lignes électriques et câbles, RTBA (cadre et ALT MAX), activités diverses (voltige, vol à voile, aéromodélisme, parachutisme), itinéraires VFR, fond cartographique OACI (routes, villes, relief teinté), cadre d'espace avec lettre de classe, encoche des CTR.
+Écarts connus : les formes sont redessinées d'après la légende, pas pixel pour pixel ; le classement P/R/D, SIV, ATZ repose sur les codes de type openAIP.

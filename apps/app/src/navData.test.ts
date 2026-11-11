@@ -77,3 +77,29 @@ describe("symboles OACI des terrains et balises", () => {
     expect(navaidBox({ ident: "LU", freq: "378.000", channel: null }, "ndb")).toBe("LU 378");
   });
 });
+
+import { airspaceStyle, limitText, orientRings } from "./aeroGeo";
+describe("espaces aériens à la manière de la carte OACI", () => {
+  it("style d'après le type et la classe", () => {
+    expect(airspaceStyle({ type: 7, icaoClass: "A" })).toBe("ca");
+    expect(airspaceStyle({ type: 7, icaoClass: "D" })).toBe("cbd");
+    expect(airspaceStyle({ type: 4, icaoClass: "D" })).toBe("cbd");
+    expect(airspaceStyle({ type: 26, icaoClass: "E" })).toBe("ce");
+    expect(airspaceStyle({ type: 3, icaoClass: null })).toBe("pro");
+    expect(airspaceStyle({ type: 2, icaoClass: null })).toBe("res");
+    expect(airspaceStyle({ type: 6, icaoClass: null })).toBe("rmz");
+  });
+  it("limites écrites comme sur la carte", () => {
+    expect(limitText("FL085")).toBe("FL 085");
+    expect(limitText("2000 ft AMSL")).toBe("2000 AMSL");
+    expect(limitText("1500 ft AGL")).toBe("1500 ASFC");
+    expect(limitText("SOL")).toBe("SFC");
+  });
+  it("anneaux : extérieur horaire, trous antihoraires, quel que soit le sens d'origine", () => {
+    const sq: [number, number][] = [[0, 0], [0, 1], [1, 1], [1, 0]]; // horaire en (lon, lat)
+    const area = (r: number[][]) => r.reduce((s, p, i) => { const q = r[(i + 1) % r.length] as number[]; return s + (p[0] as number) * (q[1] as number) - (q[0] as number) * (p[1] as number); }, 0) / 2;
+    const [outer, hole] = orientRings([[...sq].reverse(), sq]);
+    expect(area(outer as number[][])).toBeLessThan(0);
+    expect(area(hole as number[][])).toBeGreaterThan(0);
+  });
+});

@@ -12,14 +12,63 @@ export function floorMeters(a: Pick<Airspace, "lower">): number {
   return -1;
 }
 
+/**
+ * Style d'un espace d'après la légende de la carte OACI : bandes colorées le long de la limite pour les espaces contrôlés (A rouge, B/C/D bleu, E bleu clair),
+ * hachures rouges pour les zones interdites (quadrillées), réglementées et dangereuses, trait mixte pour RMZ/TMZ, pointillés pour ATZ et secteurs SIV.
+ * Types openAIP : 1 réglementée, 2 dangereuse, 3 interdite, 4 CTR, 5 TMZ, 6 RMZ, 7 TMA, 10 FIR, 13 ATZ, 21 transit planeur, 26 CTA, 28 activité, 29 parc, 33 SIV, 34 LTA.
+ */
+export type AirspaceStyle = "ca" | "cbd" | "ce" | "pro" | "res" | "rmz" | "siv" | "atz" | "fir" | "park" | "act" | "glider" | "other";
+export function airspaceStyle(a: Pick<Airspace, "type" | "icaoClass">): AirspaceStyle {
+  switch (a.type) {
+    case 3: return "pro";
+    case 1: case 2: return "res";
+    case 5: case 6: return "rmz";
+    case 33: return "siv";
+    case 13: return "atz";
+    case 10: return "fir";
+    case 29: return "park";
+    case 28: return "act";
+    case 21: return "glider";
+    case 4: case 7: case 26: case 34: case 35: case 36:
+      return a.icaoClass === "A" ? "ca" : a.icaoClass === "E" ? "ce" : "cbd";
+    default: return "other";
+  }
+}
+
+/** Limite à la manière de la carte : « FL 085 », « 2000 AMSL », « 1500 ASFC », « SFC ». */
+export function limitText(label: string): string {
+  return label.replace(/^FL(\d+)/, "FL $1").replace(" ft AMSL", " AMSL").replace(" ft AGL", " ASFC").replace(" m AGL", " m ASFC").replace(/^SOL$/, "SFC");
+}
+
+/** Sens des anneaux : extérieur horaire (en longitude/latitude), trous antihoraires. L'intérieur est alors à droite du tracé : un décalage positif place la bande colorée DANS l'espace. */
+function ringArea(r: readonly (readonly [number, number])[]): number {
+  let s = 0;
+  for (let i = 0; i < r.length; i++) { const p = r[i] as readonly [number, number], q = r[(i + 1) % r.length] as readonly [number, number]; s += p[0] * q[1] - q[0] * p[1]; }
+  return s / 2;
+}
+export function orientRings(rings: readonly (readonly (readonly [number, number])[])[]): number[][][] {
+  return rings.map((r, i) => {
+    const area = ringArea(r);
+    const wantClockwise = i === 0;
+    const out = r.map((c) => [c[0], c[1]]);
+    return (area < 0) === wantClockwise ? out : out.reverse();
+  });
+}
+
+const LABELLED: ReadonlySet<AirspaceStyle> = new Set(["ca", "cbd", "ce", "pro", "res"]);
+
 export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureCollection {
   return {
     type: "FeatureCollection",
-    features: airspaces.map((a) => ({
-      type: "Feature" as const,
-      properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a) },
-      geometry: { type: "Polygon" as const, coordinates: a.rings.map((r) => r.map((c) => [c[0], c[1]])) },
-    })),
+    features: airspaces.map((a) => {
+      const sty = airspaceStyle(a);
+      const lbl = LABELLED.has(sty) ? [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") : "";
+      return {
+        type: "Feature" as const,
+        properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty, lbl },
+        geometry: { type: "Polygon" as const, coordinates: orientRings(a.rings) },
+      };
+    }),
   };
 }
 

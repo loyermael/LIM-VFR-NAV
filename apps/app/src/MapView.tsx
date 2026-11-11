@@ -77,6 +77,32 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
+const ASP_LAYERS = ["asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
+
+/** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
+let hatchCache: Map<string, ImageData> | null = null;
+function hatchIcons(): Map<string, ImageData> {
+  if (hatchCache) return hatchCache;
+  const out = new Map<string, ImageData>();
+  for (const [name, cross] of [["hatch-res", false], ["hatch-pro", true]] as const) {
+    const cv = document.createElement("canvas");
+    cv.width = 16; cv.height = 16;
+    const c = cv.getContext("2d");
+    if (!c) continue;
+    c.strokeStyle = "#e0202a"; c.lineWidth = 1.6; c.lineCap = "square";
+    c.beginPath();
+    for (const [x0, y0, x1, y1] of [[0, 16, 16, 0], [-8, 8, 8, -8], [8, 24, 24, 8]] as const) { c.moveTo(x0, y0); c.lineTo(x1, y1); }
+    if (cross) for (const [x0, y0, x1, y1] of [[0, 0, 16, 16], [-8, 8, 8, 24], [8, -8, 24, 8]] as const) { c.moveTo(x0, y0); c.lineTo(x1, y1); }
+    c.stroke();
+    out.set(name, c.getImageData(0, 0, 16, 16));
+  }
+  hatchCache = out;
+  return out;
+}
+function addAspIcons(m: maplibregl.Map) {
+  for (const [name, img] of hatchIcons()) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
+}
+
 const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid"];
 const NAV_LAYERS = [...NAV_SYM_LAYERS, "nav-name", "nav-box"];
 /** Bleu et rouge de la carte OACI (légende SIA / IGN). */
@@ -216,10 +242,6 @@ function registerTileProtocol() {
     return { data: bytes.slice().buffer as ArrayBuffer };
   });
 }
-
-/** Couleur d'un espace selon son groupe : contrôlés en bleu, réglementés en brique, radio en ocre, planeur en vert. */
-const groupColor = (tk: ReturnType<typeof tokens>) =>
-  ["match", ["get", "group"], "controlled", tk.data, "restricted", tk.bad, "radio", tk.warn, "glider", tk.good, tk.muted] as unknown as string;
 
 const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 32;
@@ -521,6 +543,7 @@ export function MapView(props: MapViewProps) {
 
   /** Espaces aériens et terrains : données posées une fois, filtres (groupe, plafond, visibilité) appliqués sans recharger. */
   const aeroData = useRef(new Map<string, FeatureCollection>());
+  const aspBase = useRef(new Map<string, unknown>());
   function syncAero() {
     const m = map.current;
     if (!m || !loaded.current) return;
@@ -536,8 +559,28 @@ export function MapView(props: MapViewProps) {
       return true;
     };
     if (ensure("asp", airspaceData) && !m.getLayer("asp-fill")) {
-      m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": groupColor(tk), "fill-opacity": 0.06 } }, before);
-      m.addLayer({ id: "asp-line", type: "line", source: "asp", paint: { "line-color": groupColor(tk), "line-width": 1.6 } }, before);
+      addAspIcons(m);
+      const sty = (...v: string[]) => ["in", ["get", "sty"], ["literal", v]];
+      const half = (a: number, b: number) => ["interpolate", ["linear"], ["zoom"], 5, a, 12, b] as never;
+      const bandColor = ["match", ["get", "sty"], "ca", "#e8506a", "cbd", "#5f82c6", "#a9c5ea"] as never;
+      const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
+      // Fond transparent : sert à retrouver l'espace au double appui.
+      m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0.025 } }, before);
+      // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
+      m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(4, 12), "line-offset": half(2, 6), "line-opacity": 0.7 } }, before);
+      // Zones interdites (quadrillage) et réglementées / dangereuses (hachures rouges).
+      m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: sty("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
+      m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: sty("res", "act") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
+      m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: sty("ca", "cbd", "ce", "pro", "res", "act", "fir") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": 1.4 } }, before);
+      // RMZ / TMZ : trait mixte ; ATZ et secteurs SIV : pointillés ; parcs, transits planeur : tirets fins.
+      m.addLayer({ id: "asp-dash-rmz", type: "line", source: "asp", filter: sty("rmz") as never, paint: { "line-color": "#1a1a2e", "line-width": 2.2, "line-dasharray": [5, 1.5, 1, 1.5] } }, before);
+      m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("siv", "atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": ["match", ["get", "sty"], "siv", "#2e9a4a", "#1d46a6"] as never, "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
+      m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("park", "glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
+      m.addLayer({
+        id: "asp-lbl", type: "symbol", source: "asp", minzoom: 8.5, filter: ["!=", ["get", "lbl"], ""] as never,
+        layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8.5, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
+        paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
+      }, before);
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
       addIcons(m);
@@ -556,9 +599,13 @@ export function MapView(props: MapViewProps) {
     }
     if (m.getLayer("asp-fill")) {
       const ceilingM = flightLevelToMeters(ceilingFL);
-      const filter = ["all", ["in", ["get", "group"], ["literal", [...visibleGroups]]], ["<", ["get", "floorM"], ceilingM]] as never;
-      for (const id of ["asp-fill", "asp-line"]) {
-        m.setFilter(id, filter);
+      const common = ["all", ["in", ["get", "group"], ["literal", [...visibleGroups]]], ["<", ["get", "floorM"], ceilingM]] as never;
+      for (const id of ASP_LAYERS) {
+        const l = m.getLayer(id);
+        if (!l) continue;
+        // chaque couche garde son filtre de style ; on lui ajoute celui des groupes et du plafond
+        const base = id === "asp-fill" ? null : (aspBase.current.get(id) ?? (aspBase.current.set(id, m.getFilter(id) ?? null), aspBase.current.get(id)));
+        m.setFilter(id, (base ? ["all", base, common] : common) as never);
         m.setLayoutProperty(id, "visibility", showAirspaces ? "visible" : "none");
       }
     }
@@ -726,10 +773,6 @@ export function MapView(props: MapViewProps) {
     m.setPaintProperty("background", "background-color", tk.paper);
     m.setPaintProperty("vector-line", "line-color", tk.signal);
     m.setPaintProperty("route-line", "line-color", tk.ink);
-    if (m.getLayer("asp-line")) {
-      m.setPaintProperty("asp-line", "line-color", groupColor(tk));
-      m.setPaintProperty("asp-fill", "fill-color", groupColor(tk));
-    }
     m.setPaintProperty("direct-line", "line-color", tk.good);
     for (const id of addedOverlays.current.keys()) {
       m.setPaintProperty(`ov-${id}-fill`, "fill-color", tk.ink);
