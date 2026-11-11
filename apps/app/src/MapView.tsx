@@ -708,12 +708,12 @@ export function MapView(props: MapViewProps) {
       }, before);
       // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
       m.addLayer({
-        id: "asp-siv", type: "symbol", source: "asp", minzoom: 6.5, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
+        id: "asp-siv", type: "symbol", source: "asp", minzoom: 8, maxzoom: 12.5, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
         layout: {
-          "text-field": ["get", "sivlbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-padding": 4, "text-allow-overlap": true, "icon-allow-overlap": true,
+          "text-field": ["get", "sivlbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 8, 12, 11], "text-justify": "center", "text-padding": 10, "text-allow-overlap": false, "icon-allow-overlap": false,
           "icon-image": "siv-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 4, 2, 4],
         } as never,
-        paint: { "text-color": "#1f7a3a" },
+        paint: { "text-color": "#1f7a3a", "icon-opacity": 0.8 },
       }, before);
       // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
       m.addLayer({
@@ -917,6 +917,8 @@ export function MapView(props: MapViewProps) {
    */
   const agglo = useRef(new Map<string, GeoJSON.Feature>());
   const aggloZ = useRef(-1);
+  const aggloReal = useRef(new Map<string, { cx: number; cy: number; geometry: GeoJSON.Geometry }>());
+  const aggloNPlaces = useRef(0);
   const aggloPlaces = useRef(new Map<string, { lon: number; lat: number; kind: "big" | "mid" }>());
   /** Agglomérations selon la légende OACI : points (petite, repère) et contours (moyenne, grande), à l'échelle réelle. Contours généralisés aux petits zooms, vraies zones bâties au zoom 9,5 et plus. */
   function syncAglo() {
@@ -931,7 +933,7 @@ export function MapView(props: MapViewProps) {
       const name = String(pr["name"] ?? "");
       const key = `${name}|${lon.toFixed(3)}|${lat.toFixed(3)}`;
       if (agglo.current.has(key)) continue;
-      const big = cls === "city" || Number(pr["capital"] ?? 99) <= 6 || Number(pr["rank"] ?? 99) <= 7;
+      const big = (cls === "city" || cls === "town") && (cls === "city" || Number(pr["capital"] ?? 99) <= 6 || Number(pr["rank"] ?? 99) <= 7);
       const kind = cls === "hamlet" ? "hamlet" : big ? "big" : cls === "town" ? "mid" : "small";
       if (kind === "small" || kind === "hamlet") {
         agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
@@ -952,12 +954,11 @@ export function MapView(props: MapViewProps) {
     }
     const zl = Math.floor(m.getZoom());
     if (zl !== aggloZ.current) { // les tuiles changent de précision avec le zoom : on repart des zones bâties du niveau courant (pas de superposition de niveaux)
-      for (const k of [...agglo.current.keys()]) if (k.startsWith("r|")) agglo.current.delete(k);
+      aggloReal.current.clear();
       aggloZ.current = zl;
       changed = true;
     }
     if (m.getZoom() >= 8.5 && aggloPlaces.current.size > 0) {
-      const places = [...aggloPlaces.current.values()];
       for (const f of m.querySourceFeatures("aerob-v", { sourceLayer: "landuse" })) {
         const cl = String((f.properties ?? {})["class"] ?? "");
         if (!["residential", "commercial", "industrial", "retail"].includes(cl)) continue;
@@ -965,19 +966,27 @@ export function MapView(props: MapViewProps) {
         const ring0 = (f.geometry.type === "Polygon" ? f.geometry.coordinates[0] : f.geometry.coordinates[0]?.[0]) as [number, number][] | undefined;
         if (!ring0 || ring0.length < 3) continue;
         const key = `r|${ring0[0]![0].toFixed(5)}|${ring0[0]![1].toFixed(5)}|${ring0.length}`;
-        if (agglo.current.has(key)) continue;
+        if (aggloReal.current.has(key)) continue;
         let x0 = 180, x1 = -180, y0 = 90, y1 = -90;
         for (const [x, y] of ring0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, k = 111320 * Math.cos((cy * Math.PI) / 180);
-        let best: "big" | "mid" | null = null, bd = Infinity;
-        for (const pl of places) {
-          const d = Math.hypot((pl.lon - cx) * k, (pl.lat - cy) * 111320);
-          if (d >= (pl.kind === "big" ? 8000 : 4000)) continue;
-          if (best === "big" && pl.kind === "mid") continue; // une grande ville proche l'emporte
-          if (d < bd || (pl.kind === "big" && best === "mid")) { bd = d; best = pl.kind; }
+        aggloReal.current.set(key, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, geometry: f.geometry as GeoJSON.Geometry });
+        changed = true;
+      }
+      // la couleur se recalcule avec toutes les villes connues (une ville peut arriver après ses zones bâties) : une grande ville à moins de 8 km l'emporte, sinon une ville moyenne à moins de 4 km
+      if (changed || aggloNPlaces.current !== aggloPlaces.current.size) {
+        aggloNPlaces.current = aggloPlaces.current.size;
+        const places = [...aggloPlaces.current.values()];
+        for (const k of [...agglo.current.keys()]) if (k.startsWith("r|")) agglo.current.delete(k);
+        for (const [key, r] of aggloReal.current) {
+          const kx = 111320 * Math.cos((r.cy * Math.PI) / 180);
+          let bigD = Infinity, midD = Infinity;
+          for (const pl of places) {
+            const d = Math.hypot((pl.lon - r.cx) * kx, (pl.lat - r.cy) * 111320);
+            if (pl.kind === "big") bigD = Math.min(bigD, d); else midD = Math.min(midD, d);
+          }
+          const kind = bigD < 8000 ? "big" : midD < 4000 ? "mid" : null;
+          if (kind) agglo.current.set(key, { type: "Feature", properties: { kind, src: "real" }, geometry: r.geometry });
         }
-        if (!best) continue;
-        agglo.current.set(key, { type: "Feature", properties: { kind: best, src: "real" }, geometry: f.geometry as GeoJSON.Geometry });
         changed = true;
       }
     }
@@ -1005,6 +1014,7 @@ export function MapView(props: MapViewProps) {
         if (m.getSource("aerob-agglo")) m.removeSource("aerob-agglo");
         agglo.current.clear();
         aggloPlaces.current.clear();
+        aggloReal.current.clear();
       }
       return;
     }
