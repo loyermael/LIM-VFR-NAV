@@ -29,12 +29,17 @@ export interface ControlPoint {
   readonly lon: number;
 }
 
-/** Transformation pixel → Mercator : X = ar·px + ai·py + tx ; Y = ai·px − ar·py + ty (ar + i·ai = échelle complexe). */
+/**
+ * Transformation pixel → Mercator : X = ar·px + ai·py + tx ; Y = ai·px − ay·py + ty (ar + i·ai = échelle complexe ; `ay` = échelle
+ * verticale, égale à `ar` pour une similitude). Une VAC du SIA peut avoir des échelles x et y légèrement différentes (1 à 2 %) :
+ * `ay` les distingue (alors sans rotation, ai = 0).
+ */
 export interface Georef {
   readonly ar: number;
   readonly ai: number;
   readonly tx: number;
   readonly ty: number;
+  readonly ay?: number;
 }
 
 export interface GeorefFit {
@@ -87,18 +92,26 @@ function groundDistance(a: LatLon, b: LatLon): number {
 }
 
 export function pixelToMercator(g: Georef, px: number, py: number): Mercator {
-  return { x: g.ar * px + g.ai * py + g.tx, y: g.ai * px - g.ar * py + g.ty };
+  return { x: g.ar * px + g.ai * py + g.tx, y: g.ai * px - (g.ay ?? g.ar) * py + g.ty };
 }
 export function pixelToLatLon(g: Georef, px: number, py: number): LatLon {
   return fromMercator(pixelToMercator(g, px, py));
 }
-/** Pixel de l'image correspondant à une position (inverse de la similitude). */
+/** Pixel de l'image correspondant à une position (inverse de la transformation). */
 export function latLonToPixel(g: Georef, p: LatLon): { px: number; py: number } {
   const m = toMercator(p);
-  const d = g.ar * g.ar + g.ai * g.ai;
+  const ay = g.ay ?? g.ar;
   const dx = m.x - g.tx, dy = m.y - g.ty;
-  // [dx, dy] = [[ar, ai], [ai, −ar]] · [px, py]  → matrice symétrique, son inverse est elle-même / d
-  return { px: (g.ar * dx + g.ai * dy) / d, py: (g.ai * dx - g.ar * dy) / d };
+  // [dx, dy] = [[ar, ai], [ai, −ay]] · [px, py] ; déterminant = −ar·ay − ai²
+  const det = -g.ar * ay - g.ai * g.ai;
+  return { px: (-ay * dx - g.ai * dy) / det, py: (-g.ai * dx + g.ar * dy) / det };
+}
+
+/** Recadre le repère de l'image : le nouveau pixel (0, 0) est l'ancien pixel (x0, y0). Sert à ne garder que le cadre d'une carte. */
+export function cropGeoref(g: Georef, x0: number, y0: number): Georef {
+  const ay = g.ay ?? g.ar;
+  const out: Georef = { ar: g.ar, ai: g.ai, tx: g.tx + g.ar * x0 + g.ai * y0, ty: g.ty + g.ai * x0 - ay * y0 };
+  return g.ay === undefined ? out : { ...out, ay: g.ay };
 }
 
 /** Coins de l'image (haut-gauche, haut-droit, bas-droit, bas-gauche) en [lon, lat] : le format d'une source image MapLibre. */
@@ -112,8 +125,8 @@ export function georefMetrics(g: Georef, width: number, height: number): { meter
   const center = pixelToLatLon(g, width / 2, height / 2);
   const k = Math.cos((center.lat * Math.PI) / 180);
   const mercPerPx = Math.hypot(g.ar, g.ai);
-  // Le haut de l'image est la direction −py : (X, Y) = (−ai, ar) par pixel.
-  const rotation = (Math.atan2(-g.ai, g.ar) * 180) / Math.PI; // angle du haut de l'image mesuré depuis le nord, sens horaire
+  // Le haut de l'image est la direction −py : (X, Y) = (−ai, ay) par pixel (ay = ar pour une similitude).
+  const rotation = (Math.atan2(-g.ai, g.ay ?? g.ar) * 180) / Math.PI; // angle du haut de l'image mesuré depuis le nord, sens horaire
   return { metersPerPixel: mercPerPx * k, rotationDeg: ((rotation % 360) + 360) % 360 };
 }
 

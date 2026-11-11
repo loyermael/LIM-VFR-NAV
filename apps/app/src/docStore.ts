@@ -14,6 +14,8 @@ export interface DocGeoref {
   readonly rmsError: number;
   /** Calage approximatif tiré d'une piste (cap, longueur, ARP de la base de données) : pas de contrôle possible. */
   readonly assisted?: boolean;
+  /** Calage automatique : le PDF est identique à un fichier de l'index des VAC (graticule du SIA), sans saisie. */
+  readonly auto?: boolean;
   readonly page: number;
   readonly image: Blob;
 }

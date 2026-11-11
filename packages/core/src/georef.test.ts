@@ -182,3 +182,34 @@ describe("calage assisté par une piste", () => {
     expect(georefFromRunway({ ...s, lengthM: 0 })).toBeNull();
   });
 });
+
+import { cropGeoref } from "./georef";
+
+describe("échelles x et y distinctes (VAC du SIA) et recadrage", () => {
+  const g: Georef = { ar: 18.48, ai: 0, ay: 18.43, tx: 215516, ty: 5439322 };
+  it("aller-retour pixel → position → pixel", () => {
+    fc.assert(fc.property(fc.double({ min: 0, max: 900, noNaN: true }), fc.double({ min: 0, max: 1200, noNaN: true }), (px, py) => {
+      const p = pixelToLatLon(g, px, py);
+      const back = latLonToPixel(g, p);
+      expect(back.px).toBeCloseTo(px, 4);
+      expect(back.py).toBeCloseTo(py, 4);
+    }));
+  });
+  it("sans ay : identique à la similitude (rétro-compatible)", () => {
+    const sim: Georef = { ar: 2.5, ai: 0.8, tx: 230000, ty: 5900000 };
+    const p = pixelToLatLon(sim, 100, 200);
+    const back = latLonToPixel({ ...sim, ay: sim.ar }, p);
+    expect(back.px).toBeCloseTo(100, 5);
+    expect(back.py).toBeCloseTo(200, 5);
+  });
+  it("recadrage : un point garde sa position quand l'image est recoupée en (x0, y0)", () => {
+    const c = cropGeoref(g, 120, 80);
+    const a = pixelToLatLon(g, 500, 600), b = pixelToLatLon(c, 380, 520);
+    expect(b.lat).toBeCloseTo(a.lat, 9);
+    expect(b.lon).toBeCloseTo(a.lon, 9);
+    const sim: Georef = { ar: 2.5, ai: 0.8, tx: 230000, ty: 5900000 };
+    const s2 = cropGeoref(sim, 50, 70), a2 = pixelToLatLon(sim, 300, 400), b2 = pixelToLatLon(s2, 250, 330);
+    expect(b2.lat).toBeCloseTo(a2.lat, 9);
+    expect(b2.lon).toBeCloseTo(a2.lon, 9);
+  });
+});

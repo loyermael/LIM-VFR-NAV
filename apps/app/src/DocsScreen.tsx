@@ -4,6 +4,7 @@ import { t, type Key, type Lang } from "./i18n";
 import { DOC_KINDS, isPdf, newDoc, type DocKind, type DocRecord } from "./docStore";
 import { imageSize, renderPdfPage } from "./pdfRender";
 import { Section } from "./Section";
+import { autoGeoreference, loadVacIndex } from "./vacAuto";
 
 const KIND_KEYS: Record<DocKind, Key> = { vac: "dc.kind.vac", aip: "dc.kind.aip", sup: "dc.kind.sup", other: "dc.kind.other" };
 
@@ -203,6 +204,21 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(d.georef || d.kind !== "vac" ? [] : ["geo"]));
   const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const { r, error } = useRendered(d, page);
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [autoMsg, setAutoMsg] = useState<{ text: string; error: boolean } | null>(null);
+  const runAuto = async () => {
+    setAutoBusy(true);
+    setAutoMsg(null);
+    try {
+      const res = await autoGeoreference(d, await loadVacIndex());
+      if ("doc" in res) { p.onPut(res.doc); setAutoMsg({ text: T("va.done"), error: false }); }
+      else setAutoMsg({ text: res.reason === "unknown-edition" ? T("va.unknown") : T("va.notPdf"), error: true });
+    } catch (e) {
+      setAutoMsg({ text: `${T("va.noIndex")} (${e instanceof Error ? e.message : String(e)})`, error: true });
+    } finally {
+      setAutoBusy(false);
+    }
+  };
   const g = d.georef;
   const metrics = g ? georefMetrics(g.georef, g.width, g.height) : null;
   return (
@@ -242,15 +258,17 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
           <Section id="geo" title={T("dc.geo")} ok={!!g} open={open.has("geo")} onToggle={toggle} okLabel={T("dc.geo.done")} todoLabel={T("dc.geo.todo")}>
             {g && metrics ? (
               <>
-                <p className="muted small">{g.points.length} {T("dc.geo.points")} · {g.assisted ? T("as.badge") : `${T("dc.cal.rms")} ${Math.round(g.rmsError)} m`} · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
+                <p className="muted small">{g.points.length} {T("dc.geo.points")} · {g.auto ? T("va.badge") : g.assisted ? T("as.badge") : `${T("dc.cal.rms")} ${Math.round(g.rmsError)} m`} · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
                 <div className="choices">
                   {(["auto", "on", "off"] as const).map((sh) => <button key={sh} aria-pressed={d.show === sh} onClick={() => p.onPut({ ...d, show: sh })}>{T(`dc.show.${sh}` as Key)}</button>)}
                 </div>
                 <p className="muted small">{T("dc.show.note")}</p>
               </>
             ) : <p className="muted small">{T("dc.geo.none")}</p>}
+            {autoMsg && <p className={autoMsg.error ? "error" : "muted small"} role="status">{autoMsg.text}</p>}
             <div className="choices">
-              <button className={g ? undefined : "brand"} onClick={() => setMode("calibrate")}>{g ? T("dc.geo.redo") : T("dc.geo.start")}</button>
+              {!g && isPdf(d) && <button className="brand" disabled={autoBusy} onClick={runAuto}>{autoBusy ? T("dp.checking") : T("va.auto")}</button>}
+              <button className={g ? undefined : undefined} onClick={() => setMode("calibrate")}>{g ? T("dc.geo.redo") : T("dc.geo.start")}</button>
               {g && <button onClick={() => p.onPut({ ...d, georef: null })}>{T("dc.geo.remove")}</button>}
             </div>
           </Section>
@@ -297,7 +315,12 @@ export function DocsTab(p: DocsProps) {
     setImportError(null);
     for (const f of Array.from(files ?? [])) {
       if (!isPdf({ mime: f.type, name: f.name }) && !f.type.startsWith("image/")) { setImportError(`${f.name} : ${T("dc.badType")}`); continue; }
-      p.onPut(newDoc(f, Date.now(), crypto.randomUUID()));
+      const nd = newDoc(f, Date.now(), crypto.randomUUID());
+      p.onPut(nd);
+      if (isPdf(nd)) {
+        // Calage automatique si ce PDF figure dans l'index des VAC du SIA (réseau requis ; sans effet hors-ligne).
+        void loadVacIndex().then((ix) => autoGeoreference(nd, ix)).then((r) => { if ("doc" in r) p.onPut(r.doc); }).catch(() => undefined);
+      }
     }
   };
   return (

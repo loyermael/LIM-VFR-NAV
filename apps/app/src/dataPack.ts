@@ -186,7 +186,10 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
       const m = parsePackManifest(await fetchJson(`${baseUrl.replace(/\/$/, "")}/manifest.json`, { signal: ctl.signal }));
       setManifest(m);
       setLastError(null);
-      let cur = stateRef.current;
+      // Le stockage fait foi : un autre onglet (ou l'appli installée) a pu modifier l'état depuis ; on ne réécrit jamais une version périmée.
+      let cur = load();
+      stateRef.current = cur;
+      setInstalled(cur);
       const country = m.countries.find((c) => c.code === cur.country) ?? m.countries[0];
       // Jeux déjà à jour : on note seulement la vérification.
       const now = Date.now();
@@ -227,6 +230,13 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
       setChecking(false);
     }
   }, [baseUrl]);
+
+  // Synchronisation entre onglets : l'état d'installation modifié ailleurs est relu ici.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => { if (e.key === STATE_KEY) setInstalled(load()); };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     if (!baseUrl) return;
