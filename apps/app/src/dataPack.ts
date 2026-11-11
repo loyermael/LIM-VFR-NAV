@@ -13,6 +13,8 @@ export interface PackDataset {
   /** Date de construction de ce jeu (ISO). */
   readonly updatedAt: string;
   readonly maxAgeHours: number;
+  /** Donnée « vivante » (météo) : téléchargée toute seule, sans package à installer. */
+  readonly live: boolean;
   readonly source: string;
   readonly licence: string;
   readonly files: readonly PackFile[];
@@ -44,7 +46,7 @@ export function parsePackManifest(raw: unknown): PackManifest {
         }
         return { path: ff.path, bytes: ff.bytes, sha256: ff.sha256 };
       });
-      return { id: dd.id, title: dd.title, updatedAt: dd.updatedAt, maxAgeHours: dd.maxAgeHours, source: String(dd.source ?? ""), licence: String(dd.licence ?? ""), files };
+      return { id: dd.id, title: dd.title, updatedAt: dd.updatedAt, maxAgeHours: dd.maxAgeHours, live: (dd as { live?: unknown }).live === true, source: String(dd.source ?? ""), licence: String(dd.licence ?? ""), files };
     });
     return { code: cc.code, name: cc.name, datasets };
   });
@@ -58,11 +60,16 @@ export interface InstalledPack {
 }
 export const NO_PACK: InstalledPack = { country: null, datasets: {} };
 
-/** Jeux à (re)télécharger : absents, ou dont la version publiée est plus récente que celle installée. */
+/**
+ * Jeux à (re)télécharger : ceux du package installé (absents ou plus anciens que la version publiée), et les données
+ * « vivantes » (météo) même sans package : elles se mettent à jour toutes seules.
+ */
 export function datasetsToUpdate(manifest: PackManifest, state: InstalledPack): PackDataset[] {
-  const c = manifest.countries.find((x) => x.code === state.country);
+  const installed = manifest.countries.find((x) => x.code === state.country) ?? null;
+  const c = installed ?? manifest.countries[0] ?? null;
   if (!c) return [];
   return c.datasets.filter((d) => {
+    if (!d.live && !installed) return false;
     const have = state.datasets[d.id];
     return !have || Date.parse(d.updatedAt) > Date.parse(have.updatedAt);
   });
@@ -135,6 +142,8 @@ export interface PackHook {
   readonly lastError: string | null;
   readonly manifest: PackManifest | null;
   chooseCountry(code: string): void;
+  /** Désinstalle le package : oublie sa version (les données déjà dans l'appli sont retirées par l'appelant). */
+  removePackage(): void;
   /** Vérification manuelle : relance aussi ce qui a été annulé ou a échoué. */
   refresh(): void;
   /** Annule le téléchargement en cours ; les vérifications automatiques ne le relancent pas avant 10 minutes. */
@@ -178,8 +187,7 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
       setManifest(m);
       setLastError(null);
       let cur = stateRef.current;
-      if (cur.country === null) return;
-      const country = m.countries.find((c) => c.code === cur.country);
+      const country = m.countries.find((c) => c.code === cur.country) ?? m.countries[0];
       // Jeux déjà à jour : on note seulement la vérification.
       const now = Date.now();
       for (const ds of country?.datasets ?? []) {
@@ -249,6 +257,12 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
     lastError,
     manifest,
     chooseCountry,
+    removePackage: () => {
+      const liveIds = new Set((manifest?.countries.flatMap((c) => c.datasets) ?? []).filter((x) => x.live).map((x) => x.id));
+      const next: InstalledPack = { country: null, datasets: Object.fromEntries(Object.entries(stateRef.current.datasets).filter(([id]) => liveIds.has(id))) };
+      save(next);
+      setInstalled(next);
+    },
     refresh: () => void check(true),
     cancel: () => abort.current?.abort(),
   };

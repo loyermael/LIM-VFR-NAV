@@ -43,12 +43,12 @@ describe("manifeste du paquet", () => {
 describe("quels jeux télécharger", () => {
   const m = (updatedAt: string): PackManifest => ({
     format: "lim-nav-data", version: 1, generatedAt: "", countries: [{ code: "fr", name: "France", datasets: [
-      { id: "aero", title: "", updatedAt, maxAgeHours: 24, source: "", licence: "", files: [] },
-      { id: "weather", title: "", updatedAt: "2026-11-11T08:00:00Z", maxAgeHours: 1, source: "", licence: "", files: [] },
+      { id: "aero", title: "", updatedAt, maxAgeHours: 24, live: false, source: "", licence: "", files: [] },
+      { id: "weather", title: "", updatedAt: "2026-11-11T08:00:00Z", maxAgeHours: 1, live: true, source: "", licence: "", files: [] },
     ] }],
   });
-  it("rien tant qu'aucun pays n'est choisi", () => {
-    expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: null, datasets: {} })).toEqual([]);
+  it("aucun package installé : seules les données vivantes (météo) se téléchargent", () => {
+    expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: null, datasets: {} }).map((d) => d.id)).toEqual(["weather"]);
   });
   it("pays choisi, rien d'installé : tout", () => {
     expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: "fr", datasets: {} }).map((d) => d.id)).toEqual(["aero", "weather"]);
@@ -58,8 +58,8 @@ describe("quels jeux télécharger", () => {
     expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), inst).map((d) => d.id)).toEqual(["weather"]);
     expect(datasetsToUpdate(m("2026-11-12T01:00:00Z"), inst).map((d) => d.id)).toEqual(["aero", "weather"]);
   });
-  it("pays absent du manifeste : rien", () => {
-    expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: "ch", datasets: {} })).toEqual([]);
+  it("package absent du manifeste : traité comme non installé (météo seule)", () => {
+    expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: "ch", datasets: {} }).map((d) => d.id)).toEqual(["weather"]);
   });
 });
 

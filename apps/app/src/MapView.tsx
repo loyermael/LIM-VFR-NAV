@@ -52,6 +52,8 @@ export interface MapViewProps {
   onPointMove: (index: number, lat: number, lon: number) => void;
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
+  /** Appui simple sur un terrain (id + position écran), ou null si l'appui est ailleurs (ferme le menu). */
+  onAirfieldTap: (hit: { id: string; x: number; y: number } | null) => void;
   /** Rejeu d'une trace : ligne complète + position courante (null = pas de rejeu). */
   replay: { line: [number, number][]; pos: { lat: number; lon: number; trk: number | null } | null; key: string } | null;
   /** Cartes calées (VAC) posées sur la carte : image + coins [lon, lat] (haut-gauche, haut-droit, bas-droit, bas-gauche). */
@@ -176,7 +178,7 @@ export function MapView(props: MapViewProps) {
     });
 
     m.on("movestart", (e) => {
-      if ((e as { originalEvent?: unknown }).originalEvent) latest.current.onUserMove();
+      if ((e as { originalEvent?: unknown }).originalEvent) { latest.current.onUserMove(); latest.current.onAirfieldTap(null); }
     });
 
     // Double-tap = deux appuis rapprochés dans le temps et l'espace (souris et tactile).
@@ -188,6 +190,19 @@ export function MapView(props: MapViewProps) {
       const now = Date.now();
       const prev = lastTap.current;
       const { x, y } = e.point;
+      // Appui simple sur un terrain : menu autour du terrain (Direct, Infos, VAC, Route).
+      if (m.getLayer("apt-circle")) {
+        const hit = m.queryRenderedFeatures([[x - 16, y - 16], [x + 16, y + 16]] as [maplibregl.PointLike, maplibregl.PointLike], { layers: ["apt-circle"] })[0];
+        const id = hit ? String((hit.properties as { id?: unknown } | null)?.id ?? "") : "";
+        if (hit && id) {
+          lastTap.current = null;
+          const g = hit.geometry as { type: string; coordinates: [number, number] };
+          const sp = g.type === "Point" ? m.project(g.coordinates) : e.point;
+          latest.current.onAirfieldTap({ id, x: sp.x, y: sp.y });
+          return;
+        }
+      }
+      latest.current.onAirfieldTap(null);
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
         const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill"]).filter((l) => m.getLayer(l));

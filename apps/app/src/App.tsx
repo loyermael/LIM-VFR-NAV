@@ -12,11 +12,12 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
-import { addPoint, fromRouteFile, movePoint, newRoute, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
+import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
+import { AdInfo, AdMenu } from "./AdMenu";
 import { LinkPanel } from "./LinkPanel";
 import { BackupPanel } from "./BackupPanel";
 import { DataPanel } from "./DataPanel";
@@ -46,7 +47,6 @@ type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "
 
 const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.tabPoints", "nav.log", "nav.profile"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
-const DATA_TABS: Key[] = ["dt.country", "dt.charts", "dt.aero", "dt.files"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
 /** Onglets annoncés mais pas encore construits : affichés grisés. */
 const DISABLED_TABS: ReadonlySet<Key> = new Set<Key>(["nav.profile"]);
@@ -306,6 +306,24 @@ export function App() {
     setTargetIndex(i);
   };
   const pickAirfield = (a: Airfield) => setAdhoc({ name: a.icao ?? a.name, position: a.position });
+  // Menu rond autour d'un terrain touché sur la carte.
+  const [adMenu, setAdMenu] = useState<{ airfield: Airfield; x: number; y: number } | null>(null);
+  const [adInfo, setAdInfo] = useState<Airfield | null>(null);
+  const onAirfieldTap = (h: { id: string; x: number; y: number } | null) => {
+    if (!h) return setAdMenu(null);
+    const af = aptById.get(h.id);
+    if (!af) return;
+    setFollow(false); // la carte ne bouge plus : le menu reste accroché au terrain
+    setDetails(null);
+    setCellSheet(null);
+    setAdMenu({ airfield: af, x: h.x, y: h.y });
+  };
+  const addAirfieldToRoute = (af: Airfield) => {
+    const r = route ?? createRoute();
+    const withPoint = addPoint(r, af.position.lat, af.position.lon, uid(), Date.now());
+    putRoute(renamePoint(withPoint, withPoint.points.length - 1, af.icao ?? af.name, Date.now()));
+    if (targetIndex === null) setTargetIndex(0);
+  };
   /** Double-tap : les espaces et terrains sont remplacés par leur fiche complète. */
   const onDoubleTap = (found: TappedFeature[]) => {
     setCellSheet(null);
@@ -477,7 +495,7 @@ export function App() {
   const docs = useDocs();
   /** Données extérieures (espaces, terrains, météo) : téléchargées et mises à jour toutes seules une fois le pays choisi. */
   const pack = usePackData(null, async (id, files) => {
-    if (id === "aero") await importAero(files);
+    if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
     else if (id === "weather") await importWx(files);
   });
   const [openDocId, setOpenDocId] = useState<string | null>(null);
@@ -715,7 +733,7 @@ export function App() {
     { id: "dist", label: T("data.dist"), value: direct ? formatQuantity("distance", prefs, direct.distance) : "---", sub: direct ? formatDuration(direct.timeToGo) : undefined, unit: unitLabel("distance", prefs) },
   ];
 
-  const tabs = screen === "nav" ? NAV_TABS : screen === "aircraft" ? AIRCRAFT_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : screen === "traces" ? TRACES_TABS : screen === "data" ? DATA_TABS : screen === "settings" ? SETTINGS_TABS : null;
+  const tabs = screen === "nav" ? NAV_TABS : screen === "aircraft" ? AIRCRAFT_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : screen === "traces" ? TRACES_TABS : screen === "settings" ? SETTINGS_TABS : null;
   // Écran large : l'écran Route s'affiche à droite de la carte, qui reste utilisable (tracé, Direct).
   const split = wide && screen === "nav";
   const mapActive = screen === "map" || split;
@@ -785,6 +803,7 @@ export function App() {
           onPointMove={(i, lat, lon) => route && putRoute(movePoint(route, i, lat, lon, Date.now()))}
           ceilingFL={ceiling}
           onDoubleTap={onDoubleTap}
+          onAirfieldTap={onAirfieldTap}
           zoomCommand={zoomCommand}
           replay={replayMap}
           docCharts={docCharts}
@@ -799,6 +818,50 @@ export function App() {
           </div>
         )}
 
+        {adMenu && mapActive && (() => {
+          const af = adMenu.airfield;
+          const doc = docs.list.find((x) => af.icao && x.icao === af.icao && x.georef) ?? null;
+          const anyDoc = docs.list.find((x) => af.icao && x.icao === af.icao) ?? null;
+          const shown = !!doc && docCharts.some((c) => c.id === doc.id);
+          const vacState = doc ? (shown ? "shown" : "hidden") : anyDoc ? "uncalibrated" : "none";
+          return (
+            <AdMenu
+              lang={lang}
+              airfield={af}
+              x={adMenu.x}
+              y={adMenu.y}
+              vacState={vacState}
+              onClose={() => setAdMenu(null)}
+              onDirect={() => { pickAirfield(af); setAdMenu(null); }}
+              onInfo={() => { setAdInfo(af); setAdMenu(null); }}
+              onAddToRoute={() => { addAirfieldToRoute(af); setAdMenu(null); }}
+              onVac={() => {
+                setAdMenu(null);
+                if (!anyDoc) { open("docs"); return; }
+                if (!doc) { setOpenDocId(anyDoc.id); open("docs"); return; }
+                if (shown) { docs.put({ ...doc, show: "off" }); return; }
+                docs.put({ ...doc, show: "on" });
+                const g = doc.georef;
+                if (g) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: imageCorners(g.georef, g.width, g.height) }));
+              }}
+            />
+          );
+        })()}
+        {adInfo && mapActive && (
+          <AdInfo
+            lang={lang}
+            prefs={prefs}
+            airfield={adInfo}
+            exportedAtMs={aptSet?.meta.exportedAtMs ?? null}
+            nowMs={now}
+            metars={metarSet?.items ?? []}
+            tafs={tafSet?.items ?? []}
+            docs={docs.list}
+            onDirect={() => { pickAirfield(adInfo); setAdInfo(null); }}
+            onOpenDoc={(id) => { setOpenDocId(id); setAdInfo(null); open("docs"); }}
+            onClose={() => setAdInfo(null)}
+          />
+        )}
         {replay && replayTrack && mapActive && (
           <div className="replaydock">
             <ReplayBar lang={lang} track={replayTrack} replay={replay} onChange={setReplay} onClose={() => setReplay(null)} />
@@ -1021,9 +1084,7 @@ export function App() {
               </div>
             ) : screen === "data" ? (
               <div className="settings">
-                {tab === 0 && <DataPanel lang={lang} pack={pack} nowMs={now} />}
-                {tab === 1 && (
-                  <>
+                <DataPanel lang={lang} pack={pack} nowMs={now} onRemovePackage={() => { removeAero(); pack.removePackage(); }} />
             <h3>{T("layers.maps")}</h3>
             {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
             {charts.map((c) => (
@@ -1058,10 +1119,8 @@ export function App() {
             {chartBusy && <p className="muted small" role="status">{chartBusy}</p>}
             {chartNotice && <p className="error" role="alert">{T("chart.notPersisted")}</p>}
             {chartError && <p className="error" role="alert">{T("chart.error")} — {chartError}</p>}
-                  </>
-                )}
-                {tab === 2 && (
-                  <>
+                <details className="rawbox">
+                  <summary>{T("dp.files")}</summary>
             <h3>{T("aero.title")}</h3>
             {!aspSet && !aptSet && <p className="muted small">{T("aero.none")}</p>}
             {([[T("aero.airspaces"), aspSet], [T("aero.airfields"), aptSet]] as const).map(([label, set]) =>
@@ -1091,10 +1150,6 @@ export function App() {
             ))}
                     {(aspSet || aptSet) && <button onClick={removeAero}>{T("aero.remove")}</button>}
             <p className="muted small">{T("aero.licence")}</p>
-                  </>
-                )}
-                {tab === 3 && (
-                  <>
             <h3>{T("layers.overlays")}</h3>
             <ul>
               {overlays.map((o) => (
@@ -1115,8 +1170,7 @@ export function App() {
             <button className="row" onClick={() => fileInput.current?.click()}>{T("overlay.import")}</button>
             <p className="muted small">{T("overlay.formats")}</p>
             {overlayError && <p className="error" role="alert">{T("overlay.error")} — {overlayError}</p>}
-                  </>
-                )}
+                </details>
               </div>
             ) : screen === "wx" && tab !== 4 ? (
               (() => {

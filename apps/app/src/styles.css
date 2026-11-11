@@ -269,3 +269,23 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 
 .rawbox { margin: var(--sp-2) 0; }
 .rawbox summary { cursor: pointer; font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); padding: var(--sp-1) 0; }
+
+/* Menu rond autour d'un terrain */
+.admenu { position: absolute; z-index: 4; width: 0; height: 0; }
+.admenu .adcenter { position: absolute; transform: translate(-50%, -50%); min-width: 56px; min-height: 56px; border-radius: 50%; background: var(--brand); color: var(--on-brand); font-family: var(--font-mono); font-weight: 700; border: 3px solid var(--ink); padding: 0 var(--sp-2); }
+.admenu .adbtn { position: absolute; transform: translate(-50%, -50%); width: 84px; min-height: 64px; border-radius: var(--r); display: grid; place-items: center; gap: 0; padding: var(--sp-1); background: var(--paper); border: 2px solid var(--ink); box-shadow: var(--shadow-pop); }
+.admenu .adicon { font-weight: 800; font-size: 20px; line-height: 1; }
+.admenu .adlabel { font-size: var(--fs-12); font-weight: 600; }
+.admenu .adbtn.on { background: var(--brand); color: var(--on-brand); }
+.admenu .adbtn.dim { opacity: 0.6; }
+.admenu .adpos0 { left: 0; top: -78px; }
+.admenu .adpos1 { left: 88px; top: 0; }
+.admenu .adpos2 { left: -88px; top: 0; }
+.admenu .adpos3 { left: 0; top: 78px; }
+.adinfo { max-height: 70%; overflow: auto; }
+
+/* Données : packages */
+.pkg { border: var(--rule-line); padding: var(--sp-3); margin-bottom: var(--sp-3); background: var(--paper); display: grid; gap: var(--sp-2); }
+.pkg.installed { border-width: 3px; }
+.pkgname { font-size: var(--fs-20); }
+.datarow.soon { opacity: 0.55; display: flex; justify-content: space-between; gap: var(--sp-3); }
