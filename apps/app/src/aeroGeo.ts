@@ -101,7 +101,15 @@ export function airfieldSymbol(a: Pick<Airfield, "type" | "private" | "runways">
   if (a.type === 10) return `ad-${cls}-water`;
   const longest = Math.max(0, ...a.runways.map((r) => r.lengthM ?? 0));
   const paved = a.runways.some((r) => r.paved === true) || (a.runways.every((r) => r.paved === undefined) && longest >= 900);
-  return `ad-${cls}-${paved ? "paved" : "unpaved"}`;
+  if (!paved) return `ad-${cls}-unpaved`;
+  // piste en dur : la barre blanche du symbole suit le cap de la plus longue piste (12 positions, de 15° en 15°, modulo 180°)
+  const main = [...a.runways].filter((r) => r.trueHeading !== null).sort((p, q) => (q.lengthM ?? 0) - (p.lengthM ?? 0))[0];
+  return main && main.trueHeading !== null ? `ad-${cls}-paved-h${runwayBucket(main.trueHeading)}` : `ad-${cls}-paved`;
+}
+
+/** Position (0 à 11) de la barre du symbole pour un cap de piste : arrondi aux 15° les plus proches, la piste n'ayant pas de sens. */
+export function runwayBucket(headingDeg: number): number {
+  return Math.round((((headingDeg % 180) + 180) % 180) / 15) % 12;
 }
 
 /** Étiquette de terrain : code OACI, nom, puis altitude (ft), fréquence principale et longueur de la plus longue piste (hm), comme sur la carte. */

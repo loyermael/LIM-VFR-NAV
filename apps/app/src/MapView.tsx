@@ -146,6 +146,28 @@ const oaciReady: Promise<void> = (async () => {
         oaciIcons.set(n, ctx.getImageData(0, 0, c.width, c.height));
       } catch { /* ce symbole garde son dessin de repli */ }
     }));
+    // symboles de terrain à piste en dur : la barre blanche pivote (12 positions) pour suivre le cap réel de la piste
+    for (const [base, rin] of [["ad-civil-paved", 27], ["ad-mixte-paved", 21], ["ad-mil-paved", 21]] as const) {
+      const src = oaciIcons.get(base);
+      if (!src) continue;
+      const w = src.width, h = src.height, cx = (w - 1) / 2, cy = (h - 1) / 2;
+      const sample = (y: number) => { const i = (Math.round(y) * w + Math.round(cx)) * 4; return `rgb(${src.data[i]},${src.data[i + 1]},${src.data[i + 2]})`; };
+      const color = sample(cy - rin * 0.6); // couleur du disque (bleu, rouge pour le militaire), prise hors de la barre
+      for (let k = 0; k < 12; k++) {
+        const c = document.createElement("canvas");
+        c.width = w; c.height = h;
+        const ctx = c.getContext("2d");
+        if (!ctx) continue;
+        ctx.putImageData(src, 0, 0);
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, rin, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = color; ctx.fillRect(0, 0, w, h); // efface la barre d'origine
+        ctx.translate(cx, cy); ctx.rotate((k * 15 * Math.PI) / 180 - Math.PI / 2);
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(-rin - 2, -6, 2 * rin + 4, 12);
+        ctx.restore();
+        oaciIcons.set(`${base}-h${k}`, ctx.getImageData(0, 0, w, h));
+      }
+    }
   } catch { /* hors-ligne sans cache : symboles de repli */ }
 })();
 
@@ -676,7 +698,8 @@ export function MapView(props: MapViewProps) {
         {
           id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.9, 12, 1.4],
+            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.9, 12, 1.4], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+            
             "text-field": ["step", ["zoom"], "", 7.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
             "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
           } as never,

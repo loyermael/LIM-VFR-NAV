@@ -61,10 +61,10 @@ import { airfieldLabel, airfieldSymbol, navaidBox } from "./aeroGeo";
 describe("symboles OACI des terrains et balises", () => {
   const rw = (lengthM: number, paved: boolean | null) => ({ designator: "13", trueHeading: 133, lengthM, paved });
   it("terrain : classe, revêtement, privé, fermé", () => {
-    expect(airfieldSymbol({ type: 2, private: false, runways: [rw(1200, true)] })).toBe("ad-civil-paved");
+    expect(airfieldSymbol({ type: 2, private: false, runways: [rw(1200, true)] })).toBe("ad-civil-paved-h9");
     expect(airfieldSymbol({ type: 2, private: false, runways: [rw(600, false)] })).toBe("ad-civil-unpaved");
-    expect(airfieldSymbol({ type: 5, private: false, runways: [rw(2000, true)] })).toBe("ad-mil-paved");
-    expect(airfieldSymbol({ type: 0, private: false, runways: [rw(2000, true)] })).toBe("ad-mixte-paved");
+    expect(airfieldSymbol({ type: 5, private: false, runways: [rw(2000, true)] })).toBe("ad-mil-paved-h9");
+    expect(airfieldSymbol({ type: 0, private: false, runways: [rw(2000, true)] })).toBe("ad-mixte-paved-h9");
     expect(airfieldSymbol({ type: 7, private: false, runways: [] })).toBe("ad-civil-heli");
     expect(airfieldSymbol({ type: 10, private: false, runways: [] })).toBe("ad-civil-water");
     expect(airfieldSymbol({ type: 2, private: true, runways: [] })).toBe("ad-p");
@@ -121,5 +121,19 @@ describe("croix, parachutage et vol libre", () => {
     expect(isParachuting({ type: 28, name: "LF-R15A PARA BRIENNE" })).toBe(true);
     expect(isParachuting({ type: 28, name: "LF-R212 MONT DE VANNES" })).toBe(false);
     expect(airspacesToGeoJSON([asp(28, "PARA PERONNE", 0.3)]).features.some((x) => x.properties?.["sty"] === "para")).toBe(true);
+  });
+});
+
+import { runwayBucket } from "./aeroGeo";
+describe("barre de piste du symbole de terrain", () => {
+  it("cap → position de la barre (15°, modulo 180°)", () => {
+    expect(runwayBucket(45)).toBe(3);
+    expect(runwayBucket(225)).toBe(3);
+    expect(runwayBucket(0)).toBe(0);
+    expect(runwayBucket(179)).toBe(0);
+    expect(runwayBucket(133)).toBe(9);
+  });
+  it("sans cap connu : symbole d'origine", () => {
+    expect(airfieldSymbol({ type: 2, private: false, runways: [{ designator: "13", trueHeading: null, lengthM: 1200, paved: true }] })).toBe("ad-civil-paved");
   });
 });
