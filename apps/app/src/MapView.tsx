@@ -933,13 +933,16 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
-    // Agglomérations comme la légende OACI : disque orange pour les villes, jaune pour les bourgs et villages (plus petits) ; le contour des zones bâties reste en dessous.
+    // Agglomérations selon la légende OACI (largeur moyenne) : grande (> 3600 m) orange, moyenne (1200 à 3600 m) jaune, petite (< 1200 m) simple point jaune.
+    // Taille réelle approchée par un disque à l'échelle de la carte ; au-delà du zoom 11,5 on montre les vraies zones bâties.
+    const urbanCls = ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]];
+    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", minzoom: 11.5, filter: urbanCls, paint: { "fill-color": "#f8a000", "fill-opacity": 0.95 } });
     add({
-      id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
-      // couleurs de la légende OACI : orange (grandes agglomérations) #f8a000, jaune (petites et moyennes) #fff200 ; les villages et bourgs couvrent le petit polygone orange en dessous
+      id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, maxzoom: 11.5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], 5, ["==", ["get", "class"], "town"], 3, 2], 9, ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], 12, ["==", ["get", "class"], "town"], 6, 4], 12, ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], 18, ["==", ["get", "class"], "town"], 9, 6]],
+        "circle-radius": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], ["interpolate", ["exponential", 2], ["zoom"], 5, 2600/80000*32, 12, 2600/80000*4096], ["==", ["get", "class"], "town"], ["interpolate", ["exponential", 2], ["zoom"], 5, 1500/80000*32, 12, 1500/80000*4096], ["interpolate", ["linear"], ["zoom"], 5, 1.5, 11, 4]],
         "circle-color": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], "#f8a000", "#fff200"], "circle-opacity": 1,
+        "circle-stroke-color": "#b87800", "circle-stroke-width": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], 0.8, ["==", ["get", "class"], "town"], 0.6, 0.4],
       },
     });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
