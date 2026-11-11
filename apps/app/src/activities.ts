@@ -58,10 +58,10 @@ export function activitySymbol(a: Pick<Activity, "kind" | "upper">): string | nu
 }
 
 /**
- * Décalage géographique (mètres vers l'est, vers le nord) des symboles d'activité posés sur un terrain : la légende OACI permet de les déplacer pour la lisibilité.
+ * Décalage géographique (mètres vers l'est, vers le nord ; vers l'ouest car le nom du terrain s'écrit à droite de son symbole) des symboles d'activité posés sur un terrain : la légende OACI permet de les déplacer pour la lisibilité.
  * Il est fixé sur le terrain (et non en pixels) : le symbole ne « glisse » donc pas quand on zoome ou dézoome.
  */
-export const ACTIVITY_SHIFT_M: Readonly<Partial<Record<ActivityKind, readonly [number, number]>>> = { glider: [900, 350], para: [500, 700], acro: [-500, 700] };
+export const ACTIVITY_SHIFT_M: Readonly<Partial<Record<ActivityKind, readonly [number, number]>>> = { glider: [-900, -350], para: [-450, 700], acro: [-1000, 350] };
 export function shiftedPosition(lat: number, lon: number, kind: ActivityKind): [number, number] {
   const s = ACTIVITY_SHIFT_M[kind];
   if (!s) return [lon, lat];

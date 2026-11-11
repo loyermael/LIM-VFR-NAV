@@ -775,7 +775,7 @@ export function MapView(props: MapViewProps) {
         // Parachutage, voltige, treuillage : toujours dessinés (ils sont souvent sur un terrain, dont le symbole les chassait) et décalés ; l'aéromodélisme, très dense, évite les chevauchements.
         const key = ["match", ["get", "sym"], "aeromodel-orange", "#e08a00", "aeromodel-purple", "#8a3f9b", "#e8202a"] as never;
         for (const [id, filter, overlap] of [
-          ["act-sym", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]], false],
+          ["act-sym", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]], true],
           ["act-model", ["!", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]]], false],
         ] as const) {
           m.addLayer({
@@ -783,7 +783,8 @@ export function MapView(props: MapViewProps) {
             layout: {
               "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-padding": 2, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
               "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 13, 13],
-              "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
+              // voltige : le numéro est écrit au centre de la boucle du symbole, comme sur l'OACI ; les autres activités : numéro à droite
+              "text-anchor": ["match", ["get", "kind"], "acro", "center", "left"], "text-offset": ["match", ["get", "kind"], "acro", ["literal", [0, -0.6]], ["literal", [1.1, 0]]], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
             } as never,
             paint: { "text-color": key, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
           }, m.getLayer("route-line") ? "route-line" : undefined);
