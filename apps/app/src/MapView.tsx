@@ -85,7 +85,7 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const ASP_LAYERS = ["asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
+const ASP_LAYERS = ["asp-ctl", "asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
 
 /** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
 let hatchCache: Map<string, ImageData> | null = null;
@@ -262,6 +262,21 @@ function navIcons(): Map<string, ImageData> {
     c.beginPath(); c.moveTo(C - 8, C + 7); c.lineTo(C + 8, C - 3); c.moveTo(C - 3, C - 1); c.lineTo(C + 4, C + 6); c.moveTo(C - 8, C + 7); c.lineTo(C - 8, C + 3); stroke(c, OACI_RED, 2.4);
     dot(c, 1.6, OACI_RED, C, C - 5);
   });
+  // carrés de classe d'espace (A à E) pour les étiquettes des espaces contrôlés ; « cls-none » = rien
+  for (const L of ["A", "B", "C", "D", "E"]) make(`cls-${L}`, (c) => { c.fillStyle = OACI_BLUE; c.fillRect(8, 8, 24, 24); c.fillStyle = "#fff"; c.font = "bold 19px sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(L, 20, 21); });
+  make("cls-none", () => undefined);
+  // cadre à coins (étirable) autour des étiquettes d'espaces contrôlés
+  {
+    const cv = document.createElement("canvas"); cv.width = 32; cv.height = 32;
+    const c = cv.getContext("2d");
+    if (c) {
+      c.strokeStyle = OACI_BLUE; c.lineWidth = 3; c.lineCap = "square";
+      c.beginPath();
+      for (const [x, y, dx, dy] of [[1.5, 1.5, 1, 1], [30.5, 1.5, -1, 1], [1.5, 30.5, 1, -1], [30.5, 30.5, -1, -1]] as const) { c.moveTo(x + dx * 9, y); c.lineTo(x, y); c.lineTo(x, y + dy * 9); }
+      c.stroke();
+      out.set("ctl-frame", c.getImageData(0, 0, 32, 32));
+    }
+  }
   // cadre des balises (image étirable : le texte lui donne sa taille)
   const fcv = document.createElement("canvas");
   fcv.width = 32; fcv.height = 32;
@@ -671,6 +686,16 @@ export function MapView(props: MapViewProps) {
         layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
         paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
       }, before);
+      // Espaces contrôlés (TMA, CTA, CTR, LTA) : carré de la classe, nom, plafond, plancher et fréquence dans un cadre à coins, comme l'OACI.
+      m.addLayer({
+        id: "asp-ctl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["all", ["has", "ctllbl"], ["!=", ["get", "ctllbl"], ""]] as never,
+        layout: {
+          "text-field": ["format", ["image", ["get", "cls"]], {}, "  ", {}, ["get", "ctllbl"], { "text-color": OACI_BLUE }],
+          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 9, 12, 12], "text-justify": "left", "text-padding": 6, "text-optional": false,
+          "icon-image": "ctl-frame", "icon-text-fit": "both", "icon-text-fit-padding": [3, 5, 3, 5],
+        } as never,
+        paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
+      }, before);
       // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
       m.addLayer({
         id: "asp-siv", type: "symbol", source: "asp", minzoom: 6.5, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
@@ -731,7 +756,8 @@ export function MapView(props: MapViewProps) {
     for (const [name, img] of oaciIcons) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: OACI_PIXEL_RATIO });
     for (const [name, img] of navIcons()) {
       if (m.hasImage(name)) continue;
-      if (name === "nav-frame" || name === "siv-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
+      if (name === "ctl-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[10, 22]], stretchY: [[10, 22]], content: [10, 10, 22, 22] } as never);
+      else if (name === "nav-frame" || name === "siv-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
       else m.addImage(name, img, { pixelRatio: 2 });
     }
   }
@@ -958,7 +984,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !loaded.current) return;
     const top = m.getLayer("route-line") ? "route-line" : undefined;
-    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "asp-ctl", "apt-minor", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
   }
   function raiseDocs() {
     raiseSymbols();

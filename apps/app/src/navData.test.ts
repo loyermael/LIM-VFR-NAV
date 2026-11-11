@@ -150,3 +150,14 @@ describe("RTBA et zones de parachutage", () => {
     expect(airspaceStyle({ type: 1, icaoClass: null, name: "LF-R2 RUCHARD", lower: { reference: "AGL", value: 0 } })).toBe("res");
   });
 });
+
+describe("étiquette d'espace contrôlé", () => {
+  it("nom, plafond, plancher, fréquence et carré de classe", () => {
+    const asp = { id: "t", name: "TMA TOULOUSE 1.2", type: 7, typeLabel: "", group: "controlled" as const, icaoClass: "D", lower: { reference: "AMSL" as const, value: 900, label: "3000 ft AMSL" }, upper: { reference: "AMSL" as const, value: 1200, label: "4000 ft AMSL" },
+      rings: [[[0, 0], [1, 0], [1, 1], [0, 1]]] as unknown as readonly (readonly (readonly [number, number])[])[], bbox: { south: 0, west: 0, north: 1, east: 1 }, frequencies: [{ name: "", mhz: "121.255", primary: true }], remarks: null, activeFrom: null, activeUntil: null, onRequest: false, byNotam: false };
+    const p = airspacesToGeoJSON([asp]).features[0]?.properties;
+    expect(p?.["ctllbl"]).toBe("TMA TOULOUSE 1.2\n4000 AMSL\n3000 AMSL\n121.255");
+    expect(p?.["cls"]).toBe("cls-D");
+    expect(p?.["lbl"]).toBe("");
+  });
+});

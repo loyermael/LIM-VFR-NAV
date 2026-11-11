@@ -64,7 +64,9 @@ export function orientRings(rings: readonly (readonly (readonly [number, number]
   });
 }
 
-const LABELLED: ReadonlySet<AirspaceStyle> = new Set(["ca", "cbd", "ce", "pro", "res", "rtba", "parz"]);
+const LABELLED: ReadonlySet<AirspaceStyle> = new Set(["pro", "res", "rtba", "parz"]);
+/** Espaces contrôlés : étiquette encadrée avec le carré de la classe, comme la carte OACI (« TMA ST-YAN-1 / FL 085 / 2000 ASFC / 123.405 »). */
+const CONTROLLED: ReadonlySet<AirspaceStyle> = new Set(["ca", "cbd", "ce"]);
 
 /** Zone « de faible superficie » : la carte OACI la figure par une croix rouge plutôt que par son contour (emprise de moins de 0,06°, environ 3 NM). */
 export const SMALL_AREA_DEG = 0.06;
@@ -84,7 +86,7 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
     features.push({
       type: "Feature" as const,
       // secteur d'information de vol (SIV) : nom, limites et fréquence dans un encadré vert, comme sur la carte OACI
-      properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty, lbl: small ? "" : lbl, small, sivlbl: sty === "siv" ? [a.name, `${limitText(a.lower.label)} - ${limitText(a.upper.label)}`, a.frequencies[0]?.mhz ?? ""].filter(Boolean).join("\n") : "" },
+      properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty, lbl: small ? "" : lbl, small, ctllbl: CONTROLLED.has(sty) && !small ? [a.name, limitText(a.upper.label), limitText(a.lower.label), a.frequencies[0]?.mhz ?? ""].filter(Boolean).join("\n") : "", cls: a.icaoClass && /^[A-E]$/.test(a.icaoClass) ? `cls-${a.icaoClass}` : "cls-none", sivlbl: sty === "siv" ? [a.name, `${limitText(a.lower.label)} - ${limitText(a.upper.label)}`, a.frequencies[0]?.mhz ?? ""].filter(Boolean).join("\n") : "" },
       geometry: { type: "Polygon" as const, coordinates: orientRings(a.rings) },
     });
     const centre = { type: "Point" as const, coordinates: [(a.bbox.east + a.bbox.west) / 2, (a.bbox.north + a.bbox.south) / 2] };
