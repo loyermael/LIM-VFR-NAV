@@ -932,9 +932,11 @@ export function MapView(props: MapViewProps) {
       const [lon, lat] = f.geometry.coordinates as [number, number];
       const name = String(pr["name"] ?? "");
       const key = `${name}|${lon.toFixed(3)}|${lat.toFixed(3)}`;
-      if (agglo.current.has(key)) continue;
-      const big = (cls === "city" || cls === "town") && (cls === "city" || Number(pr["capital"] ?? 99) <= 6 || Number(pr["rank"] ?? 99) <= 7);
+      const big = cls === "city" || (cls === "town" && Number(pr["capital"] ?? 99) <= 6); // le rang OpenMapTiles est relatif à la tuile : inutilisable
       const kind = cls === "hamlet" ? "hamlet" : big ? "big" : cls === "town" ? "mid" : "small";
+      const prevKind = agglo.current.get(key)?.properties?.["kind"] as string | undefined;
+      const order = ["hamlet", "small", "mid", "big"];
+      if (prevKind && order.indexOf(prevKind) >= order.indexOf(kind)) continue; // jamais de rétrogradation : certaines tuiles omettent la capitale
       if (kind === "small" || kind === "hamlet") {
         agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
       } else {
@@ -1044,15 +1046,10 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-agglo-real", type: "fill", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], paint: { "fill-color": col, "fill-opacity": 1 } });
     add({ id: "aerob-agglo-realedge", type: "line", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], layout: { "line-join": "round" }, paint: { "line-color": col, "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 1.5, 13, 5] } });
     // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
-    add({
-      id: "aerob-agglo-dot", type: "circle", source: "aerob-agglo", filter: ["==", ["geometry-type"], "Point"],
-      paint: {
-        "circle-color": ["match", ["get", "kind"], "big", "#f8a000", "hamlet", "#ffffff", "#fff200"],
-        "circle-stroke-color": ["match", ["get", "kind"], "hamlet", "#222222", "#6b5400"], "circle-stroke-width": ["match", ["get", "kind"], "hamlet", 1, 0.9],
-        "circle-radius": ["match", ["get", "kind"], "hamlet", ["interpolate", ["linear"], ["zoom"], 8, 2.2, 12, 3.4], "small", ["interpolate", ["linear"], ["zoom"], 6, 2.6, 11, 5], ["step", ["zoom"], 4, 7.5, 0]],
-        "circle-stroke-opacity": ["match", ["get", "kind"], "hamlet", 1, "small", 1, ["step", ["zoom"], 1, 7.5, 0]],
-      },
-    });
+    const pt = (k: string[]) => ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", k]]];
+    add({ id: "aerob-agglo-dot-low", type: "circle", source: "aerob-agglo", maxzoom: 7.5, filter: pt(["big", "mid"]) as never, paint: { "circle-color": col as never, "circle-radius": 4, "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.8 } });
+    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2.6, 11, 5], "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.9 } });
+    add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
     add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
