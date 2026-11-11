@@ -247,3 +247,6 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .toolbar button.sep { margin-left: var(--sp-4); position: relative; }
 .toolbar button.sep::before { content: ""; position: absolute; left: calc(-1 * var(--sp-3) - 1px); top: 18%; bottom: 18%; width: 2px; background: var(--hair); }
 .tabs button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.perfbox { border: var(--rule-line); padding: var(--sp-3); margin: var(--sp-3) 0; background: var(--paper); }
+.perfbox summary { cursor: pointer; font-weight: 600; font-family: var(--font-mono); }

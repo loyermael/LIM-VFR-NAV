@@ -44,7 +44,7 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.log", "nav.profile"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.tabPoints", "nav.log", "nav.profile"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
 const DATA_TABS: Key[] = ["dt.country", "dt.charts", "dt.aero", "dt.files"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
@@ -1143,8 +1143,10 @@ export function App() {
                 onLoad={(pts) => void loadWinds(pts)}
                 onApply={applyRouteWinds}
               />
-            ) : screen === "nav" && tab === 0 ? (
+            ) : screen === "nav" && tab <= 2 ? (
               <NavScreen
+                tab={tab}
+                onGoRoutes={() => setTab(0)}
                 lang={lang}
                 prefs={prefs}
                 route={route}
