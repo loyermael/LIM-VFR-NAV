@@ -27,3 +27,4 @@ export * from "./gdl90";
 export * from "./flarm";
 export * from "./xplane";
 export * from "./traffic";
+export * from "./tiles";

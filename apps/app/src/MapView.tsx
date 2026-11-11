@@ -16,7 +16,14 @@ export interface TappedFeature {
   readonly properties: Record<string, unknown>;
 }
 
+import { BASE_MAPS, IGN_ATTRIBUTION, getTile, type BaseMapId } from "./baseMaps";
+
 export interface MapViewProps {
+  /** Fond de carte IGN affiché (plan, photos) ou aucun ; relief ombré LiDAR par-dessus. */
+  baseMap: "none" | "plan" | "ortho";
+  relief: boolean;
+  /** Donne à l'appli un accès à la zone visible (pour télécharger la zone affichée). */
+  onMapApi?: (api: { getBounds: () => { west: number; south: number; east: number; north: number } }) => void;
   theme: Theme;
   emptyLabel: string;
   fix: GpsFix | null;
@@ -92,6 +99,12 @@ let protocolRegistered = false;
 function registerTileProtocol() {
   if (protocolRegistered) return;
   protocolRegistered = true;
+  // Fonds IGN : tuile téléchargée pour le hors-ligne si on l'a, sinon le service IGN (CORS ouvert) ; transparente si indisponible.
+  maplibregl.addProtocol("ign", async (params) => {
+    const mm = /^ign:\/\/(plan|ortho|relief)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    const buf = mm ? await getTile(BASE_MAPS[mm[1] as BaseMapId], Number(mm[2]), Number(mm[3]), Number(mm[4])) : null;
+    return { data: buf ?? (TRANSPARENT_PNG.slice().buffer as ArrayBuffer) };
+  });
   maplibregl.addProtocol("lim", async (params) => {
     const m = /^lim:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
     const reader = m ? getReader(m[1] as string) : undefined;
@@ -151,6 +164,7 @@ export function MapView(props: MapViewProps) {
       attributionControl: { compact: true },
     });
     map.current = m;
+    latest.current.onMapApi?.({ getBounds: () => { const b = m.getBounds(); return { west: b.getWest(), south: b.getSouth(), east: b.getEast(), north: b.getNorth() }; } });
     if (import.meta.env.DEV) (window as unknown as { __limMap?: unknown }).__limMap = m; // outil de test en développement seulement
 
     m.on("load", () => {
@@ -163,6 +177,7 @@ export function MapView(props: MapViewProps) {
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
+      syncBase();
       syncCharts();
       syncOverlays();
       syncRoute();
@@ -289,7 +304,7 @@ export function MapView(props: MapViewProps) {
           maxzoom: c.info.maxZoom,
           ...(c.info.bounds ? { bounds: [...c.info.bounds] as [number, number, number, number] } : {}),
         });
-        const before = m.getStyle().layers.find((l) => l.id !== "background" && !l.id.startsWith("ch-"))?.id;
+        const before = m.getStyle().layers.find((l) => l.id !== "background" && !l.id.startsWith("ch-") && !l.id.startsWith("base-") && !l.id.startsWith("relief-"))?.id;
         m.addLayer({ id, type: "raster", source: id, paint: { "raster-fade-duration": 0 } }, before);
       }
       m.setLayoutProperty(id, "visibility", c.visible ? "visible" : "none");
@@ -450,6 +465,31 @@ export function MapView(props: MapViewProps) {
   useEffect(syncRadar, [props.radarTemplate]);
 
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
+
+  /** Fond IGN et relief : sources raster sous tout le reste. */
+  function syncBase() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const { baseMap, relief } = latest.current;
+    const want: { id: string; map: BaseMapId; opacity: number }[] = [];
+    if (baseMap !== "none") want.push({ id: "base-ign", map: baseMap, opacity: 1 });
+    if (relief) want.push({ id: "relief-ign", map: "relief", opacity: 0.5 });
+    for (const l of m.getStyle().layers) {
+      if ((l.id === "base-ign" || l.id === "relief-ign") && !want.some((w) => w.id === l.id && (m.getSource(l.id) as unknown as { tiles?: string[] } | undefined)?.tiles?.[0]?.startsWith(`ign://${w.map}/`))) {
+        m.removeLayer(l.id);
+        m.removeSource(l.id);
+      }
+    }
+    for (const w of want) {
+      if (m.getSource(w.id)) continue;
+      m.addSource(w.id, { type: "raster", tiles: [`ign://${w.map}/{z}/{x}/{y}`], tileSize: 256, maxzoom: BASE_MAPS[w.map].maxZoom, attribution: IGN_ATTRIBUTION });
+      const bottom = m.getStyle().layers.find((l) => l.id !== "background" && !(w.id === "relief-ign" && l.id === "base-ign"))?.id;
+      // fond tout en bas ; relief juste au-dessus du fond
+      const before = w.id === "relief-ign" ? m.getStyle().layers.find((l) => l.id !== "background" && l.id !== "base-ign")?.id : bottom;
+      m.addLayer({ id: w.id, type: "raster", source: w.id, paint: { "raster-opacity": w.opacity, "raster-fade-duration": 0 } }, before);
+    }
+  }
+  useEffect(syncBase, [props.baseMap, props.relief]);
 
   useEffect(syncCharts, [props.charts]);
 

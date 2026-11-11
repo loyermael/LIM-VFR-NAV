@@ -20,6 +20,8 @@ import { DocsTab } from "./DocsScreen";
 import { AdInfo, AdMenu } from "./AdMenu";
 import { LinkPanel } from "./LinkPanel";
 import { BackupPanel } from "./BackupPanel";
+import { BaseMapPanel } from "./BaseMapPanel";
+import { loadBasePrefs, saveBasePrefs, type BaseMapPrefs } from "./baseMaps";
 import { DataPanel } from "./DataPanel";
 import { usePackData } from "./dataPack";
 import { useLink } from "./useLink";
@@ -493,6 +495,9 @@ export function App() {
   const linkStream = streamState(link.decoder.lastMsgMs, now);
   const trafficAlert = trafficView.find((x) => x.level >= 2 && !x.stale) ?? null;
   const docs = useDocs();
+  const [basePrefs, setBasePrefsState] = useState<BaseMapPrefs>(loadBasePrefs);
+  const setBasePrefs = (p: BaseMapPrefs) => { setBasePrefsState(p); saveBasePrefs(p); };
+  const mapApi = useRef<{ getBounds: () => { west: number; south: number; east: number; north: number } } | null>(null);
   /** Données extérieures (espaces, terrains, météo) : téléchargées et mises à jour toutes seules une fois le pays choisi. */
   const pack = usePackData(null, async (id, files) => {
     if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
@@ -808,6 +813,9 @@ export function App() {
           replay={replayMap}
           docCharts={docCharts}
           traffic={trafficView}
+          baseMap={basePrefs.base}
+          relief={basePrefs.relief}
+          onMapApi={(api) => { mapApi.current = api; }}
           docFocus={docFocus}
         />
 
@@ -970,6 +978,11 @@ export function App() {
           <aside className="drawer">
             <h2>{T("layers.title")}</h2>
             <h3>{T("lay.base")}</h3>
+            <div className="choices" role="group" aria-label={T("lay.base")}>
+              {(["plan", "ortho", "none"] as const).map((b) => (
+                <button key={b} aria-pressed={basePrefs.base === b} onClick={() => setBasePrefs({ ...basePrefs, base: b })}>{T(`bm.${b}` as Key)}</button>
+              ))}
+            </div>
             {charts.length === 0 && <p className="muted small">{T("lay.noBase")}</p>}
             {charts.map((c) => (
               <button className="row" key={c.id} aria-pressed={c.visible} onClick={() => updateChart(c.id, { visible: !c.visible })}>{c.name} — {c.visible ? T("chart.shown") : T("chart.hidden")}</button>
@@ -1011,7 +1024,7 @@ export function App() {
             )}
             {radarError && <p className="error" role="alert">{T("wxr.error")} — {radarError}</p>}
             <h3>{T("lay.relief")}</h3>
-            <button className="row" disabled title={T("soon")}>{T("lay.reliefSoon")}</button>
+            <button className="row" aria-pressed={basePrefs.relief} onClick={() => setBasePrefs({ ...basePrefs, relief: !basePrefs.relief })}>{basePrefs.relief ? T("bm.reliefOn") : T("bm.reliefOff")}</button>
             <h3>{T("lay.docs")}</h3>
             <p className="muted small">{T("lay.docsHelp")}</p>
             <button className="row" onClick={() => open("docs")}>{T("lay.docsOpen")}</button>
@@ -1085,6 +1098,7 @@ export function App() {
             ) : screen === "data" ? (
               <div className="settings">
                 <DataPanel lang={lang} pack={pack} nowMs={now} onRemovePackage={() => { removeAero(); pack.removePackage(); }} />
+                <BaseMapPanel lang={lang} getViewBounds={() => mapApi.current?.getBounds() ?? null} routePoints={route?.points.map((x) => x.position) ?? []} position={fix?.position ?? null} />
             <h3>{T("layers.maps")}</h3>
             {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
             {charts.map((c) => (
