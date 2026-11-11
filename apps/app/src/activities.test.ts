@@ -31,11 +31,10 @@ describe("activités de l'AIP", () => {
   });
 });
 
-describe("décalage géographique des activités", () => {
-  it("fixé en mètres sur le terrain : même décalage à tout zoom, pas de décalage pour l'aéromodélisme", () => {
-    const [lon, lat] = shiftedPosition(45, 2, "glider");
-    expect((lon - 2) * 111320 * Math.cos((45 * Math.PI) / 180)).toBeCloseTo(-900, 0);
-    expect((lat - 45) * 111320).toBeCloseTo(-350, 0);
-    expect(shiftedPosition(45, 2, "aeromodel")).toEqual([2, 45]);
+describe("position des activités", () => {
+  it("telle que publiée dans l'AIP : sur le terrain, aucun décalage", () => {
+    expect(shiftedPosition(45, 2, "glider")).toEqual([2, 45]);
+    expect(shiftedPosition(45, 2, "para")).toEqual([2, 45]);
+    expect(shiftedPosition(45, 2, "acro")).toEqual([2, 45]);
   });
 });
