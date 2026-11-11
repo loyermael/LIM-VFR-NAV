@@ -1,0 +1,150 @@
+{
+ "ad-civil-paved": {
+  "w": 77,
+  "h": 76
+ },
+ "ad-civil-unpaved": {
+  "w": 77,
+  "h": 76
+ },
+ "ad-civil-heli": {
+  "w": 75,
+  "h": 76
+ },
+ "ad-civil-water": {
+  "w": 76,
+  "h": 76
+ },
+ "ad-mixte-paved": {
+  "w": 77,
+  "h": 79
+ },
+ "ad-mixte-unpaved": {
+  "w": 76,
+  "h": 79
+ },
+ "ad-mixte-heli": {
+  "w": 76,
+  "h": 79
+ },
+ "ad-mixte-water": {
+  "w": 76,
+  "h": 79
+ },
+ "ad-mil-paved": {
+  "w": 59,
+  "h": 60
+ },
+ "ad-mil-unpaved": {
+  "w": 59,
+  "h": 60
+ },
+ "ad-mil-heli": {
+  "w": 59,
+  "h": 60
+ },
+ "ad-mil-water": {
+  "w": 59,
+  "h": 60
+ },
+ "ad-p": {
+  "w": 76,
+  "h": 76
+ },
+ "ad-x": {
+  "w": 60,
+  "h": 59
+ },
+ "vor": {
+  "w": 44,
+  "h": 39
+ },
+ "vordme": {
+  "w": 50,
+  "h": 41
+ },
+ "vortacan": {
+  "w": 61,
+  "h": 53
+ },
+ "ndb": {
+  "w": 80,
+  "h": 80
+ },
+ "tacan": {
+  "w": 60,
+  "h": 53
+ },
+ "dme": {
+  "w": 51,
+  "h": 40
+ },
+ "mast": {
+  "w": 41,
+  "h": 47
+ },
+ "mast-lit": {
+  "w": 41,
+  "h": 47
+ },
+ "mast-group": {
+  "w": 64,
+  "h": 48
+ },
+ "mast-group-lit": {
+  "w": 66,
+  "h": 53
+ },
+ "mast-hi": {
+  "w": 51,
+  "h": 73
+ },
+ "mast-hi-lit": {
+  "w": 54,
+  "h": 88
+ },
+ "mast-hi-group": {
+  "w": 72,
+  "h": 74
+ },
+ "mast-hi-group-lit": {
+  "w": 74,
+  "h": 87
+ },
+ "wind": {
+  "w": 50,
+  "h": 84
+ },
+ "ground-light": {
+  "w": 38,
+  "h": 36
+ },
+ "small-area": {
+  "w": 73,
+  "h": 73
+ },
+ "para": {
+  "w": 61,
+  "h": 67
+ },
+ "balloon": {
+  "w": 45,
+  "h": 61
+ },
+ "glider": {
+  "w": 146,
+  "h": 46
+ },
+ "gliders-airfield": {
+  "w": 56,
+  "h": 57
+ },
+ "rp-c": {
+  "w": 33,
+  "h": 33
+ },
+ "rp": {
+  "w": 34,
+  "h": 33
+ }
+}

@@ -114,6 +114,33 @@ const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
  * terrains (disque barré en dur, cercle = bande, H = hélistation, ancre = hydro, double cercle = mixte, rouge = militaire, P = privé, croix = désaffecté).
  * Grille de dessin de 40 agrandie 1,6 fois ; un filet blanc sous chaque trait garde les symboles lisibles sur le plan comme sur les photos.
  */
+/**
+ * Symboles OACI extraits du PDF de la légende (tools/extract-oaci-symbols.py → public/oaci/*.png, 4 pixels par point : taille d'origine avec un pixelRatio de 4).
+ * Ils remplacent les symboles dessinés à la main de même nom ; ceux qui manquent (voltige…) gardent le dessin de repli.
+ */
+const OACI_PIXEL_RATIO = 4;
+const oaciIcons = new Map<string, ImageData>();
+const oaciReady: Promise<void> = (async () => {
+  try {
+    const base = import.meta.env.BASE_URL;
+    const man = (await (await fetch(`${base}oaci/manifest.json`)).json()) as Record<string, unknown>;
+    await Promise.all(Object.keys(man).map(async (n) => {
+      try {
+        const img = new Image();
+        img.src = `${base}oaci/${n}.png`;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = img.naturalWidth;
+        c.height = img.naturalHeight;
+        const ctx = c.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0);
+        oaciIcons.set(n, ctx.getImageData(0, 0, c.width, c.height));
+      } catch { /* ce symbole garde son dessin de repli */ }
+    }));
+  } catch { /* hors-ligne sans cache : symboles de repli */ }
+})();
+
 let iconCache: Map<string, ImageData> | null = null;
 function navIcons(): Map<string, ImageData> {
   if (iconCache) return iconCache;
@@ -313,7 +340,6 @@ export function MapView(props: MapViewProps) {
     if (import.meta.env.DEV) (window as unknown as { __limMap?: unknown }).__limMap = m; // outil de test en développement seulement
 
     m.on("load", () => {
-      loaded.current = true;
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 4 } });
@@ -322,16 +348,20 @@ export function MapView(props: MapViewProps) {
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
-      syncBase();
-      syncAeroBase();
-      syncNav();
-      syncCharts();
-      syncOverlays();
-      syncRoute();
-      syncAero();
-      syncRadar();
-      syncReplay();
-      syncDocs();
+      // les symboles OACI (images PNG de la légende) sont chargés avant le premier dessin des couches
+      void oaciReady.then(() => {
+        loaded.current = true;
+        syncBase();
+        syncAeroBase();
+        syncNav();
+        syncCharts();
+        syncOverlays();
+        syncRoute();
+        syncAero();
+        syncRadar();
+        syncReplay();
+        syncDocs();
+      });
     });
 
     m.on("zoomend", (e) => {
@@ -608,7 +638,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para", "acro") as never,
         layout: {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.8, 12, 1.15],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1, 12, 1.5],
           // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
           "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
           "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
@@ -622,7 +652,7 @@ export function MapView(props: MapViewProps) {
         {
           id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.75, 12, 1.15],
+            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.9, 12, 1.4],
             "text-field": ["step", ["zoom"], "", 8.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14],
             "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
           } as never,
@@ -647,6 +677,7 @@ export function MapView(props: MapViewProps) {
   }
   /** Balises, points de report, obstacles : symboles et étiquettes de la carte OACI, dessinés sur la carte (polices embarquées : utilisable hors-ligne). */
   function addIcons(m: maplibregl.Map) {
+    for (const [name, img] of oaciIcons) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: OACI_PIXEL_RATIO });
     for (const [name, img] of navIcons()) {
       if (m.hasImage(name)) continue;
       if (name === "nav-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
@@ -668,7 +699,7 @@ export function MapView(props: MapViewProps) {
         const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const layout = {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.85, 12, 1.15],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1, 12, 1.6],
           "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
         } as never;
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
