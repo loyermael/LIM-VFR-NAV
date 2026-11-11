@@ -1,6 +1,6 @@
 import { navaidSymbol, type NavDataset } from "./navData";
 import type { OnaDataset } from "./obstacles";
-import nuclearData from "./data/fr_nuclear.json";
+import nuclearData from "./fr_nuclear.json";
 import { shiftedPosition } from "./activities";
 /** Conversion des espaces et terrains en GeoJSON pour la carte, et textes de détail. Fonctions pures (testées). */
 import type { FeatureCollection } from "geojson";

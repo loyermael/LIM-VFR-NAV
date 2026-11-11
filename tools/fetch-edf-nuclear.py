@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Centrales nucléaires de production d'EDF (open data EDF, Licence Ouverte) : une position par site (moyenne des tranches).
-  python tools/fetch-edf-nuclear.py apps/app/src/data/fr_nuclear.json
+  python tools/fetch-edf-nuclear.py apps/app/src/fr_nuclear.json
 Source : https://opendata.edf.fr/datasets/centrales-de-production-nucleaire-edf
 """
 import csv, io, json, sys, urllib.request
