@@ -163,6 +163,7 @@ export function TracesTab(p: TracesProps) {
         <h3 className="doctitle">{track.name}</h3>
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}
         {track.interrupted && <p className="error" role="alert">{T("tr.interrupted")}</p>}
+        {(track.resumes ?? 0) > 0 && <p className="muted small">{T("tr.resumed")} : {track.resumes} × ({Math.round((track.gapSeconds ?? 0))} s {T("tr.gapUnit")})</p>}
         <table className="navlog"><tbody>
           <tr><td className="legname">{T("tr.date")}</td><td>{new Date(first).toISOString().replace("T", " ").slice(0, 16)} UTC</td></tr>
           <tr><td className="legname">{T("tr.flightTime")}</td><td>{flying === null ? "---" : hms(flying)}</td></tr>

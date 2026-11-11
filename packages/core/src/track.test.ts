@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { XMLParser } from "fast-xml-parser";
 import {
-  FlightRecorder, LANDING_CONFIRM_S, PREROLL_S, TAKEOFF_CONFIRM_S, exportTrackGPX, exportTrackIGC, exportTrackKML, pointAt, trackStats,
+  FlightRecorder, LANDING_CONFIRM_S, RESUME_WINDOW_S, canResume, PREROLL_S, TAKEOFF_CONFIRM_S, exportTrackGPX, exportTrackIGC, exportTrackKML, pointAt, trackStats,
   type TrackPoint,
 } from "./track";
 
@@ -152,5 +152,23 @@ describe("export", () => {
     const l = exportTrackIGC([pt(0, 1, { lat: 47.9999999, lon: 2.9999999 })]).split("\r\n").find((x) => x.startsWith("B")) as string;
     expect(l.slice(7, 14)).toBe("4800000");
     expect(l.slice(15, 23)).toBe("00300000");
+  });
+});
+
+describe("reprise d'une trace interrompue", () => {
+  const last = pt(0, 40, { lat: 47, lon: 2 });
+  it("relance en vol 60 s plus tard à 2 km : même vol", () => {
+    expect(canResume(last, pt(60, 40, { lat: 47.018, lon: 2 }))).toBe(true);
+  });
+  it("coupure trop longue : nouvelle trace", () => {
+    expect(canResume(last, pt(RESUME_WINDOW_S + 1, 40, { lat: 47, lon: 2 }))).toBe(false);
+    expect(canResume(last, pt(RESUME_WINDOW_S, 40, { lat: 47, lon: 2 }))).toBe(true);
+  });
+  it("trop loin pour la durée (autre vol) : nouvelle trace", () => {
+    expect(canResume(last, pt(60, 40, { lat: 48, lon: 2 }))).toBe(false); // 111 km en 60 s
+  });
+  it("ordre des temps invalide (même instant ou passé) : refusé", () => {
+    expect(canResume(last, pt(0, 40, { lat: 47, lon: 2 }))).toBe(false);
+    expect(canResume(pt(100, 40), pt(50, 40))).toBe(false);
   });
 });

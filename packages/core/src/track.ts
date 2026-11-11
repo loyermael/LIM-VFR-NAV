@@ -120,6 +120,23 @@ export class FlightRecorder {
   }
 }
 
+/** Une coupure plus longue que cela n'est plus « la même navigation » : nouvelle trace (JUGÉ). */
+export const RESUME_WINDOW_S = 600;
+/** Vitesse maximale plausible entre deux enregistrements, pour juger qu'on est resté dans le même vol (JUGÉ). */
+export const RESUME_MAX_SPEED_MPS = knotsToMps(knots(150));
+
+/**
+ * Le premier point d'un nouvel enregistrement prolonge-t-il la trace interrompue qui finit par `last` ?
+ * Oui si la coupure est courte et si la distance parcourue est plausible : l'appli a été relancée en vol,
+ * pas un autre vol le même jour.
+ */
+export function canResume(last: TrackPoint, first: TrackPoint): boolean {
+  const dt = (first.t - last.t) / 1000;
+  if (!(dt > 0) || dt > RESUME_WINDOW_S) return false;
+  const d = distance({ lat: last.lat, lon: last.lon } as LatLon, { lat: first.lat, lon: first.lon } as LatLon);
+  return d <= RESUME_MAX_SPEED_MPS * dt + 2000;
+}
+
 export interface TrackStats {
   readonly points: number;
   /** Distance cumulée (m). */
