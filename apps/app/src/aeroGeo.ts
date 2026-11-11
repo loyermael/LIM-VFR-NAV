@@ -223,9 +223,24 @@ export function navToGeoJSON(d: NavDataset): FeatureCollection {
     add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: "", nm: v.name.toUpperCase(), box: navaidBox(v, sym) });
   }
   for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
+  // Éoliennes : la carte OACI les montre en parcs (un symbole par groupe). openAIP/OSM ne donne la hauteur que pour une sur cinq ; sans hauteur on suppose
+  // une machine moderne (> 300 ft) et on garde un symbole par maille d'environ 1,3 km (la plus haute connue), pour ne pas saturer la carte.
+  const WIND_ASSUMED_M = 100;
+  const cells = new Map<string, (typeof d.obstacles)[number]>();
   for (const o of d.obstacles) {
+    if (o.what !== "wind") continue;
+    const key = `${Math.round(o.lat / 0.012)}:${Math.round(o.lon / 0.017)}`;
+    const cur = cells.get(key);
+    if (!cur || (o.heightM ?? 0) > (cur.heightM ?? 0)) cells.set(key, o);
+  }
+  for (const o of d.obstacles) {
+    if (o.what === "wind") continue;
     const h = o.heightM ?? 0;
-    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : h >= HIGH_OBSTACLE_M ? "mast-hi" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
+    add(o.lon, o.lat, { sym: h >= HIGH_OBSTACLE_M ? "mast-hi" : "mast", grp: "obstacle", cat: "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
+  }
+  for (const o of cells.values()) {
+    const h = o.heightM ?? WIND_ASSUMED_M;
+    add(o.lon, o.lat, { sym: "wind", grp: "obstacle", cat: o.heightM === null ? "Éolienne (hauteur supposée > 300 ft)" : "Éolienne (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
   }
   return { type: "FeatureCollection", features };
 }
