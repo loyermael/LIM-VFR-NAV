@@ -238,7 +238,7 @@ export function saveAreas(a: readonly AreaRecord[]): void {
 }
 
 export interface BaseMapPrefs { readonly base: "none" | "plan" | "ortho" | "aero"; readonly relief: boolean }
-export const DEFAULT_BASE_PREFS: BaseMapPrefs = { base: "plan", relief: false };
+export const DEFAULT_BASE_PREFS: BaseMapPrefs = { base: "aero", relief: false };
 
 export function parseBasePrefs(raw: unknown): BaseMapPrefs {
   const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;

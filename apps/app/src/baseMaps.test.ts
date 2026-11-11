@@ -100,10 +100,10 @@ describe("mémoire locale", () => {
     expect(parseAreas([good, { ...good, map: "autre" }, { ...good, bbox: { west: "x" } }, null, 3])).toEqual([good]);
     expect(parseAreas("n'importe quoi")).toEqual([]);
   });
-  it("choix d'affichage : valeurs inconnues → plan IGN sans relief", () => {
-    expect(parseBasePrefs(null)).toEqual({ base: "plan", relief: false });
+  it("choix d'affichage : valeurs inconnues → carte aéro sans relief", () => {
+    expect(parseBasePrefs(null)).toEqual({ base: "aero", relief: false });
     expect(parseBasePrefs({ base: "ortho", relief: true })).toEqual({ base: "ortho", relief: true });
-    expect(parseBasePrefs({ base: "oaci", relief: "oui" })).toEqual({ base: "plan", relief: false });
+    expect(parseBasePrefs({ base: "oaci", relief: "oui" })).toEqual({ base: "aero", relief: false });
   });
 });
 
