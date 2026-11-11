@@ -17,6 +17,36 @@ export interface ChartRecord {
   /** Plage de zoom où cette carte s'affiche : permet de passer d'une carte à une autre selon le zoom. */
   showFromZoom: number;
   showToZoom: number;
+  /** Fichier d'origine retenu (navigateurs Chromium) : permet de réimporter sans rechercher le fichier si le stockage a été purgé. */
+  source?: FileSystemFileHandle;
+}
+
+type PermHandle = FileSystemFileHandle & { queryPermission?: (o: { mode: "read" }) => Promise<string>; requestPermission?: (o: { mode: "read" }) => Promise<string> };
+
+/** Cartes dont la copie a disparu mais dont on connaît le fichier d'origine : à restaurer (un geste de l'utilisateur est requis). */
+let lost: ChartRecord[] = [];
+export const getLostCharts = (): readonly ChartRecord[] => lost;
+
+/** Sélecteur de fichier qui retient le fichier choisi (Chromium) ; null si indisponible ou annulé. */
+export async function pickMbtiles(): Promise<{ file: File; handle: FileSystemFileHandle }[] | null> {
+  const w = window as unknown as { showOpenFilePicker?: (o: unknown) => Promise<FileSystemFileHandle[]> };
+  if (!w.showOpenFilePicker) return null;
+  try {
+    const hs = await w.showOpenFilePicker({ multiple: true, types: [{ description: "MBTiles", accept: { "application/octet-stream": [".mbtiles"] } }] });
+    return await Promise.all(hs.map(async (handle) => ({ file: await handle.getFile(), handle })));
+  } catch {
+    return null; // annulé
+  }
+}
+
+/** Réimporte une carte perdue depuis son fichier d'origine (demande l'autorisation de lecture). */
+export async function restoreChart(r: ChartRecord, onProgress: ImportProgress): Promise<ChartRecord> {
+  const h = r.source as PermHandle | undefined;
+  if (!h) throw new Error("fichier d'origine inconnu");
+  if ((await h.queryPermission?.({ mode: "read" })) !== "granted" && (await h.requestPermission?.({ mode: "read" })) !== "granted") throw new Error("accès au fichier refusé");
+  const res = await importMbtiles(await h.getFile(), onProgress, { handle: h, id: r.id, visible: r.visible, showFromZoom: r.showFromZoom, showToZoom: r.showToZoom });
+  lost = lost.filter((x) => x.id !== r.id);
+  return res.record;
 }
 
 export type ImportPhase = "copy" | "index";
@@ -32,6 +62,7 @@ const indexName = (id: string) => `chart-${id}.idx`;
 export const MAX_ZOOM = 18;
 
 export async function loadCharts(): Promise<ChartRecord[]> {
+  lost = [];
   const records = await tx("charts", "readonly", (s) => s.getAll() as IDBRequest<ChartRecord[]>);
   const usable: ChartRecord[] = [];
   for (const r of records) {
@@ -46,7 +77,19 @@ export async function loadCharts(): Promise<ChartRecord[]> {
       readers.set(r.id, await MbtilesReader.open(file, index ? { index } : {}));
       usable.push(r);
     } catch {
-      // Fichier disparu (stockage purgé) : on oublie la carte plutôt que d'afficher une carte fantôme.
+      if (r.source) {
+        // Fichier d'origine connu : restauration silencieuse si l'autorisation est encore valable, sinon d'un geste de l'utilisateur.
+        try {
+          const h = r.source as PermHandle;
+          if ((await h.queryPermission?.({ mode: "read" })) === "granted") {
+            usable.push(await restoreChart(r, () => undefined));
+            continue;
+          }
+        } catch { /* repli : à restaurer à la main */ }
+        lost.push(r);
+        continue;
+      }
+      // Fichier disparu (stockage purgé), origine inconnue : on oublie la carte plutôt que d'afficher une carte fantôme.
       void tx("charts", "readwrite", (s) => s.delete(r.id));
     }
   }
@@ -54,8 +97,10 @@ export async function loadCharts(): Promise<ChartRecord[]> {
 }
 
 /** Importe un MBTiles. Sans OPFS (navigation privée), la carte n'est gardée que pour la session. */
-export async function importMbtiles(file: File, onProgress: ImportProgress): Promise<{ record: ChartRecord; persisted: boolean }> {
-  const id = crypto.randomUUID();
+export async function importMbtiles(
+  file: File, onProgress: ImportProgress, opts: { handle?: FileSystemFileHandle; id?: string; visible?: boolean; showFromZoom?: number; showToZoom?: number } = {},
+): Promise<{ record: ChartRecord; persisted: boolean }> {
+  const id = opts.id ?? crypto.randomUUID();
   const persisted = opfsAvailable();
   let blob: Blob = file;
   if (persisted) {
@@ -77,9 +122,10 @@ export async function importMbtiles(file: File, onProgress: ImportProgress): Pro
     info: reader.info,
     importedAt: new Date().toISOString(),
     sizeBytes: file.size,
-    visible: true,
-    showFromZoom: reader.info.minZoom,
-    showToZoom: MAX_ZOOM,
+    visible: opts.visible ?? true,
+    showFromZoom: opts.showFromZoom ?? reader.info.minZoom,
+    showToZoom: opts.showToZoom ?? MAX_ZOOM,
+    ...(opts.handle ? { source: opts.handle } : {}),
   };
   if (persisted) {
     const idx = reader.serializeIndex();

@@ -6,7 +6,7 @@ import {
   type Airfield, type AltitudeSettings, type GpsFix, type LatLon, type Pascals, type UnitPrefs,
 } from "@lim/core";
 import { AltitudeSheet, UnitSheet, type CellId } from "./CellSheets";
-import { MAX_ZOOM, importMbtiles, loadCharts, removeChart, saveChart, type ChartRecord } from "./charts";
+import { MAX_ZOOM, getLostCharts, importMbtiles, loadCharts, pickMbtiles, removeChart, restoreChart, saveChart, type ChartRecord } from "./charts";
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
@@ -174,6 +174,7 @@ export function App() {
   const [details, setDetails] = useState<TappedFeature[] | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const chartInput = useRef<HTMLInputElement>(null);
+  const [lostCharts, setLostCharts] = useState<ChartRecord[]>([]);
   const [charts, setCharts] = useState<ChartRecord[]>([]);
   const [chartBusy, setChartBusy] = useState<string | null>(null);
   const [chartError, setChartError] = useState<string | null>(null);
@@ -402,7 +403,7 @@ export function App() {
       .then((b) => setGeoid(new Geoid(b)))
       .catch(() => setGeoid(null));
     loadOverlays().then(setOverlays).catch(() => setOverlays([]));
-    loadCharts().then(setCharts).catch(() => setCharts([]));
+    loadCharts().then((c) => { setCharts(c); setLostCharts([...getLostCharts()]); }).catch(() => setCharts([]));
     loadRoutes().then(setRoutes).catch(() => setRoutes([]));
     loadWx()
       .then((all) => {
@@ -666,13 +667,31 @@ export function App() {
     }
     if (fileInput.current) fileInput.current.value = "";
   };
-  const importCharts = async (files: FileList | null) => {
+  const restoreLost = async (r: ChartRecord) => {
+    setChartError(null);
+    try {
+      const rec = await restoreChart(r, (phase, v) => setChartBusy(phase === "copy" ? `${T("chart.copying")} ${Math.round(v * 100)} %` : `${T("chart.indexing")} ${v}`));
+      setCharts((prev) => [...prev, rec]);
+      setLostCharts((prev) => prev.filter((x) => x.id !== r.id));
+    } catch (e) {
+      setChartError(`${r.name} : ${e instanceof Error ? e.message : String(e)}`);
+    }
+    setChartBusy(null);
+  };
+  /** Choix du fichier : le sélecteur Chromium retient le fichier (restauration possible), sinon le sélecteur classique. */
+  const chooseCharts = async () => {
+    const picked = await pickMbtiles();
+    if (picked) await importCharts(picked.map((p) => p.file), picked.map((p) => p.handle));
+    else chartInput.current?.click();
+  };
+  const importCharts = async (files: FileList | File[] | null, handles?: FileSystemFileHandle[]) => {
     if (!files) return;
     setChartError(null);
-    for (const f of Array.from(files)) {
+    for (const [i, f] of Array.from(files).entries()) {
       try {
         const { record, persisted } = await importMbtiles(f, (phase, v) =>
           setChartBusy(phase === "copy" ? `${T("chart.copying")} ${Math.round(v * 100)} %` : `${T("chart.indexing")} ${v}`),
+          handles?.[i] ? { handle: handles[i] } : {},
         );
         setChartNotice(!persisted);
         setCharts((prev) => [...prev, record]);
@@ -1146,7 +1165,8 @@ export function App() {
               </div>
             ))}
             <input ref={chartInput} type="file" hidden multiple accept=".mbtiles" onChange={(e) => void importCharts(e.target.files)} />
-            <button className="row" disabled={chartBusy !== null} onClick={() => chartInput.current?.click()}>{T("chart.import")}</button>
+            <button className="row" disabled={chartBusy !== null} onClick={() => void chooseCharts()}>{T("chart.import")}</button>
+            {lostCharts.map((r) => <button className="row" key={r.id} disabled={chartBusy !== null} onClick={() => void restoreLost(r)}>{T("chart.restore")} : {r.name}</button>)}
             <p className="muted small">{T("chart.formats")}</p>
             {chartBusy && <p className="muted small" role="status">{chartBusy}</p>}
             {chartNotice && <p className="error" role="alert">{T("chart.notPersisted")}</p>}
