@@ -250,14 +250,14 @@ export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null): Feat
   const WIND_ASSUMED_M = 100;
   const cells = new Map<string, (typeof d.obstacles)[number]>();
   for (const o of d.obstacles) {
-    if (o.what !== "wind" || o.heightM === null) continue;
+    if (o.what !== "wind") continue;
     const key = `${Math.round(o.lat / 0.012)}:${Math.round(o.lon / 0.017)}`;
     const cur = cells.get(key);
     if (!cur || (o.heightM ?? 0) > (cur.heightM ?? 0)) cells.set(key, o);
   }
   for (const o of d.obstacles) {
-    if (o.what === "wind" || o.heightM === null) continue; // la carte OACI n'affiche que des obstacles cotés
-    const h = o.heightM;
+    if (o.what === "wind") continue;
+    const h = o.heightM ?? 0;
     add(o.lon, o.lat, { sym: h >= HIGH_OBSTACLE_M ? "mast-hi" : "mast", grp: "obstacle", cat: "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
   }
   for (const o of cells.values()) {
