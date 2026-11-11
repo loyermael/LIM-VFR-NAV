@@ -18,7 +18,7 @@ export default defineConfig({
         icons: [{ src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
       },
       // La grille du géoïde (.bin, 2 Mo) doit être disponible hors-ligne : correction d'altitude en vol.
-      workbox: { globPatterns: ["**/*.{js,mjs,css,html,svg,png,json,bin,woff2}"], maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 },
+      workbox: { globPatterns: ["**/*.{js,mjs,css,html,svg,png,json,bin,woff2,pbf}"], maximumFileSizeToCacheInBytes: 5 * 1024 * 1024 },
     }),
   ],
 });

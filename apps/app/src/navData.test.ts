@@ -47,3 +47,12 @@ describe("symboles de la carte aéro", () => {
     expect(f[3]?.["h"]).toBe(0);
   });
 });
+
+import { obstacleLabel } from "./aeroGeo";
+describe("étiquettes", () => {
+  it("obstacle : sommet (hauteur) en pieds, vide si hauteur inconnue", () => {
+    expect(obstacleLabel({ heightM: 80, elevM: 56 })).toBe("446 (262)");
+    expect(obstacleLabel({ heightM: null, elevM: 56 })).toBe("");
+    expect(obstacleLabel({ heightM: 100, elevM: null })).toBe("(328)");
+  });
+});

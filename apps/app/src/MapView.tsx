@@ -84,12 +84,14 @@ let iconCache: Map<string, ImageData> | null = null;
 function navIcons(): Map<string, ImageData> {
   if (iconCache) return iconCache;
   const out = new Map<string, ImageData>();
-  const S = 40, C = S / 2;
+  const S = 64, K = 1.6, C = 20; // dessin sur une grille de 40, agrandi 1,6 fois
+
   const make = (name: string, draw: (c: CanvasRenderingContext2D) => void) => {
     const cv = document.createElement("canvas");
     cv.width = S; cv.height = S;
     const c = cv.getContext("2d");
     if (!c) return;
+    c.scale(K, K);
     c.lineJoin = "round"; c.lineCap = "round";
     draw(c);
     out.set(name, c.getImageData(0, 0, S, S));
@@ -126,6 +128,8 @@ function tokens() {
 // les données SIA / openAIP (J3) s'ajoutent par-dessus.
 const baseStyle = (paper: string): StyleSpecification => ({
   version: 8,
+  // Polices embarquées (public/fonts) : les noms et hauteurs restent lisibles hors-ligne.
+  glyphs: `${location.origin}${import.meta.env.BASE_URL}fonts/{fontstack}/{range}.pbf`,
   sources: {},
   layers: [{ id: "background", type: "background", paint: { "background-color": paper } }],
 });
@@ -507,12 +511,15 @@ export function MapView(props: MapViewProps) {
       aeroData.current.set("nav", navData);
       if (!m.getLayer("nav-sym")) {
         // Les filtres ne peuvent pas dépendre du zoom : un calque par niveau de détail des obstacles (les plus hauts de loin, tous de près).
-        const layout = { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.9, 12, 1.3] } as never;
+        const layout = { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.85, 12, 1.15],
+          "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14],
+          "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true } as never;
+        const paint = { "text-color": ["match", ["get", "grp"], "obstacle", "#111111", "#0b3d91"], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const obs = ["==", ["get", "grp"], "obstacle"];
-        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 150]] as never }, before);
-        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, filter: ["all", obs, [">=", ["get", "h"], 60], ["<", ["get", "h"], 150]] as never }, before);
-        m.addLayer({ id: "nav-obs-low", type: "symbol", source: "nav", minzoom: 11.5, layout, filter: ["all", obs, ["<", ["get", "h"], 60]] as never }, before);
+        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 150]] as never }, before);
+        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 60], ["<", ["get", "h"], 150]] as never }, before);
+        m.addLayer({ id: "nav-obs-low", type: "symbol", source: "nav", minzoom: 11.5, layout, paint, filter: ["all", obs, ["<", ["get", "h"], 60]] as never }, before);
       }
     }
     for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");

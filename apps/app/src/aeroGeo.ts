@@ -112,12 +112,21 @@ export function navToGeoJSON(d: NavDataset): FeatureCollection {
   for (const v of d.navaids) {
     const sym = navaidSymbol(v);
     const freq = v.freq ? `${v.freq} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
-    add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0 });
+    add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: `${v.name}
+${[v.ident, freq].filter(Boolean).join(" ")}` });
   }
-  for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0 });
+  for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
   for (const o of d.obstacles) {
     const h = o.heightM ?? 0;
-    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h });
+    add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
   }
   return { type: "FeatureCollection", features };
+}
+
+const FT_PER_M = 3.28084;
+/** Étiquette d'obstacle à la manière des cartes aéro : altitude du sommet (ft AMSL) puis hauteur au-dessus du sol entre parenthèses ; rien si la hauteur est inconnue. */
+export function obstacleLabel(o: { heightM: number | null; elevM: number | null }): string {
+  if (o.heightM === null) return "";
+  const h = Math.round(o.heightM * FT_PER_M);
+  return o.elevM === null ? `(${h})` : `${Math.round((o.elevM + o.heightM) * FT_PER_M)} (${h})`;
 }
