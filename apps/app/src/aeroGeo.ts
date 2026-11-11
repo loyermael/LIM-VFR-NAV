@@ -1,5 +1,6 @@
 import { navaidSymbol, type NavDataset } from "./navData";
 import type { OnaDataset } from "./obstacles";
+import { shiftedPosition } from "./activities";
 /** Conversion des espaces et terrains en GeoJSON pour la carte, et textes de détail. Fonctions pures (testées). */
 import type { FeatureCollection } from "geojson";
 import {
@@ -91,10 +92,12 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
       geometry: { type: "Polygon" as const, coordinates: orientRings(a.rings) },
     });
     const centre = { type: "Point" as const, coordinates: [(a.bbox.east + a.bbox.west) / 2, (a.bbox.north + a.bbox.south) / 2] };
+    const cLat = (a.bbox.north + a.bbox.south) / 2, cLon = (a.bbox.east + a.bbox.west) / 2;
+    const sh = (kind: "para" | "acro") => ({ type: "Point" as const, coordinates: shiftedPosition(cLat, cLon, kind) }); // décalage fixé sur le terrain, pas en pixels
     // Croix (petite zone) et parachute : symboles ponctuels au centre de l'emprise, filtrés comme l'espace lui-même (groupe, plafond).
     if (small) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "cross", sym: "small-area", lbl: [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") }, geometry: centre });
-    if (isAerobatics(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "acro", sym: "acro", lbl: "" }, geometry: centre });
-    if (isParachuting(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "para", sym: "para", lbl: "" }, geometry: centre });
+    if (isAerobatics(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "acro", sym: "acro", lbl: "" }, geometry: sh("acro") });
+    if (isParachuting(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "para", sym: "para", lbl: "" }, geometry: sh("para") });
   }
   return { type: "FeatureCollection", features };
 }

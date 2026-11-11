@@ -57,13 +57,24 @@ export function activitySymbol(a: Pick<Activity, "kind" | "upper">): string | nu
   }
 }
 
+/**
+ * Décalage géographique (mètres vers l'est, vers le nord) des symboles d'activité posés sur un terrain : la légende OACI permet de les déplacer pour la lisibilité.
+ * Il est fixé sur le terrain (et non en pixels) : le symbole ne « glisse » donc pas quand on zoome ou dézoome.
+ */
+export const ACTIVITY_SHIFT_M: Readonly<Partial<Record<ActivityKind, readonly [number, number]>>> = { glider: [900, 350], para: [500, 700], acro: [-500, 700] };
+export function shiftedPosition(lat: number, lon: number, kind: ActivityKind): [number, number] {
+  const s = ACTIVITY_SHIFT_M[kind];
+  if (!s) return [lon, lat];
+  return [lon + s[0] / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180))), lat + s[1] / 111320];
+}
+
 export function activitiesToGeoJSON(d: ActivityDataset): FeatureCollection {
   const features: FeatureCollection["features"] = [];
   for (const a of d.items) {
     const sym = activitySymbol(a);
     if (!sym) continue;
     features.push({
-      type: "Feature", geometry: { type: "Point", coordinates: [a.lon, a.lat] },
+      type: "Feature", geometry: { type: "Point", coordinates: shiftedPosition(a.lat, a.lon, a.kind) },
       properties: { sym, kind: a.kind, ref: a.ref, lbl: a.kind === "glider" ? `${a.ref}
 CABLE` : a.ref, cat: `Activité ${a.kind === "para" ? "de parachutage" : a.kind === "acro" ? "de voltige" : a.kind === "glider" ? "de treuillage (planeur)" : a.kind === "aeromodel" ? "d'aéromodélisme" : "aérienne"}`, name: a.name, upper: a.upper ?? "", lower: a.lower ?? "", hours: a.hours ?? "" },
     });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activitiesToGeoJSON, activitySymbol, limitFeet, parseActivities } from "./activities";
+import { activitiesToGeoJSON, activitySymbol, limitFeet, parseActivities, shiftedPosition } from "./activities";
 
 describe("activités de l'AIP", () => {
   it("lit les entrées valides, écarte les autres", () => {
@@ -28,5 +28,14 @@ describe("activités de l'AIP", () => {
     const f = activitiesToGeoJSON(d).features;
     expect(f).toHaveLength(1);
     expect(f[0]?.properties?.["lbl"]).toBe("6000");
+  });
+});
+
+describe("décalage géographique des activités", () => {
+  it("fixé en mètres sur le terrain : même décalage à tout zoom, pas de décalage pour l'aéromodélisme", () => {
+    const [lon, lat] = shiftedPosition(45, 2, "glider");
+    expect((lon - 2) * 111320 * Math.cos((45 * Math.PI) / 180)).toBeCloseTo(900, 0);
+    expect((lat - 45) * 111320).toBeCloseTo(350, 0);
+    expect(shiftedPosition(45, 2, "aeromodel")).toEqual([2, 45]);
   });
 });

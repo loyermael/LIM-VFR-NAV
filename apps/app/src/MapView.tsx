@@ -710,9 +710,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-sym", type: "symbol", source: "asp", minzoom: 5.5, filter: sty("cross", "para", "acro") as never,
         layout: {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["match", ["get", "grp"], "navaid", 0, "report", 1, 2], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.8, 7, 1.3, 12, 2],
-          // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
-          "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
           "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
         } as never,
         paint: { "text-color": OACI_RED, "text-halo-color": "#ffffff", "text-halo-width": 1.8 } as never,
@@ -784,7 +782,6 @@ export function MapView(props: MapViewProps) {
             id, type: "symbol", source: "act", minzoom: 6.5, filter: filter as never,
             layout: {
               "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-padding": 2, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
-              "icon-offset": ["match", ["get", "kind"], "glider", ["literal", [34, -20]], "para", ["literal", [20, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, -14]]] as never,
               "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 13, 13],
               "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
             } as never,
@@ -834,7 +831,7 @@ export function MapView(props: MapViewProps) {
         const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const layout = {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["match", ["get", "grp"], "navaid", 0, "report", 1, 2], "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
           "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
         } as never;
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
