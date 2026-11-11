@@ -636,8 +636,8 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("park", "glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
       addIcons(m);
       m.addLayer({
-        id: "asp-lbl", type: "symbol", source: "asp", minzoom: 8.5, filter: ["!=", ["get", "lbl"], ""] as never,
-        layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8.5, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
+        id: "asp-lbl", type: "symbol", source: "asp", minzoom: 7.4, filter: ["!=", ["get", "lbl"], ""] as never,
+        layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
         paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
       }, before);
       // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
@@ -659,7 +659,7 @@ export function MapView(props: MapViewProps) {
           id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
           layout: {
             "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.9, 12, 1.4],
-            "text-field": ["step", ["zoom"], "", 8.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 11, 12, 14],
+            "text-field": ["step", ["zoom"], "", 7.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
             "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
           } as never,
           paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
@@ -680,6 +680,7 @@ export function MapView(props: MapViewProps) {
       }
     }
     if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
+    raiseDocs();
   }
   /** Balises, points de report, obstacles : symboles et étiquettes de la carte OACI, dessinés sur la carte (polices embarquées : utilisable hors-ligne). */
   function addIcons(m: maplibregl.Map) {
@@ -706,7 +707,7 @@ export function MapView(props: MapViewProps) {
           id: "act-sym", type: "symbol", source: "act", minzoom: 8,
           layout: {
             "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.8, 12, 1.3],
-            "text-field": ["step", ["zoom"], "", 10, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 13, 13],
+            "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 13],
             "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
           } as never,
           paint: { "text-color": ["match", ["get", "sym"], "aeromodel-orange", "#e08a00", "aeromodel-purple", "#8a3f9b", "#e8202a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
@@ -714,6 +715,7 @@ export function MapView(props: MapViewProps) {
       }
     }
     if (m.getLayer("act-sym")) m.setLayoutProperty("act-sym", "visibility", showActivities ? "visible" : "none");
+    raiseDocs();
   }
   function syncNav() {
     const m = map.current;
@@ -740,18 +742,19 @@ export function MapView(props: MapViewProps) {
         m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
         const navaid = ["==", ["get", "grp"], "navaid"];
         m.addLayer({
-          id: "nav-box", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
+          id: "nav-box", type: "symbol", source: "nav", minzoom: 7.6, filter: navaid as never,
           layout: { "text-field": ["get", "box"], "text-font": font, "text-size": size, "text-anchor": "left", "text-offset": [1.9, 0.3], "text-allow-overlap": false, "icon-image": "nav-frame", "icon-text-fit": "both", "icon-text-fit-padding": [1, 3, 1, 3] } as never,
           paint: { "text-color": OACI_BLUE } as never,
         }, before);
         m.addLayer({
-          id: "nav-name", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
+          id: "nav-name", type: "symbol", source: "nav", minzoom: 7.6, filter: navaid as never,
           layout: { "text-field": ["get", "nm"], "text-font": font, "text-size": ["interpolate", ["linear"], ["zoom"], 7, 9, 12, 12], "text-anchor": "bottom-left", "text-offset": [1.9, -0.55], "text-optional": true } as never,
           paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
         }, before);
       }
     }
     for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");
+    raiseDocs();
   }
   /** Radar de pluie : tuiles distantes (le seul calque qui exige le réseau), sous la route et au-dessus des cartes. */
   function syncRadar() {
@@ -827,7 +830,7 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
-    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f6dc94", "fill-opacity": 0.9 } });
+    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f5a838", "fill-opacity": 0.92 } });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
     add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
@@ -871,7 +874,7 @@ export function MapView(props: MapViewProps) {
       }
     }
     // Les cartes calées (VAC) se posent juste au-dessus du fond de carte et sous tout le reste (espaces, terrains, balises, route…).
-    const anchor = m.getStyle().layers.find((l) => /^(ov-|nav-|asp-|apt-|route-|replay-|direct-|vector-|radar)/.test(l.id))?.id;
+    const anchor = m.getLayer("route-line") ? "route-line" : undefined;
     for (const d of wanted.values()) {
       if (docLayers.current.has(d.id)) continue;
       m.addSource(`doc-${d.id}`, { type: "image", url: d.url, coordinates: d.corners });
@@ -880,6 +883,12 @@ export function MapView(props: MapViewProps) {
       docScale.current.set(d.id, 2);
     }
     syncHires();
+  }
+  /** Remonte les cartes calées juste sous la route : les couches aéro ajoutées après elles ne doivent pas les recouvrir. */
+  function raiseDocs() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    for (const id of docLayers.current) if (m.getLayer(`doc-${id}`)) m.moveLayer(`doc-${id}`, m.getLayer("route-line") ? "route-line" : undefined);
   }
   /** Échelle (pixels par point PDF) actuellement affichée pour chaque carte ; 2 = image d'origine. */
   const docScale = useRef(new Map<string, number>());
