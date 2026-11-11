@@ -8,6 +8,7 @@ import { tx } from "./db";
 import type { NavDataset } from "./navData";
 import type { ActivityDataset } from "./activities";
 import type { SpotDataset } from "./spots";
+import type { OnaDataset } from "./obstacles";
 
 export interface DatasetMeta {
   readonly source: "openAIP";
@@ -23,7 +24,7 @@ export interface DatasetMeta {
 
 export interface AirspaceDataset { readonly id: "airspaces"; readonly meta: DatasetMeta; readonly items: Airspace[] }
 export interface AirfieldDataset { readonly id: "airfields"; readonly meta: DatasetMeta; readonly items: Airfield[] }
-export type Dataset = AirspaceDataset | AirfieldDataset | NavDataset | ActivityDataset | SpotDataset;
+export type Dataset = AirspaceDataset | AirfieldDataset | NavDataset | ActivityDataset | SpotDataset | OnaDataset;
 
 export const loadDatasets = (): Promise<Dataset[]> => tx("datasets", "readonly", (s) => s.getAll() as IDBRequest<Dataset[]>);
 export const saveDataset = (d: Dataset): Promise<IDBValidKey> => tx("datasets", "readwrite", (s) => s.put(d));

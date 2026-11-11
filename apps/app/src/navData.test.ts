@@ -173,3 +173,17 @@ describe("éoliennes", () => {
     expect(f.find((p) => p?.["heightM"] === "")?.["h"]).toBe(100);
   });
 });
+
+import { parseOna } from "./obstacles";
+describe("obstacles officiels de l'AIP", () => {
+  const nav = { id: "navdata" as const, meta: { source: "openAIP" as const, licence: "x", exportedAtMs: 0, importedAtMs: 0 }, navaids: [], reporting: [], obstacles: [{ lat: 1, lon: 1, name: "x", kind: 0, elevM: 1, heightM: 500, what: null }], hang: [], hotspots: [] };
+  it("remplacent ceux d'OpenStreetMap ; 300 ft minimum ; balisage de nuit ; éoliennes par maille", () => {
+    const ona = parseOna({ format: "lim-nav-obstacles", items: [
+      [46, 2, 250, 900, 0, 1], [46.1, 2, 400, 1500, 0, 1], [46.2, 2, 600, 2000, 0, 0], [47, 3, 400, 1200, 1, 1], [47.0002, 3.0002, 450, 1250, 1, 1], "x",
+    ] }, 1);
+    expect(ona.items).toHaveLength(5);
+    const f = navToGeoJSON(nav, ona).features.map((x) => x.properties);
+    expect(f.map((p) => p?.["sym"]).sort()).toEqual(["mast-hi", "mast-lit", "wind"]);
+    expect(f.find((p) => p?.["sym"] === "wind")?.["lbl"]).toBe("1250\n(450)");
+  });
+});

@@ -1,4 +1,5 @@
 import { navaidSymbol, type NavDataset } from "./navData";
+import type { OnaDataset } from "./obstacles";
 /** Conversion des espaces et terrains en GeoJSON pour la carte, et textes de détail. Fonctions pures (testées). */
 import type { FeatureCollection } from "geojson";
 import {
@@ -214,7 +215,7 @@ export function freshnessWarnings(f: DatasetFreshness): string[] {
  * Balises, points de report et obstacles pour la carte aéro, en un seul jeu de points. `sym` = image à dessiner, `cat` = nom affiché à l'appui,
  * `grp` = famille (filtre d'affichage), `h` = hauteur au-dessus du sol (m) pour trier les obstacles par importance.
  */
-export function navToGeoJSON(d: NavDataset): FeatureCollection {
+export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null): FeatureCollection {
   const features: FeatureCollection["features"] = [];
   const add = (lon: number, lat: number, properties: Record<string, unknown>) => features.push({ type: "Feature", properties, geometry: { type: "Point", coordinates: [lon, lat] } });
   for (const v of d.navaids) {
@@ -223,6 +224,24 @@ export function navToGeoJSON(d: NavDataset): FeatureCollection {
     add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: "", nm: v.name.toUpperCase(), box: navaidBox(v, sym) });
   }
   for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
+  if (ona) {
+    // Obstacles officiels (AIP ENR 5.4.1) : seuls ceux de 300 ft et plus (règle de la carte OACI) ; mât ou obstacle balisé de nuit ; éoliennes en parcs (la plus haute par maille).
+    const M = 0.3048;
+    const wcells = new Map<string, OnaDataset["items"][number]>();
+    for (const o of ona.items) {
+      const [lat, lon, h, top, wind, lit] = o;
+      if (h < 300) continue;
+      if (wind) {
+        const key = `${Math.round(lat / 0.012)}:${Math.round(lon / 0.017)}`;
+        const cur = wcells.get(key);
+        if (!cur || h > cur[2]) wcells.set(key, o);
+        continue;
+      }
+      add(lon, lat, { sym: h >= 500 ? (lit ? "mast-hi-lit" : "mast-hi") : lit ? "mast-lit" : "mast", grp: "obstacle", cat: lit ? "Obstacle balisé de nuit" : "Obstacle", name: "", heightM: Math.round(h * M), h: h * M, lbl: `${top}\n(${h})` });
+    }
+    for (const [lat, lon, h, top] of wcells.values()) add(lon, lat, { sym: "wind", grp: "obstacle", cat: "Éolienne", name: "", heightM: Math.round(h * M), h: h * M, lbl: `${top}\n(${h})` });
+    return { type: "FeatureCollection", features };
+  }
   // Éoliennes : la carte OACI les montre en parcs (un symbole par groupe). openAIP/OSM ne donne la hauteur que pour une sur cinq ; sans hauteur on suppose
   // une machine moderne (> 300 ft) et on garde un symbole par maille d'environ 1,3 km (la plus haute connue), pour ne pas saturer la carte.
   const WIND_ASSUMED_M = 100;
