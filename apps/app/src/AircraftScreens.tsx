@@ -160,42 +160,39 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
   );
 }
 
-interface BalanceProps {
+interface AircraftTabProps {
   lang: Lang;
   prefs: UnitPrefs;
   aircraft: Aircraft[];
   active: Aircraft | null;
-  loads: Loads;
-  /** Carburant consommé pendant le vol selon le log de nav (L), ou null. */
-  burnLiters: number | null;
   onSelect: (id: string | null) => void;
   onPut: (a: Aircraft) => void;
   onRemove: (id: string) => void;
-  onLoads: (l: Loads) => void;
 }
 
-/** Onglet « Centrage » : choix de l'avion, charges, résultats et graphique d'enveloppe. */
-export function BalanceTab(p: BalanceProps) {
+/** Onglet « Fiche » : mes avions, choix de l'avion actif, édition de la fiche. */
+export function AircraftTab(p: AircraftTabProps) {
   const T = (k: Key) => t(p.lang, k);
   const [editing, setEditing] = useState(false);
+  const [confirm, setConfirm] = useState<string | null>(null);
   const a = p.active;
   const defects = a ? validateAircraft(a) : [];
-  const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.burnLiters ?? 0) : null), [a, p.loads, p.burnLiters]); // eslint-disable-line react-hooks/exhaustive-deps
   const create = () => {
     const na = newAircraft(crypto.randomUUID(), `${T("ac.new")} ${p.aircraft.length + 1}`, Date.now());
     p.onPut(na);
     p.onSelect(na.id);
     setEditing(true);
   };
-
   return (
     <div className="navscreen">
       <h3>{T("ac.list")}</h3>
       <div className="route-list">
         {p.aircraft.map((x) => (
           <div className="route-item" key={x.id}>
-            <button className="row" aria-pressed={a?.id === x.id} onClick={() => { p.onSelect(x.id); setEditing(false); }}>{x.registration ? `${x.registration} · ` : ""}{x.name}</button>
-            <button aria-label={T("nav.delete")} onClick={() => p.onRemove(x.id)}>✕</button>
+            <button className="row" aria-pressed={a?.id === x.id} onClick={() => { p.onSelect(x.id); setEditing(false); setConfirm(null); }}>{x.registration ? `${x.registration} · ` : ""}{x.name}</button>
+            {confirm === x.id
+              ? <button className="brand" onClick={() => { p.onRemove(x.id); setConfirm(null); }}>{T("tr.confirmDelete")}</button>
+              : <button aria-label={T("nav.delete")} onClick={() => setConfirm(x.id)}>✕</button>}
           </div>
         ))}
         {p.aircraft.length === 0 && <p className="muted small">{T("ac.none")}</p>}
@@ -205,12 +202,46 @@ export function BalanceTab(p: BalanceProps) {
         {a && <button aria-pressed={editing} onClick={() => setEditing(!editing)}>{T("ac.edit")}</button>}
         {a && <button onClick={() => { const c = duplicateAircraft(a, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>}
       </div>
-
       {a && editing && <AircraftEditor lang={p.lang} prefs={p.prefs} aircraft={a} onChange={p.onPut} onDone={() => setEditing(false)} />}
-
       {a && !editing && defects.length > 0 && <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>}
+      {a && !editing && defects.length === 0 && <p className="muted small">{T("ac.ready")}</p>}
+    </div>
+  );
+}
 
-      {a && !editing && res && (
+interface BalanceProps {
+  lang: Lang;
+  prefs: UnitPrefs;
+  active: Aircraft | null;
+  loads: Loads;
+  /** Carburant consommé pendant le vol selon le log de nav (L), ou null. */
+  burnLiters: number | null;
+  onLoads: (l: Loads) => void;
+  onOpenSheet: () => void;
+}
+
+/** Onglet « Centrage » : charges, résultats et graphique d'enveloppe de l'avion actif. */
+export function BalanceTab(p: BalanceProps) {
+  const T = (k: Key) => t(p.lang, k);
+  const a = p.active;
+  const defects = a ? validateAircraft(a) : [];
+  const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.burnLiters ?? 0) : null), [a, p.loads, p.burnLiters]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="navscreen">
+      {!a && (
+        <>
+          <p className="muted">{T("fuel.noAircraft")}</p>
+          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+        </>
+      )}
+      {a && <p className="muted small">{a.registration ? `${a.registration} · ` : ""}{a.name}</p>}
+      {a && defects.length > 0 && (
+        <>
+          <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>
+          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+        </>
+      )}
+      {a && res && (
         <>
           <h3>{T("bal.loads")}</h3>
           <p className="muted small">{T("bal.units")}</p>
@@ -274,6 +305,7 @@ interface FuelProps {
   plan: FuelPlanParams;
   onPlan: (p: FuelPlanParams) => void;
   onLoads: (l: Loads) => void;
+  onOpenSheet: () => void;
 }
 
 /** Onglet « Carburant » : carburant nécessaire (trajet, aléas, déroutement, réserve) et comparaison avec l'embarqué. */
@@ -297,7 +329,12 @@ export function FuelTab(p: FuelProps) {
   const L = (v: number | null) => (v === null ? "—" : `${formatQuantity("fuel", p.prefs, v)} ${unitLabel("fuel", p.prefs)}`);
   return (
     <div className="navscreen">
-      {!a && <p className="muted">{T("fuel.noAircraft")}</p>}
+      {!a && (
+        <>
+          <p className="muted">{T("fuel.noAircraft")}</p>
+          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+        </>
+      )}
       {a && plan && (
         <>
           <p className="muted small">{T("fuel.defaultsNote")}</p>

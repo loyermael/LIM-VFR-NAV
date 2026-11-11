@@ -242,3 +242,8 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .datarow { border: var(--rule-line); padding: var(--sp-3); display: grid; gap: var(--sp-2); background: var(--paper); }
 .datahead { display: flex; justify-content: space-between; gap: var(--sp-3); }
 .datarow progress { width: 100%; height: 14px; accent-color: var(--ink); }
+
+/* Barre d'outils : séparateurs entre les groupes (carte | vol | bibliothèque | réglages) */
+.toolbar button.sep { margin-left: var(--sp-4); position: relative; }
+.toolbar button.sep::before { content: ""; position: absolute; left: calc(-1 * var(--sp-3) - 1px); top: 18%; bottom: 18%; width: 2px; background: var(--hair); }
+.tabs button:disabled { opacity: 0.4; cursor: not-allowed; }

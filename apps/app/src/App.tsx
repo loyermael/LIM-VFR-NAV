@@ -29,7 +29,7 @@ import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScree
 import { useRecorder } from "./trackStore";
 import { STOPWATCH_ZERO, advanceReplay, alarm, cdDue, type Countdown, type Stopwatch } from "./timers";
 import { pointAt, type TrackPoint } from "@lim/core";
-import { BalanceTab, FuelTab } from "./AircraftScreens";
+import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
@@ -42,13 +42,18 @@ import { fetchWinds, loadWindCache, windKey } from "./windClient";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
-type Screen = "map" | "nav" | "wx" | "docs" | "traces" | "settings" | "soon";
+type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.log", "nav.profile", "nav.fuel", "nav.wb"];
+const NAV_TABS: Key[] = ["nav.log", "nav.profile"];
+const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
+const DATA_TABS: Key[] = ["dt.country", "dt.charts", "dt.aero", "dt.files"];
+const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
+/** Onglets annoncés mais pas encore construits : affichés grisés. */
+const DISABLED_TABS: ReadonlySet<Key> = new Set<Key>(["nav.profile"]);
+const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.documents"];
-const WEATHER: Key[] = ["wx.metar", "wx.taf", "wx.sigmet", "wx.wintem", "wx.radar"];
 
 /** Une ligne de réglage par information : libellé + choix d'unité. */
 const UNIT_ROWS: { field: keyof UnitPrefs; label: Key }[] = [
@@ -710,24 +715,26 @@ export function App() {
     { id: "dist", label: T("data.dist"), value: direct ? formatQuantity("distance", prefs, direct.distance) : "---", sub: direct ? formatDuration(direct.timeToGo) : undefined, unit: unitLabel("distance", prefs) },
   ];
 
-  const tabs = screen === "nav" ? NAV_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : screen === "traces" ? TRACES_TABS : null;
+  const tabs = screen === "nav" ? NAV_TABS : screen === "aircraft" ? AIRCRAFT_TABS : screen === "wx" ? WX_TABS : screen === "docs" ? DOCS_TABS : screen === "traces" ? TRACES_TABS : screen === "data" ? DATA_TABS : screen === "settings" ? SETTINGS_TABS : null;
   // Écran large : l'écran Route s'affiche à droite de la carte, qui reste utilisable (tracé, Direct).
   const split = wide && screen === "nav";
   const mapActive = screen === "map" || split;
-  const toolbar: { label: Key; action: () => void; pressed?: boolean }[] = [
-    { label: "tb.route", action: () => open(screen === "nav" ? "map" : "nav"), pressed: screen === "nav" },
-    { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
-    { label: "tb.settings", action: () => open("settings") },
+  const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
+  /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
+  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean }[] = [
     { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && mapActive },
-    { label: "tb.maps", action: () => setDrawer(!drawer), pressed: drawer },
-    { label: "tb.relief", action: () => soon("tb.relief") },
-    { label: "tb.weather", action: () => open(screen === "wx" ? "map" : "wx"), pressed: screen === "wx" },
-    { label: "tb.profile", action: () => soon("tb.profile") },
-    { label: "tb.timer", action: () => open(screen === "traces" ? "map" : "traces"), pressed: screen === "traces" },
-    { label: "tb.docs", action: () => open("docs") },
+    { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
+    { label: "tb.maps", action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
+    { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
+    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft" },
+    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx" },
+    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces" },
+    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true },
+    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data" },
+    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true },
   ];
 
-  const banner: { text: string; alert: boolean } | null =
+  const banner: { text: string; alert: boolean; onClick?: () => void } | null =
     cdFired ? { text: T("tm.done"), alert: true }
     : trafficAlert ? { text: trafficText(trafficAlert, fv?.trackTrue ?? null, prefs, T("lk.trafficAlert")), alert: true }
     : status === "lost" ? { text: T("gps.lost"), alert: true }
@@ -735,7 +742,7 @@ export function App() {
     : gpsError && !fix ? { text: T("gps.error"), alert: false }
     : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
     : status === "none" ? { text: T("gps.waiting"), alert: false }
-    : pack.baseUrl && !pack.installed.country ? { text: T("dp.choose"), alert: false }
+    : pack.baseUrl && !pack.installed.country ? { text: T("dp.choose"), alert: false, onClick: () => open("data") }
     : fv?.variationOutOfRange ? { text: T("mag.expired"), alert: true }
     : null;
 
@@ -743,7 +750,7 @@ export function App() {
     <div className="app">
       <nav className="toolbar" aria-label="outils">
         {toolbar.map((b) => (
-          <button key={b.label} aria-pressed={b.pressed} onClick={b.action}>
+          <button key={b.label} className={b.sep ? "sep" : undefined} aria-pressed={b.pressed} onClick={b.action}>
             {T(b.label)}
           </button>
         ))}
@@ -798,7 +805,7 @@ export function App() {
           </div>
         )}
         {banner && (
-          <div className={banner.alert ? "banner alert" : "banner"} role={banner.alert ? "alert" : "status"}>
+          <div className={banner.alert ? "banner alert" : "banner"} role={banner.onClick ? "button" : banner.alert ? "alert" : "status"} tabIndex={banner.onClick ? 0 : undefined} onClick={banner.onClick} onKeyDown={(e) => e.key === "Enter" && banner.onClick?.()} style={banner.onClick ? { cursor: "pointer" } : undefined}>
             {banner.text}
           </div>
         )}
@@ -899,20 +906,124 @@ export function App() {
         {drawer && (
           <aside className="drawer">
             <h2>{T("layers.title")}</h2>
-            <h3>{T("layers.weather")}</h3>
-            <ul>
-              {WEATHER.map((k) => (
-                <li key={k}>
-                  <button className="row" onClick={() => (k === "wx.wintem" ? (open("wx"), setTab(4)) : k === "wx.metar" ? (open("wx"), setTab(1)) : k === "wx.taf" ? (open("wx"), setTab(2)) : k === "wx.sigmet" ? (open("wx"), setTab(3)) : k === "wx.radar" ? void toggleRadar() : soon(k))} aria-pressed={k === "wx.radar" ? radar !== null : undefined}>{k === "wx.radar" && radar ? T("wxr.off") : T(k)}</button>
-                </li>
-              ))}
-            </ul>
+            <h3>{T("lay.base")}</h3>
+            {charts.length === 0 && <p className="muted small">{T("lay.noBase")}</p>}
+            {charts.map((c) => (
+              <button className="row" key={c.id} aria-pressed={c.visible} onClick={() => updateChart(c.id, { visible: !c.visible })}>{c.name} — {c.visible ? T("chart.shown") : T("chart.hidden")}</button>
+            ))}
+            <h3>{T("lay.aero")}</h3>
+            {!aspSet && !aptSet && <p className="muted small">{T("lay.noAero")}</p>}
+            {(aspSet || aptSet) && (
+              <>
+                <div className="choices">
+                  <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
+                  <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
+                </div>
+                <div className="choices">
+                  {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (
+                    <button key={g} aria-pressed={visibleGroups.includes(g)} onClick={() => toggleGroup(g)}>
+                      {T(`aero.group.${g}` as Key)}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <h3>
+              {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
+            </h3>
+            <input
+              type="range"
+              min={CEILING_FILTER.minFL}
+              max={CEILING_FILTER.maxFL}
+              step={CEILING_FILTER.stepFL}
+              value={ceiling}
+              onChange={(e) => setCeiling(Number(e.target.value))}
+            />
+            <h3>{T("lay.weather")}</h3>
+            <button className="row" aria-pressed={radar !== null} onClick={() => void toggleRadar()}>{radar ? T("wxr.off") : T("wx.radar")}</button>
             {radar && (
               <p className="muted small">
                 {T("wxr.info")} {new Date(radar.time).toISOString().slice(11, 16)}Z · {T("wxr.note")}
               </p>
             )}
             {radarError && <p className="error" role="alert">{T("wxr.error")} — {radarError}</p>}
+            <h3>{T("lay.relief")}</h3>
+            <button className="row" disabled title={T("soon")}>{T("lay.reliefSoon")}</button>
+            <h3>{T("lay.docs")}</h3>
+            <p className="muted small">{T("lay.docsHelp")}</p>
+            <button className="row" onClick={() => open("docs")}>{T("lay.docsOpen")}</button>
+            <button className="row" onClick={() => open("data")}>{T("lay.manage")}</button>
+          </aside>
+        )}
+
+        {screen !== "map" && (
+          <section className="screen">
+            <header className="screen-head">
+              <button onClick={() => open("map")}>← {T("back")}</button>
+              <h2>
+                {screen === "soon" ? T(soonTitle) : T(SCREEN_TITLE[screen] ?? "soon")}
+              </h2>
+            </header>
+            {screen === "settings" ? (
+              <div className="settings">
+                {tab === 0 && (
+                  <>
+                <h3>{T("set.display")}</h3>
+                <div className="choices">
+                  <button onClick={toggleLang}>{T("lang.switch")}</button>
+                  <button onClick={toggleTheme} aria-pressed={theme === "night"}>
+                    {theme === "day" ? T("theme.night") : T("theme.day")}
+                  </button>
+                </div>
+                <h3>{T("set.figures")}</h3>
+                <div className="choices">
+                  <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
+                  <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
+                </div>
+                  </>
+                )}
+                {tab === 1 && (
+                  <>
+                <h3>{T("set.units")}</h3>
+                {UNIT_ROWS.map(({ field, label }) => (
+                  <div className="unit-row" key={field} role="group" aria-label={T(label)}>
+                    <div className="unit-name">{T(label)}</div>
+                    <div className="choices">
+                      {UNIT_CHOICES[field].map((choice) => (
+                        <button
+                          key={choice}
+                          aria-pressed={prefs[field] === choice}
+                          onClick={() => setUnit(field, choice as UnitPrefs[typeof field])}
+                        >
+                          {choice === "mag" || choice === "true"
+                            ? unitLabel(field as "track" | "bearing", { ...prefs, [field]: choice }, lang)
+                            : (UNIT_LABELS[choice] ?? choice)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                  </>
+                )}
+                {tab === 2 && (
+                  <>
+                <LinkPanel
+                  lang={lang}
+                  config={link.config}
+                  onConfig={link.setConfig}
+                  conn={link.conn}
+                  nowMs={now}
+                  stats={{ lastMsgMs: link.decoder.lastMsgMs, messages: link.decoder.messages, badCrc: link.decoder.badCrc, flarmRx: link.decoder.flarmRx, targets: trafficView.length }}
+                />
+                  </>
+                )}
+                {tab === 3 && <BackupPanel lang={lang} />}
+              </div>
+            ) : screen === "data" ? (
+              <div className="settings">
+                {tab === 0 && <DataPanel lang={lang} pack={pack} nowMs={now} />}
+                {tab === 1 && (
+                  <>
             <h3>{T("layers.maps")}</h3>
             {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
             {charts.map((c) => (
@@ -947,26 +1058,10 @@ export function App() {
             {chartBusy && <p className="muted small" role="status">{chartBusy}</p>}
             {chartNotice && <p className="error" role="alert">{T("chart.notPersisted")}</p>}
             {chartError && <p className="error" role="alert">{T("chart.error")} — {chartError}</p>}
-            <h3>{T("layers.overlays")}</h3>
-            <ul>
-              {overlays.map((o) => (
-                <li key={o.id} className="overlay-item">
-                  <span>{o.name}</span>
-                  <button onClick={() => removeOverlay(o.id)}>{T("overlay.remove")}</button>
-                </li>
-              ))}
-            </ul>
-            <input
-              ref={fileInput}
-              type="file"
-              hidden
-              multiple
-              accept=".geojson,.json,.kml,.zip"
-              onChange={(e) => void importFiles(e.target.files)}
-            />
-            <button className="row" onClick={() => fileInput.current?.click()}>{T("overlay.import")}</button>
-            <p className="muted small">{T("overlay.formats")}</p>
-            {overlayError && <p className="error" role="alert">{T("overlay.error")} — {overlayError}</p>}
+                  </>
+                )}
+                {tab === 2 && (
+                  <>
             <h3>{T("aero.title")}</h3>
             {!aspSet && !aptSet && <p className="muted small">{T("aero.none")}</p>}
             {([[T("aero.airspaces"), aspSet], [T("aero.airfields"), aptSet]] as const).map(([label, set]) =>
@@ -994,92 +1089,34 @@ export function App() {
             {aeroProblems.map((m, i) => (
               <p className="error" role="alert" key={i}>{T("aero.problem")} — {m}</p>
             ))}
-            {(aspSet || aptSet) && (
-              <>
-                <div className="choices">
-                  <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
-                  <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
-                </div>
-                <div className="choices">
-                  {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (
-                    <button key={g} aria-pressed={visibleGroups.includes(g)} onClick={() => toggleGroup(g)}>
-                      {T(`aero.group.${g}` as Key)}
-                    </button>
-                  ))}
-                </div>
-                <button onClick={removeAero}>{T("aero.remove")}</button>
-              </>
-            )}
+                    {(aspSet || aptSet) && <button onClick={removeAero}>{T("aero.remove")}</button>}
             <p className="muted small">{T("aero.licence")}</p>
-            <h3>
-              {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
-            </h3>
+                  </>
+                )}
+                {tab === 3 && (
+                  <>
+            <h3>{T("layers.overlays")}</h3>
+            <ul>
+              {overlays.map((o) => (
+                <li key={o.id} className="overlay-item">
+                  <span>{o.name}</span>
+                  <button onClick={() => removeOverlay(o.id)}>{T("overlay.remove")}</button>
+                </li>
+              ))}
+            </ul>
             <input
-              type="range"
-              min={CEILING_FILTER.minFL}
-              max={CEILING_FILTER.maxFL}
-              step={CEILING_FILTER.stepFL}
-              value={ceiling}
-              onChange={(e) => setCeiling(Number(e.target.value))}
+              ref={fileInput}
+              type="file"
+              hidden
+              multiple
+              accept=".geojson,.json,.kml,.zip"
+              onChange={(e) => void importFiles(e.target.files)}
             />
-          </aside>
-        )}
-
-        {screen !== "map" && (
-          <section className="screen">
-            <header className="screen-head">
-              <button onClick={() => open("map")}>← {T("back")}</button>
-              <h2>
-                {screen === "settings"
-                  ? T("set.title")
-                  : screen === "soon"
-                    ? T(soonTitle)
-                    : T(tabs?.[tab] ?? "soon")}
-              </h2>
-            </header>
-            {screen === "settings" ? (
-              <div className="settings">
-                <DataPanel lang={lang} pack={pack} nowMs={now} />
-                <h3>{T("set.display")}</h3>
-                <div className="choices">
-                  <button onClick={toggleLang}>{T("lang.switch")}</button>
-                  <button onClick={toggleTheme} aria-pressed={theme === "night"}>
-                    {theme === "day" ? T("theme.night") : T("theme.day")}
-                  </button>
-                </div>
-                <h3>{T("set.figures")}</h3>
-                <div className="choices">
-                  <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
-                  <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
-                </div>
-                <LinkPanel
-                  lang={lang}
-                  config={link.config}
-                  onConfig={link.setConfig}
-                  conn={link.conn}
-                  nowMs={now}
-                  stats={{ lastMsgMs: link.decoder.lastMsgMs, messages: link.decoder.messages, badCrc: link.decoder.badCrc, flarmRx: link.decoder.flarmRx, targets: trafficView.length }}
-                />
-                <BackupPanel lang={lang} />
-                <h3>{T("set.units")}</h3>
-                {UNIT_ROWS.map(({ field, label }) => (
-                  <div className="unit-row" key={field} role="group" aria-label={T(label)}>
-                    <div className="unit-name">{T(label)}</div>
-                    <div className="choices">
-                      {UNIT_CHOICES[field].map((choice) => (
-                        <button
-                          key={choice}
-                          aria-pressed={prefs[field] === choice}
-                          onClick={() => setUnit(field, choice as UnitPrefs[typeof field])}
-                        >
-                          {choice === "mag" || choice === "true"
-                            ? unitLabel(field as "track" | "bearing", { ...prefs, [field]: choice }, lang)
-                            : (UNIT_LABELS[choice] ?? choice)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+            <button className="row" onClick={() => fileInput.current?.click()}>{T("overlay.import")}</button>
+            <p className="muted small">{T("overlay.formats")}</p>
+            {overlayError && <p className="error" role="alert">{T("overlay.error")} — {overlayError}</p>}
+                  </>
+                )}
               </div>
             ) : screen === "wx" && tab !== 4 ? (
               (() => {
@@ -1128,7 +1165,27 @@ export function App() {
                 onDossier={() => void makeDossier()}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}
               />
-            ) : screen === "nav" && tab === 2 ? (
+            ) : screen === "aircraft" && tab === 0 ? (
+              <AircraftTab
+                lang={lang}
+                prefs={prefs}
+                aircraft={ac.list}
+                active={ac.active}
+                onSelect={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
+                onPut={(a) => { ac.put(a); if (a.id === ac.activeId) pushAircraftPerf(a); }}
+                onRemove={ac.remove}
+              />
+            ) : screen === "aircraft" && tab === 1 ? (
+              <BalanceTab
+                lang={lang}
+                prefs={prefs}
+                active={ac.active}
+                loads={ac.loads}
+                burnLiters={tripLiters}
+                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
+                onOpenSheet={() => setTab(0)}
+              />
+            ) : screen === "aircraft" && tab === 2 ? (
               <FuelTab
                 lang={lang}
                 prefs={prefs}
@@ -1138,19 +1195,7 @@ export function App() {
                 plan={ac.plan}
                 onPlan={ac.updatePlan}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
-              />
-            ) : screen === "nav" && tab === 3 ? (
-              <BalanceTab
-                lang={lang}
-                prefs={prefs}
-                aircraft={ac.list}
-                active={ac.active}
-                loads={ac.loads}
-                burnLiters={tripLiters}
-                onSelect={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
-                onPut={(a) => { ac.put(a); if (a.id === ac.activeId) pushAircraftPerf(a); }}
-                onRemove={ac.remove}
-                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
+                onOpenSheet={() => setTab(0)}
               />
             ) : screen === "docs" ? (
               <DocsTab lang={lang} docs={docs.list} openId={openDocId} onOpen={setOpenDocId} onPut={docs.put} onRemove={docs.remove} />
@@ -1188,7 +1233,7 @@ export function App() {
             {tabs && (
               <nav className="tabs">
                 {tabs.map((k, i) => (
-                  <button key={k} aria-current={tab === i ? "page" : undefined} onClick={() => setTab(i)}>
+                  <button key={k} aria-current={tab === i ? "page" : undefined} disabled={DISABLED_TABS.has(k)} title={DISABLED_TABS.has(k) ? T("soon") : undefined} onClick={() => setTab(i)}>
                     {T(k)}
                   </button>
                 ))}
