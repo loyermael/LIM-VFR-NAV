@@ -421,7 +421,7 @@ export function MapView(props: MapViewProps) {
       const { x, y } = e.point;
       // Appui simple sur un terrain : menu autour du terrain (Direct, Infos, VAC, Route).
       if (m.getLayer("apt-circle")) {
-        const hit = m.queryRenderedFeatures([[x - 16, y - 16], [x + 16, y + 16]] as [maplibregl.PointLike, maplibregl.PointLike], { layers: ["apt-circle"] })[0];
+        const hit = m.queryRenderedFeatures([[x - 16, y - 16], [x + 16, y + 16]] as [maplibregl.PointLike, maplibregl.PointLike], { layers: ["apt-circle", "apt-minor"].filter((l) => m.getLayer(l)) })[0];
         const id = hit ? String((hit.properties as { id?: unknown } | null)?.id ?? "") : "";
         if (hit && id) {
           lastTap.current = null;
@@ -434,7 +434,7 @@ export function MapView(props: MapViewProps) {
       latest.current.onAirfieldTap(null);
       if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
         lastTap.current = null;
-        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "asp-fill", "act-sym", ...NAV_SYM_LAYERS]).filter((l) => m.getLayer(l));
+        const layers = [...addedOverlays.current.keys()].flatMap((id) => [`ov-${id}-fill`, `ov-${id}-line`, `ov-${id}-pt`]).concat(["apt-circle", "apt-minor", "asp-fill", "act-sym", ...NAV_SYM_LAYERS]).filter((l) => m.getLayer(l));
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[x - 12, y - 12], [x + 12, y + 12]];
         const hits = layers.length ? m.queryRenderedFeatures(box, { layers }) : [];
         const seen = new Set<string>();
@@ -444,7 +444,7 @@ export function MapView(props: MapViewProps) {
           if (seen.has(key)) continue;
           seen.add(key);
           // Espaces et terrains : l'application retrouve la fiche complète par l'identifiant.
-          const aero = h.layer.id === "asp-fill" ? "asp" : h.layer.id === "apt-circle" ? "apt" : null;
+          const aero = h.layer.id === "asp-fill" ? "asp" : (h.layer.id === "apt-circle" || h.layer.id === "apt-minor") ? "apt" : null;
           out.push({
             layerName: NAV_SYM_LAYERS.includes(h.layer.id) || h.layer.id === "act-sym" ? String((h.properties as { cat?: unknown } | null)?.cat ?? "") : aero ?? addedOverlays.current.get(String(h.source).replace(/^ov-/, "")) ?? "",
             properties: (h.properties ?? {}) as Record<string, unknown>,
@@ -694,19 +694,21 @@ export function MapView(props: MapViewProps) {
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
       addIcons(m);
-      m.addLayer(
-        {
-          id: "apt-circle", type: "symbol", source: "apt", minzoom: 4.5,
-          layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
-            
-            "text-field": ["step", ["zoom"], "", 6.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
-            "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
-          } as never,
-          paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
-        },
-        before,
-      );
+      // Comme la carte OACI : seuls les terrains à code OACI s'affichent d'emblée ; les autres (bases ULM, pistes privées) apparaissent en zoomant de près.
+      for (const [id, minzoom, filter] of [["apt-circle", 4.5, ["!=", ["get", "icao"], ""]], ["apt-minor", 11, ["==", ["get", "icao"], ""]]] as const) {
+        m.addLayer(
+          {
+            id, type: "symbol", source: "apt", minzoom, filter: filter as never,
+            layout: {
+              "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+              "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 11, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
+              "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
+            } as never,
+            paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
+          },
+          before,
+        );
+      }
     }
     if (m.getLayer("asp-fill")) {
       const ceilingM = flightLevelToMeters(ceilingFL);
@@ -721,7 +723,7 @@ export function MapView(props: MapViewProps) {
         m.setLayoutProperty(id, "visibility", showAirspaces ? "visible" : "none");
       }
     }
-    if (m.getLayer("apt-circle")) m.setLayoutProperty("apt-circle", "visibility", showAirfields ? "visible" : "none");
+    for (const id of ["apt-circle", "apt-minor"]) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showAirfields ? "visible" : "none");
     raiseDocs();
   }
   /** Balises, points de report, obstacles : symboles et étiquettes de la carte OACI, dessinés sur la carte (polices embarquées : utilisable hors-ligne). */
@@ -956,7 +958,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !loaded.current) return;
     const top = m.getLayer("route-line") ? "route-line" : undefined;
-    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
   }
   function raiseDocs() {
     raiseSymbols();
