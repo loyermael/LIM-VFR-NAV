@@ -48,7 +48,10 @@ export function parseVacIndex(raw: unknown): Map<string, VacIndexEntry> {
   return out;
 }
 
+/** Index des VAC publié avec les PDF (repli) : même dépôt de données, branche vac-data. */
+const VAC_INDEX_FALLBACK = "https://raw.githubusercontent.com/loyermael/lim-vfr-nav-data/vac-data/index.json";
 let lastFilesBase: string | null = null;
+let lastCycle: string | null = null;
 let cache: { url: string; at: number; index: Map<string, VacIndexEntry> } | null = null;
 
 /** Index des VAC publié avec les données (`<paquet>/vac/index.json`) ; gardé en mémoire 10 minutes. */
@@ -56,9 +59,18 @@ export async function loadVacIndex(base: string = packBaseUrl(), fetchFn?: typeo
   if (!base) throw new Error("adresse des données non configurée");
   const url = `${base.replace(/\/$/, "")}/vac/index.json`;
   if (cache && cache.url === url && Date.now() - cache.at < 600_000) return cache.index;
-  const raw = await fetchJson(url, { ...(fetchFn ? { fetchFn } : {}), retries: 1, timeoutMs: 20_000 });
+  const opts = { ...(fetchFn ? { fetchFn } : {}), retries: 1, timeoutMs: 20_000 };
+  let raw: unknown;
+  try {
+    raw = await fetchJson(url, opts);
+  } catch (e) {
+    // L'index des VAC peut aussi être publié avec les PDF (branche vac-data) : on l'y cherche si le paquet principal n'en a pas.
+    try { raw = await fetchJson(VAC_INDEX_FALLBACK, opts); } catch { throw e; }
+  }
   const fb = (raw as { filesBase?: unknown } | null)?.filesBase;
   lastFilesBase = typeof fb === "string" && /^https:\/\//.test(fb) ? fb.replace(/\/$/, "") : `${base.replace(/\/$/, "")}/vac`;
+  const cy = (raw as { cycle?: unknown } | null)?.cycle;
+  lastCycle = typeof cy === "string" ? cy.replace(/_/g, " ") : null;
   const index = parseVacIndex(raw);
   cache = { url, at: Date.now(), index };
   return index;
@@ -141,7 +153,7 @@ export async function downloadVac(
   const data = new Blob(chunks as BlobPart[], { type: "application/pdf" });
   if ((await sha256Hex(await data.arrayBuffer())) !== e.sha256) throw new Error("fichier corrompu (empreinte différente)");
   const doc: DocRecord = {
-    id: crypto.randomUUID(), name: `VAC ${e.icao}.pdf`, kind: "vac", icao: e.icao, sourceDate: e.chartDate ? `SIA ${e.chartDate}` : "SIA",
+    id: crypto.randomUUID(), name: `VAC ${e.icao}.pdf`, kind: "vac", icao: e.icao, sourceDate: e.chartDate ? `SIA ${e.chartDate}` : lastCycle ? `SIA AIRAC ${lastCycle}` : "SIA",
     mime: "application/pdf", size: data.size, addedAt: Date.now(), data, georef: null, show: "auto",
   };
   try {
