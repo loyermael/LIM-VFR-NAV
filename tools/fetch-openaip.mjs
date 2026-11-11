@@ -26,7 +26,7 @@ if (!countries.every((c) => /^[a-z]{2}$/.test(c))) {
 mkdirSync(OUT, { recursive: true });
 const manifest = {
   source: "openAIP (https://www.openaip.net)",
-  licence: "CC BY-NC 4.0 — usage non commercial, attribution « openAIP », non redistribuable avec le dépôt",
+  licence: "CC BY-NC 4.0 — usage non commercial, attribution « openAIP »",
   warning: "Base communautaire, non alignée sur le cycle AIRAC et non validée par le SIA",
   downloadedAt: new Date().toISOString(),
   files: [],

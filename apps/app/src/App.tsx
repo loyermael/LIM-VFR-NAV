@@ -19,6 +19,8 @@ import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
 import { LinkPanel } from "./LinkPanel";
 import { BackupPanel } from "./BackupPanel";
+import { DataPanel } from "./DataPanel";
+import { usePackData } from "./dataPack";
 import { useLink } from "./useLink";
 import { streamState } from "@lim/core";
 import { blobUrl, useDocs } from "./docStore";
@@ -317,7 +319,7 @@ export function App() {
       }),
     );
   };
-  const importAero = async (files: FileList | null) => {
+  const importAero = async (files: ArrayLike<File> | null) => {
     if (!files) return;
     setAeroBusy(true);
     const out = await importAeroFiles(Array.from(files), Date.now());
@@ -468,6 +470,11 @@ export function App() {
   const linkStream = streamState(link.decoder.lastMsgMs, now);
   const trafficAlert = trafficView.find((x) => x.level >= 2 && !x.stale) ?? null;
   const docs = useDocs();
+  /** Données extérieures (espaces, terrains, météo) : téléchargées et mises à jour toutes seules une fois le pays choisi. */
+  const pack = usePackData(null, async (id, files) => {
+    if (id === "aero") await importAero(files);
+    else if (id === "weather") await importWx(files);
+  });
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [docFocus, setDocFocus] = useState<{ nonce: number; corners: [number, number][] } | null>(null);
   const seenDocs = useRef(new Set<string>());
@@ -728,6 +735,7 @@ export function App() {
     : gpsError && !fix ? { text: T("gps.error"), alert: false }
     : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
     : status === "none" ? { text: T("gps.waiting"), alert: false }
+    : pack.baseUrl && !pack.installed.country ? { text: T("dp.choose"), alert: false }
     : fv?.variationOutOfRange ? { text: T("mag.expired"), alert: true }
     : null;
 
@@ -1031,6 +1039,7 @@ export function App() {
             </header>
             {screen === "settings" ? (
               <div className="settings">
+                <DataPanel lang={lang} pack={pack} nowMs={now} />
                 <h3>{T("set.display")}</h3>
                 <div className="choices">
                   <button onClick={toggleLang}>{T("lang.switch")}</button>
