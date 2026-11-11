@@ -546,7 +546,7 @@ export function App() {
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
   const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
   const spotGeo = useMemo(() => (spotSet ? spotsToGeoJSON(spotSet) : null), [spotSet]);
-  const actGeo = useMemo(() => (actSet ? activitiesToGeoJSON(actSet) : null), [actSet]);
+  const actGeo = useMemo(() => (actSet ? activitiesToGeoJSON(actSet, aptSet?.items ?? []) : null), [actSet, aptSet]);
   const navGeo = useMemo(() => (navSet ? navToGeoJSON(navSet, onaSet) : null), [navSet, onaSet]);
   const airfieldGeo = useMemo(() => (aptSet ? airfieldsToGeoJSON(aptSet.items) : null), [aptSet]);
   const aspById = useMemo(() => new Map((aspSet?.items ?? []).map((a) => [a.id, a])), [aspSet]);

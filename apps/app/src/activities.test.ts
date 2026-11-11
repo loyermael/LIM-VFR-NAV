@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activitiesToGeoJSON, activitySymbol, limitFeet, parseActivities, shiftedPosition } from "./activities";
+import { activitiesToGeoJSON, activitySymbol, limitFeet, displayPosition, parseActivities, shiftedPosition } from "./activities";
 
 describe("activités de l'AIP", () => {
   it("lit les entrées valides, écarte les autres", () => {
@@ -43,5 +43,15 @@ describe("activités sur un terrain", () => {
   it("repérées par le code OACI dans le nom (décalage d'affichage)", () => {
     const d = parseActivities({ format: "lim-nav-activities", items: [{ ref: "1017", kind: "glider", name: "GRAULHET MONTDRAGON AERODROME (LFCQ)", lat: 43.7, lon: 2 }, { ref: "867", kind: "glider", name: "LEVROUX (36)", lat: 46.9, lon: 1.6 }] }, 1);
     expect(activitiesToGeoJSON(d).features.map((f) => f.properties?.["onAd"])).toEqual([true, false]);
+  });
+});
+
+describe("activité éloignée de son terrain", () => {
+  const ads = [{ icao: "LFCK", position: { lat: 43.556, lon: 2.289 } }];
+  it("ramenée sur le terrain au-delà de 250 m ; gardée sinon ou si le terrain est inconnu", () => {
+    expect(displayPosition({ name: "CASTRES MAZAMET AERODROME (LFCK)", lat: 43.563, lon: 2.2917, kind: "para" }, ads)).toEqual([2.289, 43.556]);
+    expect(displayPosition({ name: "CASTRES MAZAMET AERODROME (LFCK)", lat: 43.5562, lon: 2.2892, kind: "para" }, ads)).toEqual([2.2892, 43.5562]);
+    expect(displayPosition({ name: "AUTRE AERODROME (LFXX)", lat: 44, lon: 2, kind: "para" }, ads)).toEqual([2, 44]);
+    expect(displayPosition({ name: "LEVROUX (36)", lat: 46.9, lon: 1.6, kind: "glider" }, ads)).toEqual([1.6, 46.9]);
   });
 });

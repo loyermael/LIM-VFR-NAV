@@ -68,13 +68,26 @@ export function shiftedPosition(lat: number, lon: number, kind: ActivityKind): [
   return [lon + s[0] / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180))), lat + s[1] / 111320];
 }
 
-export function activitiesToGeoJSON(d: ActivityDataset): FeatureCollection {
+/** Distance (m) au-delà de laquelle l'activité d'un terrain est ramenée sur ce terrain : l'AIP donne parfois le lieu de saut ou de treuillage, à plus d'un kilomètre. */
+export const SNAP_TO_AD_M = 250;
+const codeOf = (name: string): string | null => /\((L[A-Z0-9]{3})\)/.exec(name)?.[1] ?? null;
+const approxM = (lat1: number, lon1: number, lat2: number, lon2: number) => Math.hypot((lat1 - lat2) * 111320, (lon1 - lon2) * 111320 * Math.cos((lat1 * Math.PI) / 180));
+
+/** Position affichée : celle de l'AIP, sauf pour une activité d'un terrain connu qui en est éloignée (> 250 m) : elle est alors posée sur le terrain, comme sur la carte OACI. */
+export function displayPosition(a: Pick<Activity, "name" | "lat" | "lon" | "kind">, airfields: readonly { icao: string | null; position: { lat: number; lon: number } }[]): [number, number] {
+  const code = codeOf(a.name);
+  const ad = code ? airfields.find((x) => x.icao === code) : undefined;
+  if (ad && approxM(a.lat, a.lon, ad.position.lat, ad.position.lon) > SNAP_TO_AD_M && approxM(a.lat, a.lon, ad.position.lat, ad.position.lon) < 20_000) return [ad.position.lon, ad.position.lat];
+  return shiftedPosition(a.lat, a.lon, a.kind);
+}
+
+export function activitiesToGeoJSON(d: ActivityDataset, airfields: readonly { icao: string | null; position: { lat: number; lon: number } }[] = []): FeatureCollection {
   const features: FeatureCollection["features"] = [];
   for (const a of d.items) {
     const sym = activitySymbol(a);
     if (!sym) continue;
     features.push({
-      type: "Feature", geometry: { type: "Point", coordinates: shiftedPosition(a.lat, a.lon, a.kind) },
+      type: "Feature", geometry: { type: "Point", coordinates: displayPosition(a, airfields) },
       properties: { sym, kind: a.kind, ref: a.ref, onAd: /\((LF|LS)[A-Z0-9]{2}\)/.test(a.name), lbl: a.kind === "glider" ? `${a.ref}
 CABLE` : a.ref, cat: `Activité ${a.kind === "para" ? "de parachutage" : a.kind === "acro" ? "de voltige" : a.kind === "glider" ? "de treuillage (planeur)" : a.kind === "aeromodel" ? "d'aéromodélisme" : "aérienne"}`, name: a.name, upper: a.upper ?? "", lower: a.lower ?? "", hours: a.hours ?? "" },
     });
