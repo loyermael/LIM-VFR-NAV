@@ -111,7 +111,7 @@ function addAspIcons(m: maplibregl.Map) {
   for (const [name, img] of hatchIcons()) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: 2 });
 }
 
-const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid"];
+const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid", "nav-nuc"];
 const NAV_LAYERS = [...NAV_SYM_LAYERS, "nav-name", "nav-box"];
 /** Bleu et rouge de la carte OACI (légende SIA / IGN). */
 const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
@@ -848,6 +848,7 @@ export function MapView(props: MapViewProps) {
         // Obstacles : seuls ceux de 300 ft AGL et plus (comme sur la carte OACI) ; les plus hauts de loin, les autres dès le zoom 9,5. Les filtres ne dépendent pas du zoom : un calque par niveau.
         m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 5.5, layout, paint, filter: ["any", ["in", ["get", "grp"], ["literal", ["navaid", "report"]]], ["all", ["==", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]]] as never }, before);
         m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 8, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
+        m.addLayer({ id: "nav-nuc", type: "symbol", source: "nav", minzoom: 5, filter: ["==", ["get", "grp"], "nuclear"] as never, layout: { "icon-image": "nuclear", "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 5, 0.6, 9, 1, 12, 1.5] } as never }, before);
         const navaid = ["==", ["get", "grp"], "navaid"];
         m.addLayer({
           id: "nav-box", type: "symbol", source: "nav", minzoom: 6.5, filter: navaid as never,
@@ -912,7 +913,8 @@ export function MapView(props: MapViewProps) {
    * végétation vert pâle, agglomérations jaunes, autoroutes et routes brun-gris, voies ferrées noires, frontière rose. Données OpenStreetMap (OpenFreeMap) et relief Terrarium.
    */
   const agglo = useRef(new Map<string, GeoJSON.Feature>());
-  /** Contours d'agglomération : un polygone irrégulier (forme stable d'une ville à l'autre) à l'échelle réelle autour de chaque ville des tuiles chargées. */
+  const aggloPlaces = useRef(new Map<string, { lon: number; lat: number; kind: "big" | "mid" }>());
+  /** Agglomérations selon la légende OACI : points (petite, repère) et contours (moyenne, grande), à l'échelle réelle. Contours généralisés aux petits zooms, vraies zones bâties au zoom 9,5 et plus. */
   function syncAglo() {
     const m = map.current;
     if (!m || !loaded.current || !m.getSource("aerob-agglo") || !m.getSource("aerob-v")) return;
@@ -920,32 +922,56 @@ export function MapView(props: MapViewProps) {
     for (const f of m.querySourceFeatures("aerob-v", { sourceLayer: "place" })) {
       const pr = f.properties ?? {};
       const cls = String(pr["class"] ?? "");
-      if (!["city", "town", "village"].includes(cls) || f.geometry.type !== "Point") continue;
+      if (!["city", "town", "village", "hamlet"].includes(cls) || f.geometry.type !== "Point") continue;
       const [lon, lat] = f.geometry.coordinates as [number, number];
       const name = String(pr["name"] ?? "");
       const key = `${name}|${lon.toFixed(3)}|${lat.toFixed(3)}`;
       if (agglo.current.has(key)) continue;
       const big = cls === "city" || Number(pr["capital"] ?? 99) <= 6 || Number(pr["rank"] ?? 99) <= 7;
-      const kind = big ? "big" : cls === "town" ? "mid" : "small";
-      if (kind === "small") {
+      const kind = cls === "hamlet" ? "hamlet" : big ? "big" : cls === "town" ? "mid" : "small";
+      if (kind === "small" || kind === "hamlet") {
         agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
       } else {
-        // largeur moyenne : > 3600 m (grande, ~5 km) ou 1200 à 3600 m (moyenne, ~2,4 km)
+        aggloPlaces.current.set(key, { lon, lat, kind });
         const r = (big ? 3000 : 1500) * (0.85 + 0.3 * ((hash32(name) % 100) / 100));
         const n = 12, ring: [number, number][] = [];
         for (let k = 0; k < n; k++) {
-          const h = hash32(`${name}${k}`) % 1000 / 1000;
+          const h = (hash32(`${name}${k}`) % 1000) / 1000;
           const a = ((k + (h - 0.5) * 0.5) / n) * Math.PI * 2, rr = r * (0.62 + 0.62 * h);
           ring.push([lon + (rr * Math.cos(a)) / (111320 * Math.cos((lat * Math.PI) / 180)), lat + (rr * Math.sin(a)) / 111320]);
         }
         ring.push(ring[0]!);
-        agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Polygon", coordinates: [ring] } });
-        // un point sert aux petits zooms, où le polygone est trop petit pour se voir
+        agglo.current.set(key, { type: "Feature", properties: { kind, src: "blob" }, geometry: { type: "Polygon", coordinates: [ring] } });
         agglo.current.set(`${key}|pt`, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
       }
       changed = true;
     }
-    if (changed) (m.getSource("aerob-agglo") as maplibregl.GeoJSONSource).setData({ type: "FeatureCollection", features: [...agglo.current.values()].slice(-30000) });
+    if (m.getZoom() >= 9.5 && aggloPlaces.current.size > 0) {
+      const places = [...aggloPlaces.current.values()];
+      for (const f of m.querySourceFeatures("aerob-v", { sourceLayer: "landuse" })) {
+        const cl = String((f.properties ?? {})["class"] ?? "");
+        if (!["residential", "commercial", "industrial", "retail"].includes(cl)) continue;
+        if (f.geometry.type !== "Polygon" && f.geometry.type !== "MultiPolygon") continue;
+        const ring0 = (f.geometry.type === "Polygon" ? f.geometry.coordinates[0] : f.geometry.coordinates[0]?.[0]) as [number, number][] | undefined;
+        if (!ring0 || ring0.length < 3) continue;
+        const key = `r|${ring0[0]![0].toFixed(5)}|${ring0[0]![1].toFixed(5)}|${ring0.length}`;
+        if (agglo.current.has(key)) continue;
+        let x0 = 180, x1 = -180, y0 = 90, y1 = -90;
+        for (const [x, y] of ring0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, k = 111320 * Math.cos((cy * Math.PI) / 180);
+        let best: "big" | "mid" | null = null, bd = Infinity;
+        for (const pl of places) {
+          const d = Math.hypot((pl.lon - cx) * k, (pl.lat - cy) * 111320);
+          if (d >= (pl.kind === "big" ? 6000 : 3500)) continue;
+          if (best === "big" && pl.kind === "mid") continue; // une grande ville proche l'emporte
+          if (d < bd || (pl.kind === "big" && best === "mid")) { bd = d; best = pl.kind; }
+        }
+        if (!best) continue;
+        agglo.current.set(key, { type: "Feature", properties: { kind: best, src: "real" }, geometry: f.geometry as GeoJSON.Geometry });
+        changed = true;
+      }
+    }
+    if (changed) (m.getSource("aerob-agglo") as maplibregl.GeoJSONSource).setData({ type: "FeatureCollection", features: [...agglo.current.values()].slice(-40000) });
   }
   useEffect(() => {
     const m = map.current;
@@ -968,6 +994,7 @@ export function MapView(props: MapViewProps) {
         m.removeSource("aerob-dem");
         if (m.getSource("aerob-agglo")) m.removeSource("aerob-agglo");
         agglo.current.clear();
+        aggloPlaces.current.clear();
       }
       return;
     }
@@ -990,14 +1017,20 @@ export function MapView(props: MapViewProps) {
     // Les contours sont des polygones à l'échelle réelle générés autour des villes de la carte (cf. syncAglo).
     m.addSource("aerob-agglo", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     const col = ["match", ["get", "kind"], "big", "#f8a000", "#fff200"];
-    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": col, "fill-opacity": 1 } });
-    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": "#b07400", "line-width": 0.7 } });
+    const poly = ["==", ["geometry-type"], "Polygon"];
+    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, maxzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, maxzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "line-color": "#b07400", "line-width": 0.7 } });
+    // zones bâties réelles (OpenStreetMap) rattachées à la ville la plus proche, soudées par un contour de même couleur
+    add({ id: "aerob-agglo-real", type: "fill", source: "aerob-agglo", minzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-realedge", type: "line", source: "aerob-agglo", minzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], layout: { "line-join": "round" }, paint: { "line-color": col, "line-width": ["interpolate", ["linear"], ["zoom"], 9.5, 2, 13, 5] } });
+    // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
     add({
       id: "aerob-agglo-dot", type: "circle", source: "aerob-agglo", filter: ["==", ["geometry-type"], "Point"],
       paint: {
-        "circle-color": col, "circle-stroke-color": "#b07400", "circle-stroke-width": 0.6,
-        "circle-radius": ["case", ["==", ["get", "kind"], "small"], ["interpolate", ["linear"], ["zoom"], 6, 2, 11, 4.5], ["step", ["zoom"], 3.5, 7.5, 0]],
-        "circle-stroke-opacity": ["case", ["==", ["get", "kind"], "small"], 1, ["step", ["zoom"], 1, 7.5, 0]],
+        "circle-color": ["match", ["get", "kind"], "big", "#f8a000", "hamlet", "#ffffff", "#fff200"],
+        "circle-stroke-color": ["match", ["get", "kind"], "hamlet", "#222222", "#6b5400"], "circle-stroke-width": ["match", ["get", "kind"], "hamlet", 1, 0.9],
+        "circle-radius": ["match", ["get", "kind"], "hamlet", ["interpolate", ["linear"], ["zoom"], 8, 2.2, 12, 3.4], "small", ["interpolate", ["linear"], ["zoom"], 6, 2.6, 11, 5], ["step", ["zoom"], 4, 7.5, 0]],
+        "circle-stroke-opacity": ["match", ["get", "kind"], "hamlet", 1, "small", 1, ["step", ["zoom"], 1, 7.5, 0]],
       },
     });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
@@ -1059,7 +1092,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !loaded.current) return;
     const top = m.getLayer("route-line") ? "route-line" : undefined;
-    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-model", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle", "asp-ctl"]) if (m.getLayer(id)) m.moveLayer(id, top);
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-nuc", "nav-box", "nav-name", "act-model", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle", "asp-ctl"]) if (m.getLayer(id)) m.moveLayer(id, top);
   }
   function raiseDocs() {
     raiseSymbols();

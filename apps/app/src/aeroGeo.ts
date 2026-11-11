@@ -1,5 +1,6 @@
 import { navaidSymbol, type NavDataset } from "./navData";
 import type { OnaDataset } from "./obstacles";
+import nuclearData from "./data/fr_nuclear.json";
 import { shiftedPosition } from "./activities";
 /** Conversion des espaces et terrains en GeoJSON pour la carte, et textes de détail. Fonctions pures (testées). */
 import type { FeatureCollection } from "geojson";
@@ -218,13 +219,8 @@ export function freshnessWarnings(f: DatasetFreshness): string[] {
  * Balises, points de report et obstacles pour la carte aéro, en un seul jeu de points. `sym` = image à dessiner, `cat` = nom affiché à l'appui,
  * `grp` = famille (filtre d'affichage), `h` = hauteur au-dessus du sol (m) pour trier les obstacles par importance.
  */
-/** Centrales nucléaires françaises (survol à 1000 ft minimum sur la carte OACI) : positions indicatives à ±1 km, à vérifier sur la carte officielle. */
-const NUCLEAR_SITES: readonly [string, number, number][] = [
-  ["Gravelines", 51.015, 2.136], ["Penly", 49.976, 1.211], ["Paluel", 49.858, 0.635], ["Flamanville", 49.536, -1.882], ["La Hague", 49.678, -1.882],
-  ["Cattenom", 49.407, 6.218], ["Chooz", 50.09, 4.79], ["Nogent-sur-Seine", 48.515, 3.518], ["Saint-Laurent-des-Eaux", 47.721, 1.58], ["Dampierre-en-Burly", 47.733, 2.518],
-  ["Belleville-sur-Loire", 47.51, 2.875], ["Chinon", 47.229, 0.17], ["Civaux", 46.457, 0.651], ["Golfech", 44.107, 0.846], ["Blayais", 45.256, -0.693],
-  ["Bugey", 45.798, 5.27], ["Saint-Alban", 45.404, 4.755], ["Cruas", 44.633, 4.756], ["Tricastin", 44.331, 4.732], ["Marcoule", 44.158, 4.708], ["Fessenheim", 47.903, 7.563],
-];
+/** Centrales nucléaires d'EDF (open data EDF, Licence Ouverte) : survol à 1000 ft minimum sur la carte OACI. Données : tools/fetch-edf-nuclear.py. */
+const NUCLEAR_SITES: readonly [string, number, number][] = (nuclearData.items as [string, number, number][]);
 
 export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null, withNuclear = false): FeatureCollection {
   const features: FeatureCollection["features"] = [];
@@ -234,7 +230,7 @@ export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null, withN
     const freq = v.freq ? `${Number.parseFloat(v.freq)} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
     add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: "", nm: v.name.toUpperCase(), box: navaidBox(v, sym) });
   }
-  if (withNuclear) for (const [name, lat, lon] of NUCLEAR_SITES) add(lon, lat, { sym: "nuclear", grp: "report", cat: "Centrale nucléaire (position indicative)", name, h: 0, lbl: "" });
+  if (withNuclear) for (const [name, lat, lon] of NUCLEAR_SITES) add(lon, lat, { sym: "nuclear", grp: "nuclear", cat: "Centrale nucléaire (EDF)", name, h: 0, lbl: "" });
   for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
   if (ona) {
     // Obstacles officiels (AIP ENR 5.4.1) : seuls ceux de 300 ft et plus (règle de la carte OACI) ; mât ou obstacle balisé de nuit ; éoliennes en parcs (la plus haute par maille).
