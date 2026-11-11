@@ -27,7 +27,8 @@ import { DataPanel } from "./DataPanel";
 import { usePackData } from "./dataPack";
 import { useLink } from "./useLink";
 import { streamState } from "@lim/core";
-import { blobUrl, useDocs } from "./docStore";
+import { blobUrl, isPdf, useDocs } from "./docStore";
+import { renderPdfRegion } from "./pdfRender";
 import { downloadVacPages, loadVacIndex, vacsFor } from "./vacAuto";
 import { imageCorners, pixelToLatLon } from "@lim/core";
 import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
@@ -539,12 +540,30 @@ export function App() {
     else if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
     else if (id === "weather") await importWx(files);
   });
+  /** Redessine une carte (VAC…) plus nette depuis son PDF quand on zoome ; null si le PDF n'est pas disponible. Une image par (carte, échelle), gardée pour la session. */
+  const hiresCache = useRef(new Map<string, string>());
+  const renderDocHires = async (id: string, scale: number): Promise<string | null> => {
+    const d = docs.list.find((x) => x.id === id);
+    const pdf = d?.georef?.pdf;
+    if (!d || !pdf || !isPdf(d)) return null;
+    const key = `${id}@${scale}`;
+    const hit = hiresCache.current.get(key);
+    if (hit) return hit;
+    try {
+      const r = await renderPdfRegion(d.data, pdf.page, pdf.frame, scale);
+      const url = URL.createObjectURL(r.blob);
+      hiresCache.current.set(key, url);
+      return url;
+    } catch {
+      return null;
+    }
+  };
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const [docFocus, setDocFocus] = useState<{ nonce: number; corners: [number, number][] } | null>(null);
   const seenDocs = useRef(new Set<string>());
   /** Cartes calées visibles : « toujours », ou « à l'approche » = GPS à moins de 10 NM du centre de la carte (seuil jugé). */
   const docCharts = useMemo(() => {
-    const out: { id: string; url: string; corners: ReturnType<typeof imageCorners>; auto: boolean }[] = [];
+    const out: { id: string; url: string; corners: ReturnType<typeof imageCorners>; auto: boolean; framePtW?: number }[] = [];
     for (const d of docs.list) {
       const g = d.georef;
       if (!g || d.show === "off") continue;
@@ -554,7 +573,7 @@ export function App() {
         const c = pixelToLatLon(g.georef, g.width / 2, g.height / 2);
         if (distance(fix.position, c) > 10 * 1852) continue;
       }
-      out.push({ id: d.id, url: blobUrl(g.image), corners, auto: d.show === "auto" });
+      out.push({ id: d.id, url: blobUrl(g.image), corners, auto: d.show === "auto", ...(g.pdf ? { framePtW: g.pdf.frame[2] - g.pdf.frame[0] } : {}) });
     }
     return out;
   }, [docs.list, fix, status]);
@@ -869,6 +888,7 @@ export function App() {
           zoomCommand={zoomCommand}
           replay={replayMap}
           docCharts={docCharts}
+          renderDocHires={renderDocHires}
           traffic={trafficView}
           baseMap={basePrefs.base}
           relief={basePrefs.relief}

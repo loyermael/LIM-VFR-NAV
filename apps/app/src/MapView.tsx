@@ -67,7 +67,9 @@ export interface MapViewProps {
   /** Rejeu d'une trace : ligne complète + position courante (null = pas de rejeu). */
   replay: { line: [number, number][]; pos: { lat: number; lon: number; trk: number | null } | null; key: string } | null;
   /** Cartes calées (VAC) posées sur la carte : image + coins [lon, lat] (haut-gauche, haut-droit, bas-droit, bas-gauche). */
-  docCharts: readonly { id: string; url: string; corners: [[number, number], [number, number], [number, number], [number, number]] }[];
+  docCharts: readonly { id: string; url: string; corners: [[number, number], [number, number], [number, number], [number, number]]; framePtW?: number }[];
+  /** Redessine une carte depuis son PDF à l'échelle demandée (pixels par point) ; null si impossible. */
+  renderDocHires?: (id: string, scale: number) => Promise<string | null>;
   /** Trafic reçu (GDL90, FLARM) : un repère par cible, avec l'écart d'altitude en centaines de pieds. */
   traffic: readonly { key: string; lat: number; lon: number; track: number | null; label: string; level: number; stale: boolean; relAltM: number | null }[];
   /** Demande de cadrage sur une carte calée (approche) ; appliquée seulement si le suivi de l'avion est actif. */
@@ -838,14 +840,55 @@ export function MapView(props: MapViewProps) {
         docLayers.current.delete(id);
       }
     }
+    // Les cartes calées (VAC) se posent juste au-dessus du fond de carte et sous tout le reste (espaces, terrains, balises, route…).
+    const anchor = m.getStyle().layers.find((l) => /^(ov-|nav-|asp-|apt-|route-|replay-|direct-|vector-|radar)/.test(l.id))?.id;
     for (const d of wanted.values()) {
       if (docLayers.current.has(d.id)) continue;
       m.addSource(`doc-${d.id}`, { type: "image", url: d.url, coordinates: d.corners });
-      m.addLayer({ id: `doc-${d.id}`, type: "raster", source: `doc-${d.id}`, paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 } }, m.getLayer("replay-line") ? "replay-line" : undefined);
+      m.addLayer({ id: `doc-${d.id}`, type: "raster", source: `doc-${d.id}`, paint: { "raster-opacity": 0.9, "raster-fade-duration": 0 } }, anchor);
       docLayers.current.add(d.id);
+      docScale.current.set(d.id, 2);
+    }
+    syncHires();
+  }
+  /** Échelle (pixels par point PDF) actuellement affichée pour chaque carte ; 2 = image d'origine. */
+  const docScale = useRef(new Map<string, number>());
+  const hiresBusy = useRef(new Set<string>());
+  /** Quand on zoome, redessine les cartes calées depuis leur PDF pour qu'elles restent nettes (échelles 2, 3, 4, 6, 8). */
+  function syncHires() {
+    const m = map.current;
+    const render = latest.current.renderDocHires;
+    if (!m || !loaded.current || !render) return;
+    for (const d of latest.current.docCharts) {
+      if (!d.framePtW || !docLayers.current.has(d.id) || hiresBusy.current.has(d.id)) continue;
+      const tl = m.project([d.corners[0][0], d.corners[0][1]]);
+      const tr = m.project([d.corners[1][0], d.corners[1][1]]);
+      const screenPx = Math.hypot(tr.x - tl.x, tr.y - tl.y) * (window.devicePixelRatio || 1);
+      const needed = screenPx / d.framePtW; // pixels d'écran par point PDF
+      const tier = [2, 3, 4, 6, 8].find((t) => t >= needed) ?? 8;
+      const cur = docScale.current.get(d.id) ?? 2;
+      if (tier <= cur) continue;
+      hiresBusy.current.add(d.id);
+      void render(d.id, tier)
+        .then((url) => {
+          const src = m.getSource(`doc-${d.id}`) as maplibregl.ImageSource | undefined;
+          if (url && src && docLayers.current.has(d.id)) {
+            src.updateImage({ url, coordinates: d.corners });
+            docScale.current.set(d.id, tier);
+          }
+        })
+        .finally(() => hiresBusy.current.delete(d.id));
     }
   }
   useEffect(syncDocs, [props.docCharts]);
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const on = () => { clearTimeout(t); t = setTimeout(syncHires, 350); };
+    m.on("moveend", on);
+    return () => { clearTimeout(t); m.off("moveend", on); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Repères du trafic : flèche orientée selon la route, écart d'altitude (« +3 » = 300 ft au-dessus), couleur selon le niveau. */
   const trafficMarkers = useRef(new Map<string, maplibregl.Marker>());

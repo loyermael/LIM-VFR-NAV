@@ -133,6 +133,7 @@ export async function autoGeoreference(doc: DocRecord, index: Map<string, VacInd
       georef: {
         points: [], georef: cropGeoref(g, x0, y0), width: x1 - x0, height: y1 - y0, rmsError: e.residualPt * e.groundMetersPerPoint,
         auto: true, page: e.page, image,
+        pdf: { page: e.page, frame: [x0 / RENDER_SCALE, y0 / RENDER_SCALE, x1 / RENDER_SCALE, y1 / RENDER_SCALE] },
       },
     },
   };

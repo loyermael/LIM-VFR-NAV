@@ -18,6 +18,8 @@ export interface DocGeoref {
   readonly auto?: boolean;
   readonly page: number;
   readonly image: Blob;
+  /** Où se trouve l'image dans le PDF (page et cadre en points) : permet de la redessiner plus nette quand on zoome, à partir du PDF (vectoriel). */
+  readonly pdf?: { readonly page: number; readonly frame: readonly [number, number, number, number] };
 }
 
 /** Document personnel importé par l'utilisateur (le SIA et les autres éditeurs ne sont pas téléchargés par l'appli). */

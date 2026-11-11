@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fitGeoref, georefFromRunway, georefMetrics, parseCoordinate, type Airfield, type ControlPoint } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import { DOC_KINDS, isPdf, newDoc, type DocKind, type DocRecord } from "./docStore";
-import { imageSize, renderPdfPage } from "./pdfRender";
+import { RENDER_SCALE, imageSize, renderPdfPage } from "./pdfRender";
 import { Section } from "./Section";
 import { autoGeoreference, loadVacIndex } from "./vacAuto";
 
@@ -184,7 +184,7 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; airfield: Airfield | null; 
         <button
           className="brand"
           disabled={!fit}
-          onClick={() => fit && p.onSave({ ...p.doc, georef: { points: pts, georef: fit.georef, width: p.r.width, height: p.r.height, rmsError: fit.rmsError, assisted, page: p.page, image: p.r.blob } })}
+          onClick={() => fit && p.onSave({ ...p.doc, georef: { points: pts, georef: fit.georef, width: p.r.width, height: p.r.height, rmsError: fit.rmsError, assisted, page: p.page, image: p.r.blob, pdf: { page: p.page, frame: [0, 0, p.r.width / RENDER_SCALE, p.r.height / RENDER_SCALE] } } })}
         >
           {T("dc.cal.save")}
         </button>
