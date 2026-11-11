@@ -1,7 +1,7 @@
 # Carte aéro « type OACI » : inventaire des données ouvertes
 
 Objectif : une carte vectorielle aéronautique inspirée de l'OACI (couleurs et symboles de la légende publique), nommée à part, jamais présentée comme la carte officielle.
-État : inventaire par recherche web (une recherche par thème). **Rien n'est encore vérifié sur les fichiers réels** ; chaque ligne « à vérifier » doit l'être avant de coder.
+État : inventaire par recherche web, puis **vérification sur les fichiers réels openAIP (téléchargés le 2026-11-11)**. SIA, DIRCAM et BD TOPO restent à ouvrir.
 
 | Élément de la carte | Source candidate | Licence annoncée | État |
 |---|---|---|---|
@@ -25,3 +25,24 @@ Objectif : une carte vectorielle aéronautique inspirée de l'OACI (couleurs et 
 
 ## Suite proposée
 Ouvrir les vrais fichiers (SIA AIXM, DIRCAM obstacles, BD TOPO, openAIP obstacles/balises), noter format, volume et licence lue sur place, puis décider du premier lot (espaces + terrains + balises + obstacles).
+
+## Vérifié sur les exports openAIP France (anonymes, sans clé : `https://storage.openaip.net/openaip-system-exports/fr_<type>.json`)
+| Type | Fichier | Éléments | Poids | Contenu constaté |
+|---|---|---|---|---|
+| Espaces aériens | `asp` | déjà utilisé | 2,9 Mo | - |
+| Terrains | `apt` | déjà utilisé | 2,2 Mo | - |
+| **Balises** | `nav` | 148 (VOR/DME/NDB…, 5 types) | 0,23 Mo | nom, identifiant, fréquence, canal, position, altitude, portée |
+| **Points de report** | `rpp` | 678 | 0,31 Mo | nom, obligatoire ou non, terrains liés, position |
+| **Obstacles** | `obs` | 8 887 (7 631 de type 0, le reste 4 autres types) | 6,7 Mo | position, altitude ; hauteur renseignée sur 2 276 seulement (max 350 m) ; **issus d'OpenStreetMap** (`osmId`, `osmTags`, ex. éoliennes) |
+| Parapentes/deltas (décollages) | `hgl` | 449 | 0,2 Mo | position, altitude, type |
+| Points chauds (planeurs) | `hot` | 27 | 14 Ko | position, catégories |
+
+Lacunes et points d'attention :
+- Les obstacles viennent d'OSM : la liste est incomplète (pas un recensement officiel) et la licence ODbL d'OSM s'ajoute à la mention openAIP. À afficher comme « obstacles indicatifs ».
+- Hauteur absente pour environ 3 obstacles sur 4 : le symbole ne peut pas toujours porter la hauteur comme sur l'OACI.
+- Base communautaire, non alignée sur le cycle AIRAC (déjà signalé dans l'appli).
+- Le téléchargement long d'`obs` coupe à 40 s en connexion lente : prévoir un délai plus large.
+- DIRCAM : la page des fichiers obstacles renvoie 403 aux accès automatiques ; SIA : adresse de téléchargement AIXM non retrouvée : à ouvrir à la main.
+
+## Premier lot proposé
+Espaces + terrains (déjà là) + balises + points de report + obstacles : tout est dans le même format que les données déjà chargées, donc ajoutable au paquet de données sans nouvelle source.
