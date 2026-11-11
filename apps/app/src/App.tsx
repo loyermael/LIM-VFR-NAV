@@ -1255,7 +1255,7 @@ export function App() {
                 onOpenSheet={() => setTab(0)}
               />
             ) : screen === "docs" ? (
-              <DocsTab lang={lang} docs={docs.list} openId={openDocId} onOpen={setOpenDocId} onPut={docs.put} onRemove={docs.remove} />
+              <DocsTab lang={lang} docs={docs.list} airfields={aptSet?.items ?? []} openId={openDocId} onOpen={setOpenDocId} onPut={docs.put} onRemove={docs.remove} />
             ) : screen === "traces" && tab === 0 ? (
               <TimersTab
                 lang={lang}

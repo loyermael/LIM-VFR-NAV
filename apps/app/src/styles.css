@@ -289,3 +289,7 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .pkg.installed { border-width: 3px; }
 .pkgname { font-size: var(--fs-20); }
 .datarow.soon { opacity: 0.55; display: flex; justify-content: space-between; gap: var(--sp-3); }
+
+/* Calage assisté */
+.assist { border: var(--rule-line); padding: var(--sp-3); margin: var(--sp-3) 0; background: var(--paper); display: grid; gap: var(--sp-2); }
+.assistnow { font-size: var(--fs-20); font-weight: 700; margin: 0; }

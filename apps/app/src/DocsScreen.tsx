@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fitGeoref, georefMetrics, parseCoordinate, type ControlPoint } from "@lim/core";
+import { fitGeoref, georefFromRunway, georefMetrics, parseCoordinate, type Airfield, type ControlPoint } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import { DOC_KINDS, isPdf, newDoc, type DocKind, type DocRecord } from "./docStore";
 import { imageSize, renderPdfPage } from "./pdfRender";
@@ -80,7 +80,7 @@ function ZoomBar(p: { zoom: number; onZoom: (z: number) => void }) {
   );
 }
 
-function Calibrator(p: { lang: Lang; doc: DocRecord; r: Rendered; page: number; onSave: (d: DocRecord) => void; onCancel: () => void }) {
+function Calibrator(p: { lang: Lang; doc: DocRecord; airfield: Airfield | null; r: Rendered; page: number; onSave: (d: DocRecord) => void; onCancel: () => void }) {
   const T = (k: Key) => t(p.lang, k);
   const [pts, setPts] = useState<ControlPoint[]>([...(p.doc.georef?.points ?? [])]);
   const [pending, setPending] = useState<{ px: number; py: number } | null>(null);
@@ -89,11 +89,36 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; r: Rendered; page: number; 
   const [err, setErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const fit = useMemo(() => fitGeoref(pts), [pts]);
+  // Assistant : cap et longueur d'une piste (base de données) + ses deux extrémités touchées sur la carte.
+  const runways = (p.airfield?.runways ?? []).filter((r) => r.trueHeading !== null && r.lengthM !== null);
+  const [rwy, setRwy] = useState(runways[0]?.designator ?? "");
+  const [stage, setStage] = useState<"start" | "end" | "arp" | null>(null);
+  const [taps, setTaps] = useState<{ start?: { px: number; py: number }; end?: { px: number; py: number } }>({});
+  const [assisted, setAssisted] = useState(p.doc.georef?.assisted === true);
+  const runway = runways.find((r) => r.designator === rwy) ?? null;
+  const finishAssist = (arpPixel: { px: number; py: number } | null, start: { px: number; py: number }, end: { px: number; py: number }) => {
+    if (!p.airfield || !runway) return;
+    const res = georefFromRunway({ start, end, headingTrue: runway.trueHeading as number, lengthM: runway.lengthM as number, arp: p.airfield.position, arpPixel });
+    setStage(null);
+    setTaps({});
+    if (!res) return setErr(T("as.failed"));
+    setPts([...res.points]);
+    setAssisted(true);
+    setErr(null);
+  };
+  const onPick = (px: number, py: number) => {
+    if (stage === "start") { setTaps({ start: { px, py } }); setStage("end"); return; }
+    if (stage === "end" && taps.start) { setTaps({ ...taps, end: { px, py } }); setStage("arp"); return; }
+    if (stage === "arp" && taps.start && taps.end) { finishAssist({ px, py }, taps.start, taps.end); return; }
+    setPending({ px, py });
+    setErr(null);
+  };
   const add = () => {
     if (!pending) return setErr(T("dc.cal.needPixel"));
     const la = parseCoordinate(lat, "lat"), lo = parseCoordinate(lon, "lon");
     if (la === null || lo === null) return setErr(T("dc.cal.badCoord"));
     setPts([...pts, { px: pending.px, py: pending.py, lat: la, lon: lo }]);
+    setAssisted(false); // un point de coordonnées connues a été ajouté : le calage est maintenant contrôlé par les écarts
     setPending(null);
     setLat("");
     setLon("");
@@ -103,9 +128,35 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; r: Rendered; page: number; 
   return (
     <div>
       <h3>{T("dc.cal.title")}</h3>
-      <p className="muted small">{T("dc.cal.help")}</p>
+      {runway && p.airfield && (
+        <div className="assist">
+          <b>{T("as.title")}</b>
+          <p className="muted small">{T("as.help")}</p>
+          {stage === null ? (
+            <div className="choices">
+              <select className="field" value={rwy} aria-label={T("as.runway")} onChange={(e) => setRwy(e.target.value)}>
+                {runways.map((r) => <option key={r.designator} value={r.designator}>{r.designator} · {Math.round(r.trueHeading as number)}°V · {Math.round(r.lengthM as number)} m</option>)}
+              </select>
+              <button className="brand" onClick={() => { setStage("start"); setTaps({}); setErr(null); }}>{T("as.start")}</button>
+            </div>
+          ) : (
+            <div>
+              <p className="assistnow" role="status">
+                {stage === "start" && `1/3 ${T("as.tapStart")} ${rwy}`}
+                {stage === "end" && `2/3 ${T("as.tapEnd")}`}
+                {stage === "arp" && `3/3 ${T("as.tapArp")}`}
+              </p>
+              <div className="choices">
+                {stage === "arp" && taps.start && taps.end && <button onClick={() => finishAssist(null, taps.start as { px: number; py: number }, taps.end as { px: number; py: number })}>{T("as.noArp")}</button>}
+                <button onClick={() => { setStage(null); setTaps({}); }}>{T("dc.cal.cancel")}</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {!runway && <p className="muted small">{T("dc.cal.help")}</p>}
       <ZoomBar zoom={zoom} onZoom={setZoom} />
-      <ChartImage r={p.r} zoom={zoom} marks={marks} onPick={(px, py) => { setPending({ px, py }); setErr(null); }} alt={p.doc.name} />
+      <ChartImage r={p.r} zoom={zoom} marks={[...marks, ...(taps.start ? [{ px: taps.start.px, py: taps.start.py, label: "A", pending: true }] : []), ...(taps.end ? [{ px: taps.end.px, py: taps.end.py, label: "B", pending: true }] : [])]} onPick={onPick} alt={p.doc.name} />
       <div className="params">
         <label className="numfield"><span>{T("dc.cal.lat")}</span><input className="field" value={lat} placeholder="47°18'30&quot;N" onChange={(e) => setLat(e.target.value)} /></label>
         <label className="numfield"><span>{T("dc.cal.lon")}</span><input className="field" value={lon} placeholder="002°20'15&quot;E" onChange={(e) => setLon(e.target.value)} /></label>
@@ -118,20 +169,21 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; r: Rendered; page: number; 
         <div className="point-row" key={i} style={{ gridTemplateColumns: "28px 1fr auto auto" }}>
           <b className="mono">{i + 1}</b>
           <span className="mono small">{q.lat.toFixed(5)}, {q.lon.toFixed(5)}</span>
-          <span className="mono small">{fit && pts.length >= 3 ? `±${Math.round(fit.residuals[i] as number)} m` : ""}</span>
+          <span className="mono small">{fit && pts.length >= 3 && !assisted ? `±${Math.round(fit.residuals[i] as number)} m` : ""}</span>
           <button aria-label={T("nav.delete")} onClick={() => setPts(pts.filter((_, j) => j !== i))}>✕</button>
         </div>
       ))}
       {pts.length < 2 && <p className="muted small">{T("dc.cal.min")}</p>}
       {fit && pts.length === 2 && <p className="muted small">{T("dc.cal.two")}</p>}
-      {fit && pts.length >= 3 && (
+      {assisted && <p className="error" role="status">{T("as.approx")}</p>}
+      {fit && pts.length >= 3 && !assisted && (
         <p className={fit.rmsError > 150 ? "error" : "muted small"}>{T("dc.cal.rms")} : {Math.round(fit.rmsError)} m{fit.rmsError > 150 ? ` — ${T("dc.cal.bad")}` : ""}</p>
       )}
       <div className="choices">
         <button
           className="brand"
           disabled={!fit}
-          onClick={() => fit && p.onSave({ ...p.doc, georef: { points: pts, georef: fit.georef, width: p.r.width, height: p.r.height, rmsError: fit.rmsError, page: p.page, image: p.r.blob } })}
+          onClick={() => fit && p.onSave({ ...p.doc, georef: { points: pts, georef: fit.georef, width: p.r.width, height: p.r.height, rmsError: fit.rmsError, assisted, page: p.page, image: p.r.blob } })}
         >
           {T("dc.cal.save")}
         </button>
@@ -141,7 +193,7 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; r: Rendered; page: number; 
   );
 }
 
-function DocDetail(p: { lang: Lang; doc: DocRecord; onPut: (d: DocRecord) => void; onRemove: (id: string) => void; onBack: () => void }) {
+function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield[]; onPut: (d: DocRecord) => void; onRemove: (id: string) => void; onBack: () => void }) {
   const T = (k: Key) => t(p.lang, k);
   const d = p.doc;
   const [page, setPage] = useState(d.georef?.page ?? 1);
@@ -190,7 +242,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; onPut: (d: DocRecord) => voi
           <Section id="geo" title={T("dc.geo")} ok={!!g} open={open.has("geo")} onToggle={toggle} okLabel={T("dc.geo.done")} todoLabel={T("dc.geo.todo")}>
             {g && metrics ? (
               <>
-                <p className="muted small">{g.points.length} {T("dc.geo.points")} · {T("dc.cal.rms")} {Math.round(g.rmsError)} m · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
+                <p className="muted small">{g.points.length} {T("dc.geo.points")} · {g.assisted ? T("as.badge") : `${T("dc.cal.rms")} ${Math.round(g.rmsError)} m`} · {metrics.metersPerPixel.toFixed(1)} m/px · {T("dc.geo.rotation")} {Math.round(metrics.rotationDeg)}°{g.page !== page ? ` · ${T("dc.geo.otherPage")} ${g.page}` : ""}</p>
                 <div className="choices">
                   {(["auto", "on", "off"] as const).map((sh) => <button key={sh} aria-pressed={d.show === sh} onClick={() => p.onPut({ ...d, show: sh })}>{T(`dc.show.${sh}` as Key)}</button>)}
                 </div>
@@ -205,7 +257,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; onPut: (d: DocRecord) => voi
         </>
       )}
       {r && mode === "calibrate" && (
-        <Calibrator lang={p.lang} doc={d} r={r} page={page} onCancel={() => setMode("view")} onSave={(nd) => { p.onPut(nd); setMode("view"); }} />
+        <Calibrator lang={p.lang} doc={d} airfield={(d.icao && p.airfields.find((x) => x.icao === d.icao)) || null} r={r} page={page} onCancel={() => setMode("view")} onSave={(nd) => { p.onPut(nd); setMode("view"); }} />
       )}
       <div className="choices">
         {confirm
@@ -223,6 +275,7 @@ interface DocsProps {
   onOpen: (id: string | null) => void;
   onPut: (d: DocRecord) => void;
   onRemove: (id: string) => void;
+  airfields: readonly Airfield[];
 }
 
 /** Onglet « Documents » : bibliothèque (VAC, AIP, SUP AIP, autres), lecteur et calage des cartes. */
@@ -232,7 +285,7 @@ export function DocsTab(p: DocsProps) {
   const [q, setQ] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const doc = p.openId ? p.docs.find((x) => x.id === p.openId) ?? null : null;
-  if (doc) return <DocDetail lang={p.lang} doc={doc} onPut={p.onPut} onRemove={p.onRemove} onBack={() => p.onOpen(null)} />;
+  if (doc) return <DocDetail lang={p.lang} doc={doc} airfields={p.airfields} onPut={p.onPut} onRemove={p.onRemove} onBack={() => p.onOpen(null)} />;
 
   const shown = [...p.docs]
     .filter((d) => (filter === "all" || d.kind === filter) && (q === "" || `${d.name} ${d.icao}`.toLowerCase().includes(q.toLowerCase())))

@@ -148,3 +148,46 @@ export function parseCoordinate(text: string, axis: "lat" | "lon"): number | nul
   const limit = axis === "lat" ? 90 : 180;
   return Math.abs(value) <= limit ? value : null;
 }
+
+export interface RunwayAssist {
+  /** Pixel de l'extrémité dont le cap vrai est `headingTrue` (le seuil de cette piste). */
+  readonly start: { readonly px: number; readonly py: number };
+  /** Pixel de l'autre extrémité de la piste. */
+  readonly end: { readonly px: number; readonly py: number };
+  /** Cap vrai de la piste, de `start` vers `end` (°). */
+  readonly headingTrue: number;
+  /** Longueur de la piste (m), d'après la base de données. */
+  readonly lengthM: number;
+  /** Position de référence du terrain (ARP), d'après la base de données. */
+  readonly arp: { readonly lat: number; readonly lon: number };
+  /** Pixel où l'ARP est dessiné sur la carte ; null si on ne le voit pas : on le suppose alors au milieu de la piste (approximatif). */
+  readonly arpPixel: { readonly px: number; readonly py: number } | null;
+}
+
+/**
+ * Calage assisté par une piste : l'image donne les deux extrémités, la base de données donne le cap vrai et la longueur de la
+ * piste (donc échelle et rotation) et la position du terrain (donc la translation). Précision limitée par ces données
+ * (longueur publiée ≠ longueur dessinée, cap magnétique arrondi, ARP pas toujours au milieu) : calage APPROXIMATIF, à affiner
+ * en ajoutant des points de coordonnées connues. Retourne le calage sous forme de trois points de calage cohérents, ou null.
+ */
+export function georefFromRunway(a: RunwayAssist): (GeorefFit & { readonly points: readonly ControlPoint[] }) | null {
+  const dx = a.end.px - a.start.px, dy = a.end.py - a.start.py;
+  if (!(a.lengthM > 0) || Math.hypot(dx, dy) < 1e-6) return null;
+  const k = Math.cos((a.arp.lat * Math.PI) / 180);
+  const h = (a.headingTrue * Math.PI) / 180;
+  // Vecteur de la piste sur le terrain (Mercator) et dans l'image (y vers le haut) : s = Z / W (division complexe).
+  const zr = (a.lengthM * Math.sin(h)) / k, zi = (a.lengthM * Math.cos(h)) / k;
+  const wr = dx, wi = -dy;
+  const den = wr * wr + wi * wi;
+  const sr = (zr * wr + zi * wi) / den, si = (zi * wr - zr * wi) / den;
+  const anchor = a.arpPixel ?? { px: (a.start.px + a.end.px) / 2, py: (a.start.py + a.end.py) / 2 };
+  const za = toMercator({ lat: a.arp.lat, lon: a.arp.lon } as LatLon);
+  // t = Za − s·Wa, avec Wa = px − i·py
+  const wxa = anchor.px, wya = -anchor.py;
+  const tx = za.x - (sr * wxa - si * wya), ty = za.y - (sr * wya + si * wxa);
+  const g: Georef = { ar: sr, ai: si, tx, ty };
+  const at = (q: { px: number; py: number }): ControlPoint => { const p = pixelToLatLon(g, q.px, q.py); return { px: q.px, py: q.py, lat: p.lat, lon: p.lon }; };
+  const points = [{ px: anchor.px, py: anchor.py, lat: a.arp.lat, lon: a.arp.lon }, at(a.start), at(a.end)];
+  const f = fitGeoref(points);
+  return f ? { ...f, points } : null;
+}

@@ -21,3 +21,15 @@
 - **SUP AIP / AIP** : simples documents ; pas de source ni de mise à jour automatique (décision à prendre avec l'utilisateur : fichiers SIA, URL à fournir).
 - Rendu des PDF volumineux sur téléphone : non mesuré.
 - Outil de test : en développement seulement, la carte est exposée à `window.__limMap` (absent en production).
+
+## Calage assisté par une piste (11/11)
+Dans l'outil de calage d'une VAC dont le code OACI correspond à un terrain des données installées (openAIP) : choisir une piste (cap vrai et longueur viennent de la base), toucher ses deux extrémités, puis l'ARP s'il est dessiné (sinon « milieu de la piste »). L'appli en déduit échelle, rotation et position et pose la carte. Trois touches au lieu de coordonnées à saisir.
+
+**Vérifié** : 7 tests du moteur (retrouve échelle et rotation pour tout cap et toute rotation de la carte ; écart résiduel < 0,3 % d'échelle et < 0,2° dus à la sphère de Mercator contre l'ellipsoïde) ; **vu à l'écran** avec une VAC FICTIVE de LFBI tournée de 12° (`tools/make-test-vac-lfbi.mjs`) : 3 touches, 7,0 m/px (attendu 7,0), rotation retrouvée, et un point de contrôle non utilisé (croisement de graticule à 3 km) prédit à **12 m** ; carte bien posée sur le fond de carte.
+
+**Limites (annoncées dans l'appli : « calage approximatif »)** :
+- la longueur publiée n'est pas toujours la longueur dessinée (seuil décalé) : 5 % d'écart de longueur = 5 % d'échelle ;
+- le cap de la base est arrondi ; l'ARP n'est pas toujours au milieu de la piste : sans l'ARP visible, la position peut être fausse de plusieurs centaines de mètres (testé : 300 m de décalage → ~300 m d'erreur) ;
+- openAIP ne donne **pas les coordonnées des seuils**, seulement cap, longueur et ARP ;
+- **aucune VAC réelle essayée** : l'exactitude réelle dépend du dessin des VAC du SIA, de la précision des touches au doigt et des données openAIP ;
+- ajouter ensuite un point de coordonnées connues permet de contrôler (l'écart par point réapparaît).

@@ -12,6 +12,8 @@ export interface DocGeoref {
   readonly width: number;
   readonly height: number;
   readonly rmsError: number;
+  /** Calage approximatif tiré d'une piste (cap, longueur, ARP de la base de données) : pas de contrôle possible. */
+  readonly assisted?: boolean;
   readonly page: number;
   readonly image: Blob;
 }

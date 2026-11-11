@@ -100,3 +100,85 @@ describe("saisie des coordonnées", () => {
     expect(parseCoordinate(txt, axis)).toBeNull();
   });
 });
+
+import { destination } from "./geodesy";
+import { georefFromRunway, type RunwayAssist } from "./georef";
+
+describe("calage assisté par une piste", () => {
+  // Vérité : carte nord en haut, 3,2 m/px au sol, légèrement tournée, autour de LFBI (46,5875 N ; 0,3067 E).
+  const ARP = { lat: 46.58751, lon: 0.30667 };
+  const k = Math.cos((ARP.lat * Math.PI) / 180);
+  const m0 = toMercator(ARP as never);
+  const truthG = (rotDeg: number, groundMPerPx: number): Georef => {
+    const s = groundMPerPx / k, r = (rotDeg * Math.PI) / 180;
+    const g0: Georef = { ar: s * Math.cos(r), ai: s * Math.sin(r), tx: 0, ty: 0 };
+    // l'ARP tombe au pixel (600, 800)
+    return { ...g0, tx: m0.x - (g0.ar * 600 + g0.ai * 800), ty: m0.y - (g0.ai * 600 - g0.ar * 800) };
+  };
+  const pix = (g: Georef, p: { lat: number; lon: number }) => latLonToPixel(g, p as never);
+  const scenario = (g: Georef, heading: number, length: number, arpOffsetM = 0): RunwayAssist => {
+    // la piste est centrée sur le point « centre » ; l'ARP peut en être décalé (arpOffsetM vers l'est)
+    const centre = arpOffsetM === 0 ? ARP : (destination(ARP as never, 90 as never, -arpOffsetM as never) as { lat: number; lon: number });
+    const e1 = destination(centre as never, ((heading + 180) % 360) as never, (length / 2) as never);
+    const e2 = destination(centre as never, heading as never, (length / 2) as never);
+    return { start: pix(g, e1), end: pix(g, e2), headingTrue: heading, lengthM: length, arp: ARP, arpPixel: pix(g, ARP) };
+  };
+  const g0 = truthG(7, 3.2);
+
+  /** Échelle (relative), rotation (°) et position de l'ARP (m) de l'écart entre un calage et la vérité. */
+  const diff = (g: Georef, t: Georef) => {
+    const scale = Math.hypot(g.ar, g.ai) / Math.hypot(t.ar, t.ai);
+    const rot = ((Math.atan2(g.ai, g.ar) - Math.atan2(t.ai, t.ar)) * 180) / Math.PI;
+    const p = pixelToLatLon(g, 600, 800);
+    const pos = Math.hypot((p.lat - ARP.lat) * 111320, (p.lon - ARP.lon) * 111320 * k);
+    return { scale, rot, pos };
+  };
+  it("données exactes, ARP visible : échelle à 0,3 %, rotation à 0,2°, ARP à moins de 1 m (écart résiduel = sphère de Mercator contre ellipsoïde)", () => {
+    const fit = georefFromRunway(scenario(g0, 29, 2350))!;
+    const d = diff(fit.georef, g0);
+    expect(Math.abs(d.scale - 1)).toBeLessThan(0.003);
+    expect(Math.abs(d.rot)).toBeLessThan(0.2);
+    expect(d.pos).toBeLessThan(1);
+    expect(fit.rmsError).toBeLessThan(1e-3);
+  });
+  it("ARP non visible mais au milieu de la piste : même résultat", () => {
+    const fit = georefFromRunway({ ...scenario(g0, 29, 2350), arpPixel: null })!;
+    const d = diff(fit.georef, g0);
+    expect(Math.abs(d.scale - 1)).toBeLessThan(0.003);
+    expect(d.pos).toBeLessThan(1);
+  });
+  it("extrémités touchées dans l'ordre inverse avec le cap opposé : même calage", () => {
+    const s = scenario(g0, 29, 2350);
+    const rev = georefFromRunway({ ...s, start: s.end, end: s.start, headingTrue: 209 })!;
+    const fit = georefFromRunway(s)!;
+    expect(rev.georef.ar).toBeCloseTo(fit.georef.ar, 6);
+    expect(rev.georef.ai).toBeCloseTo(fit.georef.ai, 6);
+  });
+  it("tout cap et toute rotation de la carte : l'angle et l'échelle sont retrouvés (propriété)", () => {
+    fc.assert(fc.property(fc.double({ min: 0, max: 359, noNaN: true }), fc.double({ min: -180, max: 180, noNaN: true }), fc.double({ min: 1, max: 12, noNaN: true }), (heading, rot, mpp) => {
+      const g = truthG(rot, mpp);
+      const fit = georefFromRunway(scenario(g, heading, 1500))!;
+      expect(fit.georef.ar / g.ar).toBeCloseTo(1, 2);
+      expect(Math.abs(fit.georef.ai - g.ai) / Math.hypot(g.ar, g.ai)).toBeLessThan(0.01);
+    }), { numRuns: 100 });
+  });
+  it("longueur publiée fausse de 5 % : échelle fausse de 5 % (limite connue du calage assisté)", () => {
+    const s = scenario(g0, 29, 2350);
+    const fit = georefFromRunway({ ...s, lengthM: 2350 * 1.05 })!;
+    expect(diff(fit.georef, g0).scale).toBeGreaterThan(1.045);
+    expect(diff(fit.georef, g0).scale).toBeLessThan(1.055);
+  });
+  it("ARP décalé de 300 m du milieu de la piste et non visible : position fausse d'environ 300 m (limite annoncée)", () => {
+    const s = { ...scenario(g0, 29, 2350, 300), arpPixel: null };
+    const fit = georefFromRunway(s)!;
+    const wrong = pixelToLatLon(fit.georef, 600, 800);
+    const err = Math.hypot((wrong.lat - ARP.lat) * 111320, (wrong.lon - ARP.lon) * 111320 * k);
+    expect(err).toBeGreaterThan(150);
+    expect(err).toBeLessThan(450);
+  });
+  it("impossible : extrémités confondues ou longueur nulle", () => {
+    const s = scenario(g0, 29, 2350);
+    expect(georefFromRunway({ ...s, end: s.start })).toBeNull();
+    expect(georefFromRunway({ ...s, lengthM: 0 })).toBeNull();
+  });
+});
