@@ -62,6 +62,8 @@ export const SMALL_AREA_DEG = 0.06;
 const isSmallArea = (a: Pick<Airspace, "type" | "bbox">) =>
   (a.type === 1 || a.type === 2 || a.type === 3) && Math.max(a.bbox.north - a.bbox.south, a.bbox.east - a.bbox.west) < SMALL_AREA_DEG;
 /** Activité de parachutage : zones « activité sportive » dont le nom l'indique (PARA, PJE…), ou zone réglementée « PARA ». */
+/** Voltige : zones « activité sportive » nommées VOLTIGE ou AEROBATICS. */
+export const isAerobatics = (a: Pick<Airspace, "type" | "name">) => a.type === 28 && /VOLTIGE|AEROBATIC/i.test(a.name);
 export const isParachuting = (a: Pick<Airspace, "type" | "name">) => (a.type === 28 || a.type === 1) && /\bPARA|\bPJE\b/i.test(a.name);
 
 export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureCollection {
@@ -77,7 +79,8 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
     });
     const centre = { type: "Point" as const, coordinates: [(a.bbox.east + a.bbox.west) / 2, (a.bbox.north + a.bbox.south) / 2] };
     // Croix (petite zone) et parachute : symboles ponctuels au centre de l'emprise, filtrés comme l'espace lui-même (groupe, plafond).
-    if (small) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "cross", sym: "small-area", lbl: "" }, geometry: centre });
+    if (small) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "cross", sym: "small-area", lbl: [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") }, geometry: centre });
+    if (isAerobatics(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "acro", sym: "acro", lbl: "" }, geometry: centre });
     if (isParachuting(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "para", sym: "para", lbl: "" }, geometry: centre });
   }
   return { type: "FeatureCollection", features };
@@ -204,8 +207,6 @@ export function navToGeoJSON(d: NavDataset): FeatureCollection {
     const h = o.heightM ?? 0;
     add(o.lon, o.lat, { sym: o.what === "wind" ? "wind" : h >= HIGH_OBSTACLE_M ? "mast-hi" : "mast", grp: "obstacle", cat: o.what === "wind" ? "Éolienne (indicatif)" : "Obstacle (indicatif)", name: o.name, heightM: o.heightM ?? "", h, lbl: obstacleLabel(o) });
   }
-  for (const s of d.hang) add(s.lon, s.lat, { sym: s.kind === 1 ? "hang-ld" : "hang-to", grp: "freeflight", cat: s.kind === 1 ? "Atterrissage vol libre" : "Décollage vol libre", name: s.name, h: 0, lbl: s.name });
-  for (const s of d.hotspots) add(s.lon, s.lat, { sym: "hot", grp: "freeflight", cat: "Point chaud (thermique)", name: s.name, h: 0, lbl: s.name });
   return { type: "FeatureCollection", features };
 }
 

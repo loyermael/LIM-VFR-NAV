@@ -122,9 +122,4 @@ describe("croix, parachutage et vol libre", () => {
     expect(isParachuting({ type: 28, name: "LF-R212 MONT DE VANNES" })).toBe(false);
     expect(airspacesToGeoJSON([asp(28, "PARA PERONNE", 0.3)]).features.some((x) => x.properties?.["sty"] === "para")).toBe(true);
   });
-  it("vol libre : décollage, atterrissage, point chaud", () => {
-    const d = { id: "navdata" as const, meta: { source: "openAIP" as const, licence: "x", exportedAtMs: 0, importedAtMs: 0 }, navaids: [], reporting: [], obstacles: [],
-      hang: [{ lat: 45, lon: 6, name: "DECOLLAGE X", kind: 0, elevM: 1000 }, { lat: 45.1, lon: 6, name: "ATTERRISSAGE X", kind: 1, elevM: 500 }], hotspots: [{ lat: 44, lon: 5, name: "CRETE", kind: 0, elevM: 1800 }] };
-    expect(navToGeoJSON(d).features.map((x) => x.properties?.["sym"])).toEqual(["hang-to", "hang-ld", "hot"]);
-  });
 });

@@ -40,8 +40,6 @@ export interface MapViewProps {
   /** Balises, points de report et obstacles (carte aéro) et leur affichage. */
   navData: FeatureCollection | null;
   showNav: boolean;
-  /** Vol libre (décollages, atterrissages, points chauds) : symboles propres à l'appli, hors légende OACI. */
-  showFree: boolean;
   showAirspaces: boolean;
   showAirfields: boolean;
   /** Modèle d'URL des tuiles du radar de pluie (réseau requis), ou null. */
@@ -107,7 +105,6 @@ function addAspIcons(m: maplibregl.Map) {
 
 const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid"];
 const NAV_LAYERS = [...NAV_SYM_LAYERS, "nav-name", "nav-box"];
-const FREE_LAYERS = ["nav-free"];
 /** Bleu et rouge de la carte OACI (légende SIA / IGN). */
 const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
 
@@ -202,10 +199,12 @@ function navIcons(): Map<string, ImageData> {
     c.beginPath(); c.moveTo(C - 10, C); c.lineTo(C, C + 9); c.moveTo(C + 10, C); c.lineTo(C, C + 9); c.moveTo(C, C - 1); c.lineTo(C, C + 9); stroke(c, OACI_RED, 1.3);
     dot(c, 2.2, OACI_RED, C, C + 11);
   });
-  const VIOLET = "#7b3fa0", ORANGE = "#e08a00";
-  make("hang-to", (c) => { c.beginPath(); c.moveTo(C - 10, C + 6); c.lineTo(C, C - 8); c.lineTo(C + 10, C + 6); c.lineTo(C, C + 2); c.closePath(); stroke(c, VIOLET, 1.8, "rgba(255,255,255,0.85)"); });
-  make("hang-ld", (c) => { c.beginPath(); c.moveTo(C - 10, C + 6); c.lineTo(C, C - 8); c.lineTo(C + 10, C + 6); c.lineTo(C, C + 2); c.closePath(); stroke(c, VIOLET, 1.8, VIOLET); });
-  make("hot", (c) => { circle(c, 8); stroke(c, ORANGE, 2, "rgba(255,255,255,0.85)"); c.beginPath(); c.moveTo(C, C + 5); c.lineTo(C, C - 5); c.moveTo(C - 3.5, C - 1.5); c.lineTo(C, C - 5.5); c.lineTo(C + 3.5, C - 1.5); c.strokeStyle = ORANGE; c.lineWidth = 2; c.stroke(); });
+  // voltige : avion dans un arc (rouge OACI)
+  make("acro", (c) => {
+    c.beginPath(); c.arc(C, C, 12, Math.PI * 0.9, Math.PI * 2.1); stroke(c, OACI_RED, 2);
+    c.beginPath(); c.moveTo(C - 8, C + 7); c.lineTo(C + 8, C - 3); c.moveTo(C - 3, C - 1); c.lineTo(C + 4, C + 6); c.moveTo(C - 8, C + 7); c.lineTo(C - 8, C + 3); stroke(c, OACI_RED, 2.4);
+    dot(c, 1.6, OACI_RED, C, C - 5);
+  });
   // cadre des balises (image étirable : le texte lui donne sa taille)
   const fcv = document.createElement("canvas");
   fcv.width = 32; fcv.height = 32;
@@ -607,8 +606,14 @@ export function MapView(props: MapViewProps) {
       }, before);
       // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
       m.addLayer({
-        id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para") as never,
-        layout: { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.8, 12, 1.15] } as never,
+        id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para", "acro") as never,
+        layout: {
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.8, 12, 1.15],
+          // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
+          "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
+          "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
+        } as never,
+        paint: { "text-color": OACI_RED, "text-halo-color": "#ffffff", "text-halo-width": 1.8 } as never,
       }, before);
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
@@ -673,11 +678,6 @@ export function MapView(props: MapViewProps) {
         m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
         const navaid = ["==", ["get", "grp"], "navaid"];
         m.addLayer({
-          id: "nav-free", type: "symbol", source: "nav", minzoom: 9, filter: ["==", ["get", "grp"], "freeflight"] as never,
-          layout: { ...(layout as object), "text-field": ["step", ["zoom"], "", 11, ["get", "lbl"]] } as never,
-          paint: { "text-color": "#5a2d7a", "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
-        }, before);
-        m.addLayer({
           id: "nav-box", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
           layout: { "text-field": ["get", "box"], "text-font": font, "text-size": size, "text-anchor": "left", "text-offset": [1.9, 0.3], "text-allow-overlap": false, "icon-image": "nav-frame", "icon-text-fit": "both", "icon-text-fit-padding": [1, 3, 1, 3] } as never,
           paint: { "text-color": OACI_BLUE } as never,
@@ -690,7 +690,6 @@ export function MapView(props: MapViewProps) {
       }
     }
     for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");
-    for (const id of FREE_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", latest.current.showFree ? "visible" : "none");
   }
   /** Radar de pluie : tuiles distantes (le seul calque qui exige le réseau), sous la route et au-dessus des cartes. */
   function syncRadar() {
@@ -705,7 +704,7 @@ export function MapView(props: MapViewProps) {
   }
   useEffect(syncRadar, [props.radarTemplate]);
 
-  useEffect(syncNav, [props.navData, props.showNav, props.showFree]);
+  useEffect(syncNav, [props.navData, props.showNav]);
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   /** Fond IGN et relief : sources raster sous tout le reste. */
