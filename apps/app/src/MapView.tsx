@@ -85,7 +85,7 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const ASP_LAYERS = ["asp-ctl", "asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
+const ASP_LAYERS = ["asp-ctl", "asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-park-line", "asp-park-dots", "asp-lbl"];
 
 /** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
 let hatchCache: Map<string, ImageData> | null = null;
@@ -686,7 +686,10 @@ export function MapView(props: MapViewProps) {
       // RMZ / TMZ : trait mixte ; ATZ et secteurs SIV : pointillés ; parcs, transits planeur : tirets fins.
       m.addLayer({ id: "asp-dash-rmz", type: "line", source: "asp", filter: sty("rmz") as never, paint: { "line-color": "#1a1a2e", "line-width": 2.2, "line-dasharray": [5, 1.5, 1, 1.5] } }, before);
       m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("siv", "atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": ["match", ["get", "sty"], "siv", "#2e9a4a", "#1d46a6"] as never, "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
-      m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("park", "glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
+      m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
+      // Grand parc ou réserve naturelle (légende OACI) : trait rouge continu et rangée de points ronds rouges juste en dessous.
+      m.addLayer({ id: "asp-park-line", type: "line", source: "asp", filter: big("park") as never, layout: { "line-join": "round" }, paint: { "line-color": "#e8202a", "line-width": 1.6 } }, before);
+      m.addLayer({ id: "asp-park-dots", type: "line", source: "asp", filter: big("park") as never, layout: { "line-cap": "round" }, paint: { "line-color": "#e8202a", "line-width": 3.4, "line-offset": 4, "line-dasharray": [0.01, 2.6] } }, before);
       addIcons(m);
       m.addLayer({
         id: "asp-lbl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["!=", ["get", "lbl"], ""] as never,
@@ -913,6 +916,7 @@ export function MapView(props: MapViewProps) {
    * végétation vert pâle, agglomérations jaunes, autoroutes et routes brun-gris, voies ferrées noires, frontière rose. Données OpenStreetMap (OpenFreeMap) et relief Terrarium.
    */
   const agglo = useRef(new Map<string, GeoJSON.Feature>());
+  const aggloZ = useRef(-1);
   const aggloPlaces = useRef(new Map<string, { lon: number; lat: number; kind: "big" | "mid" }>());
   /** Agglomérations selon la légende OACI : points (petite, repère) et contours (moyenne, grande), à l'échelle réelle. Contours généralisés aux petits zooms, vraies zones bâties au zoom 9,5 et plus. */
   function syncAglo() {
@@ -946,7 +950,13 @@ export function MapView(props: MapViewProps) {
       }
       changed = true;
     }
-    if (m.getZoom() >= 9.5 && aggloPlaces.current.size > 0) {
+    const zl = Math.floor(m.getZoom());
+    if (zl !== aggloZ.current) { // les tuiles changent de précision avec le zoom : on repart des zones bâties du niveau courant (pas de superposition de niveaux)
+      for (const k of [...agglo.current.keys()]) if (k.startsWith("r|")) agglo.current.delete(k);
+      aggloZ.current = zl;
+      changed = true;
+    }
+    if (m.getZoom() >= 8.5 && aggloPlaces.current.size > 0) {
       const places = [...aggloPlaces.current.values()];
       for (const f of m.querySourceFeatures("aerob-v", { sourceLayer: "landuse" })) {
         const cl = String((f.properties ?? {})["class"] ?? "");
@@ -962,7 +972,7 @@ export function MapView(props: MapViewProps) {
         let best: "big" | "mid" | null = null, bd = Infinity;
         for (const pl of places) {
           const d = Math.hypot((pl.lon - cx) * k, (pl.lat - cy) * 111320);
-          if (d >= (pl.kind === "big" ? 6000 : 3500)) continue;
+          if (d >= (pl.kind === "big" ? 8000 : 4000)) continue;
           if (best === "big" && pl.kind === "mid") continue; // une grande ville proche l'emporte
           if (d < bd || (pl.kind === "big" && best === "mid")) { bd = d; best = pl.kind; }
         }
@@ -1018,11 +1028,11 @@ export function MapView(props: MapViewProps) {
     m.addSource("aerob-agglo", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     const col = ["match", ["get", "kind"], "big", "#f8a000", "#fff200"];
     const poly = ["==", ["geometry-type"], "Polygon"];
-    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, maxzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "fill-color": col, "fill-opacity": 1 } });
-    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, maxzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "line-color": "#b07400", "line-width": 0.7 } });
+    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, maxzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, maxzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "line-color": "#b07400", "line-width": 0.7 } });
     // zones bâties réelles (OpenStreetMap) rattachées à la ville la plus proche, soudées par un contour de même couleur
-    add({ id: "aerob-agglo-real", type: "fill", source: "aerob-agglo", minzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], paint: { "fill-color": col, "fill-opacity": 1 } });
-    add({ id: "aerob-agglo-realedge", type: "line", source: "aerob-agglo", minzoom: 9.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], layout: { "line-join": "round" }, paint: { "line-color": col, "line-width": ["interpolate", ["linear"], ["zoom"], 9.5, 2, 13, 5] } });
+    add({ id: "aerob-agglo-real", type: "fill", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-realedge", type: "line", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], layout: { "line-join": "round" }, paint: { "line-color": col, "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 1.5, 13, 5] } });
     // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
     add({
       id: "aerob-agglo-dot", type: "circle", source: "aerob-agglo", filter: ["==", ["geometry-type"], "Point"],
