@@ -670,9 +670,9 @@ export function MapView(props: MapViewProps) {
       const bandColor = ["match", ["get", "sty"], "ca", "#e8506a", "cbd", "#5f82c6", "#a9c5ea"] as never;
       const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
       // Fond transparent : sert à retrouver l'espace au double appui.
-      m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0.025 } }, before);
+      m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0 } }, before);
       // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
-      m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(4, 12), "line-offset": half(2, 6), "line-opacity": 0.7 } }, before);
+      m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(3, 8), "line-offset": half(1.5, 4), "line-opacity": 0.5 } }, before);
       // Zones interdites (quadrillage) et réglementées / dangereuses (hachures rouges).
       m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: big("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
       m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: big("res", "act", "rtba", "parz") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
@@ -933,13 +933,14 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
-    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f5a838", "fill-opacity": 0.92 } });
+    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f8a000", "fill-opacity": 1 } });
     // Agglomérations comme la légende OACI : disque orange pour les villes, jaune pour les bourgs et villages (plus petits) ; le contour des zones bâties reste en dessous.
     add({
       id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
+      // couleurs de la légende OACI : orange (grandes agglomérations) #f8a000, jaune (petites et moyennes) #fff200 ; les villages et bourgs couvrent le petit polygone orange en dessous
       paint: {
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, ["match", ["get", "class"], "city", 5, "town", 2.5, 1.5], 9, ["match", ["get", "class"], "city", 11, "town", 5.5, 3], 12, ["match", ["get", "class"], "city", 16, "town", 9, 5]],
-        "circle-color": ["match", ["get", "class"], "city", "#f5a838", "#f7e04a"], "circle-stroke-color": "#d08a1c", "circle-stroke-width": ["match", ["get", "class"], "city", 1, 0.6], "circle-opacity": 0.95,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 5, ["match", ["get", "class"], "city", 5, "town", 3, 2], 9, ["match", ["get", "class"], "city", 12, "town", 7, 4.5], 12, ["match", ["get", "class"], "city", 18, "town", 11, 7]],
+        "circle-color": ["match", ["get", "class"], "city", "#f8a000", "#fff200"], "circle-opacity": 1,
       },
     });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
