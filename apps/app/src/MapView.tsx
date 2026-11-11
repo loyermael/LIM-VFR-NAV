@@ -16,11 +16,11 @@ export interface TappedFeature {
   readonly properties: Record<string, unknown>;
 }
 
-import { BASE_MAPS, IGN_ATTRIBUTION, getTile, type BaseMapId } from "./baseMaps";
+import { AERO_ATTRIBUTION, AERO_DEM_MAX_ZOOM, BASE_MAPS, IGN_ATTRIBUTION, getAeroTile, getTile, type BaseMapId } from "./baseMaps";
 
 export interface MapViewProps {
   /** Fond de carte IGN affiché (plan, photos) ou aucun ; relief ombré LiDAR par-dessus. */
-  baseMap: "none" | "plan" | "ortho";
+  baseMap: "none" | "plan" | "ortho" | "aero";
   relief: boolean;
   /** Donne à l'appli un accès à la zone visible (pour télécharger la zone affichée). */
   onMapApi?: (api: { getBounds: () => { west: number; south: number; east: number; north: number } }) => void;
@@ -234,6 +234,13 @@ function registerTileProtocol() {
     const buf = mm ? await getTile(BASE_MAPS[mm[1] as BaseMapId], Number(mm[2]), Number(mm[3]), Number(mm[4])) : null;
     return { data: buf ?? (TRANSPARENT_PNG.slice().buffer as ArrayBuffer) };
   });
+  // Fond aéro : tuile vectorielle ou de relief, depuis le cache (hors-ligne) sinon le réseau.
+  maplibregl.addProtocol("oaci", async (params) => {
+    const mm = /^oaci:\/\/(v|dem)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
+    const buf = mm ? await getAeroTile(mm[1] as "v" | "dem", Number(mm[2]), Number(mm[3]), Number(mm[4])) : null;
+    if (!buf) throw new Error("tuile du fond aéro indisponible");
+    return { data: buf };
+  });
   maplibregl.addProtocol("lim", async (params) => {
     const m = /^lim:\/\/([^/]+)\/(\d+)\/(\d+)\/(\d+)/.exec(params.url);
     const reader = m ? getReader(m[1] as string) : undefined;
@@ -303,6 +310,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       syncBase();
+      syncAeroBase();
       syncNav();
       syncCharts();
       syncOverlays();
@@ -679,7 +687,7 @@ export function MapView(props: MapViewProps) {
     if (!m || !loaded.current) return;
     const { baseMap, relief } = latest.current;
     const want: { id: string; map: BaseMapId; opacity: number }[] = [];
-    if (baseMap !== "none") want.push({ id: "base-ign", map: baseMap, opacity: 1 });
+    if (baseMap === "plan" || baseMap === "ortho") want.push({ id: "base-ign", map: baseMap, opacity: 1 });
     if (relief) want.push({ id: "relief-ign", map: "relief", opacity: 0.5 });
     for (const l of m.getStyle().layers) {
       if ((l.id === "base-ign" || l.id === "relief-ign") && !want.some((w) => w.id === l.id && (m.getSource(l.id) as unknown as { tiles?: string[] } | undefined)?.tiles?.[0]?.startsWith(`ign://${w.map}/`))) {
@@ -690,13 +698,73 @@ export function MapView(props: MapViewProps) {
     for (const w of want) {
       if (m.getSource(w.id)) continue;
       m.addSource(w.id, { type: "raster", tiles: [`ign://${w.map}/{z}/{x}/{y}`], tileSize: 256, maxzoom: BASE_MAPS[w.map].maxZoom, attribution: IGN_ATTRIBUTION });
-      const bottom = m.getStyle().layers.find((l) => l.id !== "background" && !(w.id === "relief-ign" && l.id === "base-ign"))?.id;
+      const bottom = m.getStyle().layers.find((l) => l.id !== "background" && !(w.id === "relief-ign" && l.id === "base-ign") && !l.id.startsWith("aerob-"))?.id;
       // fond tout en bas ; relief juste au-dessus du fond
-      const before = w.id === "relief-ign" ? m.getStyle().layers.find((l) => l.id !== "background" && l.id !== "base-ign")?.id : bottom;
+      const before = w.id === "relief-ign" ? m.getStyle().layers.find((l) => l.id !== "background" && l.id !== "base-ign" && !l.id.startsWith("aerob-"))?.id : bottom;
       m.addLayer({ id: w.id, type: "raster", source: w.id, paint: { "raster-opacity": w.opacity, "raster-fade-duration": 0 } }, before);
     }
   }
   useEffect(syncBase, [props.baseMap, props.relief]);
+
+  /**
+   * Fond « aéro » dans l'esprit de la carte OACI (légende « Fonds cartographiques ») : teintes hypsométriques (blanc, jaune pâle à orangé, bleu pâle au-dessus de 11 500 ft),
+   * végétation vert pâle, agglomérations jaunes, autoroutes et routes brun-gris, voies ferrées noires, frontière rose. Données OpenStreetMap (OpenFreeMap) et relief Terrarium.
+   */
+  function syncAeroBase() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const want = latest.current.baseMap === "aero";
+    const has = !!m.getSource("aerob-v");
+    if (!want) {
+      if (has) {
+        for (const l of m.getStyle().layers) if (l.id.startsWith("aerob-")) m.removeLayer(l.id);
+        m.removeSource("aerob-v");
+        m.removeSource("aerob-dem");
+      }
+      return;
+    }
+    if (has) return;
+    m.addSource("aerob-dem", { type: "raster-dem", tiles: ["oaci://dem/{z}/{x}/{y}"], tileSize: 256, maxzoom: AERO_DEM_MAX_ZOOM, encoding: "terrarium" });
+    m.addSource("aerob-v", { type: "vector", tiles: ["oaci://v/{z}/{x}/{y}"], maxzoom: 14, attribution: AERO_ATTRIBUTION });
+    const before = m.getStyle().layers.find((l) => l.id !== "background" && !l.id.startsWith("aerob-") && l.id !== "base-ign")?.id;
+    const add = (l: Record<string, unknown>) => m.addLayer(l as never, before);
+    const zoomW = (a: number, b: number, z0 = 8, z1 = 14) => ["interpolate", ["linear"], ["zoom"], z0, a, z1, b];
+    const font = ["Open Sans Semibold"];
+    const halo = { "text-halo-color": "#ffffff", "text-halo-width": 1.6 };
+    // Teintes hypsométriques (pieds → mètres) : 0-1000 blanc, 1000-2000, 2000-3000, 3000-5000, 5000-8200, 8200-11500, plus de 11500.
+    const bands: [number, string][] = [[0, "#ffffff"], [305, "#fffce6"], [610, "#fff4cf"], [914, "#ffeaaa"], [1524, "#ffe1a5"], [2499, "#fccc93"], [3505, "#eaf6fd"]];
+    const stops: (number | string)[] = [];
+    bands.forEach(([e, c], i) => { if (i > 0) stops.push(e - 1, bands[i - 1]![1]); stops.push(e, c); });
+    add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
+    add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
+    add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
+    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f6dc94", "fill-opacity": 0.9 } });
+    add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
+    add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
+    add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
+    const road = (cls: string[]) => ["in", ["get", "class"], ["literal", cls]];
+    add({ id: "aerob-sec", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 9, filter: road(["secondary", "tertiary", "minor"]), paint: { "line-color": "#b6adac", "line-width": zoomW(0.6, 1.6, 9, 14) } });
+    add({ id: "aerob-main", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 7, filter: road(["trunk", "primary"]), paint: { "line-color": "#958886", "line-width": zoomW(0.9, 2.6, 7, 14) } });
+    add({ id: "aerob-mw-casing", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 6, filter: road(["motorway"]), paint: { "line-color": "#85716d", "line-width": zoomW(1.6, 5, 6, 14) } });
+    add({ id: "aerob-mw-core", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 8, filter: road(["motorway"]), paint: { "line-color": "#ffffff", "line-width": zoomW(0.4, 1.6, 8, 14) } });
+    add({ id: "aerob-rail", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 8, filter: ["==", ["get", "class"], "rail"], paint: { "line-color": "#222222", "line-width": zoomW(0.7, 1.4, 8, 14) } });
+    add({ id: "aerob-rail-ticks", type: "line", source: "aerob-v", "source-layer": "transportation", minzoom: 10, filter: ["==", ["get", "class"], "rail"], paint: { "line-color": "#222222", "line-width": zoomW(2.2, 4, 10, 14), "line-dasharray": [0.2, 6] } });
+    add({
+      id: "aerob-peak", type: "symbol", source: "aerob-v", "source-layer": "mountain_peak", minzoom: 9,
+      layout: { "text-field": ["to-string", ["coalesce", ["get", "ele_ft"], ""]], "text-font": font, "text-size": 10, "text-anchor": "left", "text-offset": [0.5, 0], "text-optional": true },
+      paint: { "text-color": "#222222", ...halo },
+    });
+    const placeSize = (c: number, t: number, v: number) => ["match", ["get", "class"], "city", c, "town", t, v];
+    add({
+      id: "aerob-place", type: "symbol", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
+      layout: {
+        "text-field": ["coalesce", ["get", "name:fr"], ["get", "name"]], "text-font": font, "text-size": placeSize(15, 12.5, 11), "text-max-width": 7, "text-allow-overlap": true, // les symboles aéro (placés en premier) ne doivent pas effacer les noms de villes
+        "symbol-sort-key": ["match", ["get", "class"], "city", 1, "town", 2, 3],
+      },
+      paint: { "text-color": "#3a3a3a", ...halo },
+    });
+  }
+  useEffect(syncAeroBase, [props.baseMap]);
 
   useEffect(syncCharts, [props.charts]);
 

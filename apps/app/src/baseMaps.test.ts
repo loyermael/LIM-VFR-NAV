@@ -106,3 +106,25 @@ describe("mémoire locale", () => {
     expect(parseBasePrefs({ base: "oaci", relief: "oui" })).toEqual({ base: "plan", relief: false });
   });
 });
+
+describe("fond aéro (OpenFreeMap + relief)", () => {
+  const tileJson = JSON.stringify({ tiles: ["https://tiles.example.org/planet/20261101/{z}/{x}/{y}.pbf"] });
+  const fake = (async (u: string) => (String(u).includes("tiles.openfreemap.org/planet") ? new Response(tileJson) : new Response(new Uint8Array(50)))) as unknown as typeof fetch;
+  it("télécharge la tuile vectorielle, et le relief jusqu'au zoom 12 seulement", async () => {
+    const store = installFakeCaches();
+    const res = await downloadArea("aero", bbox, 12, 13, () => undefined, undefined, fake);
+    expect(res.failed).toBe(0);
+    const keys = [...store.keys()];
+    expect(keys.every((k) => k.startsWith("https://lim.local/aero/"))).toBe(true);
+    expect(keys.filter((k) => k.includes("/dem/12/")).length).toBeGreaterThan(0);
+    expect(keys.filter((k) => k.includes("/dem/13/")).length).toBe(0);
+    expect(keys.filter((k) => k.includes("/v/13/")).length).toBeGreaterThan(0);
+  });
+  it("suppression : retire les deux sortes de tuiles", async () => {
+    const store = installFakeCaches();
+    await downloadArea("aero", bbox, 11, 12, () => undefined, undefined, fake);
+    expect(store.size).toBeGreaterThan(0);
+    await deleteArea({ map: "aero", bbox, zmin: 11, zmax: 12 });
+    expect(store.size).toBe(0);
+  });
+});

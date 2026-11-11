@@ -5,7 +5,7 @@ import { BASE_MAPS, deleteArea, downloadArea, estimateArea, loadAreas, saveAreas
 
 const mo = (n: number) => (n / 1048576).toFixed(n < 1048576 * 10 ? 1 : 0);
 const ZOOMS = [10, 12, 13, 14] as const;
-const LAYER_KEYS: Record<BaseMapId, Key> = { plan: "bm.plan", ortho: "bm.ortho", relief: "bm.relief" as Key };
+const LAYER_KEYS: Record<BaseMapId, Key> = { plan: "bm.plan", ortho: "bm.ortho", relief: "bm.relief" as Key, aero: "bm.aero" };
 
 /** Données → fonds de carte IGN : choisir une zone, voir le poids estimé, télécharger avec pourcentage, retirer. */
 export function BaseMapPanel(p: {
@@ -71,7 +71,7 @@ export function BaseMapPanel(p: {
 
       <div className="pkg">
         <div className="choices" role="group" aria-label={T("bm.layer")}>
-          {(["plan", "ortho", "relief"] as const).map((b) => (
+          {(["aero", "plan", "ortho", "relief"] as const).map((b) => (
             <button key={b} aria-pressed={map === b} onClick={() => setMap(b)}>{T(b === "relief" ? "lay.relief" : LAYER_KEYS[b])}</button>
           ))}
         </div>

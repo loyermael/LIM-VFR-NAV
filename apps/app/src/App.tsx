@@ -1034,7 +1034,7 @@ export function App() {
             <h2>{T("layers.title")}</h2>
             <h3>{T("lay.base")}</h3>
             <div className="choices" role="group" aria-label={T("lay.base")}>
-              {(["plan", "ortho", "none"] as const).map((b) => (
+              {(["aero", "plan", "ortho", "none"] as const).map((b) => (
                 <button key={b} aria-pressed={basePrefs.base === b} onClick={() => setBasePrefs({ ...basePrefs, base: b })}>{T(`bm.${b}` as Key)}</button>
               ))}
             </div>
