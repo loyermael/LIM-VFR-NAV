@@ -652,15 +652,15 @@ export function MapView(props: MapViewProps) {
       const big = (...v: string[]) => ["all", sty(...v), ["!=", ["get", "small"], true]]; // les petites zones P/R/D sont figurées par une croix
       const half = (a: number, b: number) => ["interpolate", ["linear"], ["zoom"], 5, a, 12, b] as never;
       const bandColor = ["match", ["get", "sty"], "ca", "#e8506a", "cbd", "#5f82c6", "#a9c5ea"] as never;
-      const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
+      const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
       // Fond transparent : sert à retrouver l'espace au double appui.
       m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0.025 } }, before);
       // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
       m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(4, 12), "line-offset": half(2, 6), "line-opacity": 0.7 } }, before);
       // Zones interdites (quadrillage) et réglementées / dangereuses (hachures rouges).
       m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: big("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
-      m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: big("res", "act") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
-      m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: big("ca", "cbd", "ce", "pro", "res", "act", "fir") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": 1.4 } }, before);
+      m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: big("res", "act", "rtba", "parz") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
+      m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: big("ca", "cbd", "ce", "pro", "res", "act", "fir", "rtba", "parz") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": ["match", ["get", "sty"], "rtba", 4.5, "parz", 3, 1.4] as never } }, before);
       // RMZ / TMZ : trait mixte ; ATZ et secteurs SIV : pointillés ; parcs, transits planeur : tirets fins.
       m.addLayer({ id: "asp-dash-rmz", type: "line", source: "asp", filter: sty("rmz") as never, paint: { "line-color": "#1a1a2e", "line-width": 2.2, "line-dasharray": [5, 1.5, 1, 1.5] } }, before);
       m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("siv", "atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": ["match", ["get", "sty"], "siv", "#2e9a4a", "#1d46a6"] as never, "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
@@ -669,7 +669,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-lbl", type: "symbol", source: "asp", minzoom: 7.4, filter: ["!=", ["get", "lbl"], ""] as never,
         layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
-        paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
+        paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
       }, before);
       // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
       m.addLayer({
@@ -684,7 +684,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para", "acro") as never,
         layout: {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1, 12, 1.5],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1.3, 12, 2],
           // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
           "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
           "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
@@ -698,7 +698,7 @@ export function MapView(props: MapViewProps) {
         {
           id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.9, 12, 1.4], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
             
             "text-field": ["step", ["zoom"], "", 7.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
             "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
@@ -748,7 +748,7 @@ export function MapView(props: MapViewProps) {
         m.addLayer({
           id: "act-sym", type: "symbol", source: "act", minzoom: 8,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 0.8, 12, 1.3],
+            "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 1.1, 12, 1.8],
             "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 13],
             "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
           } as never,
@@ -797,7 +797,7 @@ export function MapView(props: MapViewProps) {
         const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const layout = {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1, 12, 1.6],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1.3, 12, 2.1],
           "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
         } as never;
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
@@ -951,7 +951,15 @@ export function MapView(props: MapViewProps) {
     syncHires();
   }
   /** Remonte les cartes calées juste sous la route : les couches aéro ajoutées après elles ne doivent pas les recouvrir. */
+  /** Symboles (terrains, balises, activités, cotes, secteurs) : devant les bandes colorées des espaces, qui les masquaient. */
+  function raiseSymbols() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const top = m.getLayer("route-line") ? "route-line" : undefined;
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
+  }
   function raiseDocs() {
+    raiseSymbols();
     const m = map.current;
     if (!m || !loaded.current) return;
     for (const id of docLayers.current) if (m.getLayer(`doc-${id}`)) m.moveLayer(`doc-${id}`, m.getLayer("route-line") ? "route-line" : undefined);

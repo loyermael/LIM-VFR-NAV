@@ -137,3 +137,16 @@ describe("barre de piste du symbole de terrain", () => {
     expect(airfieldSymbol({ type: 2, private: false, runways: [{ designator: "13", trueHeading: null, lengthM: 1200, paved: true }] })).toBe("ad-civil-paved");
   });
 });
+
+import { isRtba } from "./aeroGeo";
+describe("RTBA et zones de parachutage", () => {
+  it("RTBA : zone réglementée hebdomadaire au plancher très bas", () => {
+    expect(isRtba({ type: 1, name: "LF-R69 CHAMPAGNE (MON-FRI)", lower: { reference: "AGL", value: 244 } })).toBe(true);
+    expect(isRtba({ type: 1, name: "LF-R2 RUCHARD", lower: { reference: "AGL", value: 0 } })).toBe(false);
+    expect(isRtba({ type: 1, name: "LF-R9 X (MON-FRI)", lower: { reference: "AMSL", value: 100 } })).toBe(false);
+  });
+  it("zone de parachutage : style dédié", () => {
+    expect(airspaceStyle({ type: 28, icaoClass: null, name: "PARA GAP" })).toBe("parz");
+    expect(airspaceStyle({ type: 1, icaoClass: null, name: "LF-R2 RUCHARD", lower: { reference: "AGL", value: 0 } })).toBe("res");
+  });
+});

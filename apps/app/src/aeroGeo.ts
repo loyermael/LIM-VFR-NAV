@@ -17,8 +17,17 @@ export function floorMeters(a: Pick<Airspace, "lower">): number {
  * hachures rouges pour les zones interdites (quadrillées), réglementées et dangereuses, trait mixte pour RMZ/TMZ, pointillés pour ATZ et secteurs SIV.
  * Types openAIP : 1 réglementée, 2 dangereuse, 3 interdite, 4 CTR, 5 TMZ, 6 RMZ, 7 TMA, 10 FIR, 13 ATZ, 21 transit planeur, 26 CTA, 28 activité, 29 parc, 33 SIV, 34 LTA.
  */
-export type AirspaceStyle = "ca" | "cbd" | "ce" | "pro" | "res" | "rmz" | "siv" | "atz" | "fir" | "park" | "act" | "glider" | "other";
-export function airspaceStyle(a: Pick<Airspace, "type" | "icaoClass">): AirspaceStyle {
+export type AirspaceStyle = "ca" | "cbd" | "ce" | "pro" | "res" | "rtba" | "parz" | "rmz" | "siv" | "atz" | "fir" | "park" | "act" | "glider" | "other";
+/**
+ * RTBA (réseau très basse altitude, vols militaires) : zones réglementées à activation hebdomadaire (« (MON-FRI) »…) dont le plancher est au sol ou très bas (≤ 1000 ft AGL).
+ * Repérage par le nom et le plancher : openAIP ne porte pas d'indicateur RTBA.
+ */
+export const isRtba = (a: { type: number; name?: string; lower?: { reference: string; value: number } }) =>
+  a.type === 1 && /\((MON|TUE|WED|THU|FRI|SAT)-/.test(a.name ?? "") && a.lower?.reference === "AGL" && a.lower.value <= 305;
+
+export function airspaceStyle(a: Pick<Airspace, "type" | "icaoClass"> & { name?: string; lower?: { reference: string; value: number } }): AirspaceStyle {
+  if (isRtba(a)) return "rtba";
+  if (isParachuting({ type: a.type, name: a.name ?? "" }) && (a.type === 1 || a.type === 28)) return "parz";
   switch (a.type) {
     case 3: return "pro";
     case 1: case 2: return "res";
@@ -55,7 +64,7 @@ export function orientRings(rings: readonly (readonly (readonly [number, number]
   });
 }
 
-const LABELLED: ReadonlySet<AirspaceStyle> = new Set(["ca", "cbd", "ce", "pro", "res"]);
+const LABELLED: ReadonlySet<AirspaceStyle> = new Set(["ca", "cbd", "ce", "pro", "res", "rtba", "parz"]);
 
 /** Zone « de faible superficie » : la carte OACI la figure par une croix rouge plutôt que par son contour (emprise de moins de 0,06°, environ 3 NM). */
 export const SMALL_AREA_DEG = 0.06;
