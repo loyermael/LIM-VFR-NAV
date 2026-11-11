@@ -143,6 +143,7 @@ export function App() {
   const [showAsp, setShowAsp] = useState(true);
   const [showApt, setShowApt] = useState(true);
   const [showNav, setShowNav] = useState(true);
+  const [showFree, setShowFree] = useState(false);
   const [adhoc, setAdhoc] = useState<{ name: string; position: LatLon } | null>(null);
   const aeroInput = useRef<HTMLInputElement>(null);
   // Météo : prévisions de vent (réseau pour les charger, cache sur l'appareil pour l'ensuite).
@@ -849,6 +850,7 @@ export function App() {
           airfieldData={airfieldGeo}
           navData={navGeo}
           showNav={showNav}
+          showFree={showFree}
           showAirspaces={showAsp}
           showAirfields={showApt}
           visibleGroups={visibleGroups}
@@ -1050,6 +1052,7 @@ export function App() {
                   <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
                   <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
                   <button aria-pressed={showNav} disabled={!navSet} onClick={() => setShowNav(!showNav)}>{T("aero.nav")}</button>
+                  <button aria-pressed={showFree} disabled={!navSet} onClick={() => setShowFree(!showFree)}>{T("aero.free")}</button>
                 </div>
                 <div className="choices">
                   {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (

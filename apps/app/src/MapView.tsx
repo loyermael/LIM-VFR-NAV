@@ -40,6 +40,8 @@ export interface MapViewProps {
   /** Balises, points de report et obstacles (carte aéro) et leur affichage. */
   navData: FeatureCollection | null;
   showNav: boolean;
+  /** Vol libre (décollages, atterrissages, points chauds) : symboles propres à l'appli, hors légende OACI. */
+  showFree: boolean;
   showAirspaces: boolean;
   showAirfields: boolean;
   /** Modèle d'URL des tuiles du radar de pluie (réseau requis), ou null. */
@@ -77,7 +79,7 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const ASP_LAYERS = ["asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
+const ASP_LAYERS = ["asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
 
 /** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
 let hatchCache: Map<string, ImageData> | null = null;
@@ -105,6 +107,7 @@ function addAspIcons(m: maplibregl.Map) {
 
 const NAV_SYM_LAYERS = ["nav-sym", "nav-obs-mid"];
 const NAV_LAYERS = [...NAV_SYM_LAYERS, "nav-name", "nav-box"];
+const FREE_LAYERS = ["nav-free"];
 /** Bleu et rouge de la carte OACI (légende SIA / IGN). */
 const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
 
@@ -192,6 +195,17 @@ function navIcons(): Map<string, ImageData> {
   }
   make("ad-p", (c) => { ticks(c, B); circle(c, 9); stroke(c, B, 2.2, "rgba(255,255,255,0.9)"); glyph(c, "P", B); });
   make("ad-x", (c) => { circle(c, 9); stroke(c, "#111", 2.2, "rgba(255,255,255,0.9)"); glyph(c, "X", "#111"); });
+  // petites zones, parachutage (rouge OACI) ; vol libre (symboles propres à l'appli : non présents dans la légende OACI)
+  make("small-area", (c) => { c.beginPath(); c.moveTo(C - 12, C); c.lineTo(C + 12, C); c.moveTo(C, C - 12); c.lineTo(C, C + 12); stroke(c, OACI_RED, 2.6); });
+  make("para", (c) => {
+    c.beginPath(); c.moveTo(C - 11, C - 1); c.quadraticCurveTo(C, C - 20, C + 11, C - 1); c.quadraticCurveTo(C + 5.5, C - 4, C, C - 1); c.quadraticCurveTo(C - 5.5, C - 4, C - 11, C - 1); c.closePath(); stroke(c, OACI_RED, 1.4, OACI_RED);
+    c.beginPath(); c.moveTo(C - 10, C); c.lineTo(C, C + 9); c.moveTo(C + 10, C); c.lineTo(C, C + 9); c.moveTo(C, C - 1); c.lineTo(C, C + 9); stroke(c, OACI_RED, 1.3);
+    dot(c, 2.2, OACI_RED, C, C + 11);
+  });
+  const VIOLET = "#7b3fa0", ORANGE = "#e08a00";
+  make("hang-to", (c) => { c.beginPath(); c.moveTo(C - 10, C + 6); c.lineTo(C, C - 8); c.lineTo(C + 10, C + 6); c.lineTo(C, C + 2); c.closePath(); stroke(c, VIOLET, 1.8, "rgba(255,255,255,0.85)"); });
+  make("hang-ld", (c) => { c.beginPath(); c.moveTo(C - 10, C + 6); c.lineTo(C, C - 8); c.lineTo(C + 10, C + 6); c.lineTo(C, C + 2); c.closePath(); stroke(c, VIOLET, 1.8, VIOLET); });
+  make("hot", (c) => { circle(c, 8); stroke(c, ORANGE, 2, "rgba(255,255,255,0.85)"); c.beginPath(); c.moveTo(C, C + 5); c.lineTo(C, C - 5); c.moveTo(C - 3.5, C - 1.5); c.lineTo(C, C - 5.5); c.lineTo(C + 3.5, C - 1.5); c.strokeStyle = ORANGE; c.lineWidth = 2; c.stroke(); });
   // cadre des balises (image étirable : le texte lui donne sa taille)
   const fcv = document.createElement("canvas");
   fcv.width = 32; fcv.height = 32;
@@ -569,6 +583,7 @@ export function MapView(props: MapViewProps) {
     if (ensure("asp", airspaceData) && !m.getLayer("asp-fill")) {
       addAspIcons(m);
       const sty = (...v: string[]) => ["in", ["get", "sty"], ["literal", v]];
+      const big = (...v: string[]) => ["all", sty(...v), ["!=", ["get", "small"], true]]; // les petites zones P/R/D sont figurées par une croix
       const half = (a: number, b: number) => ["interpolate", ["linear"], ["zoom"], 5, a, 12, b] as never;
       const bandColor = ["match", ["get", "sty"], "ca", "#e8506a", "cbd", "#5f82c6", "#a9c5ea"] as never;
       const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
@@ -577,17 +592,23 @@ export function MapView(props: MapViewProps) {
       // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
       m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(4, 12), "line-offset": half(2, 6), "line-opacity": 0.7 } }, before);
       // Zones interdites (quadrillage) et réglementées / dangereuses (hachures rouges).
-      m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: sty("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
-      m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: sty("res", "act") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
-      m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: sty("ca", "cbd", "ce", "pro", "res", "act", "fir") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": 1.4 } }, before);
+      m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: big("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
+      m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: big("res", "act") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
+      m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: big("ca", "cbd", "ce", "pro", "res", "act", "fir") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": 1.4 } }, before);
       // RMZ / TMZ : trait mixte ; ATZ et secteurs SIV : pointillés ; parcs, transits planeur : tirets fins.
       m.addLayer({ id: "asp-dash-rmz", type: "line", source: "asp", filter: sty("rmz") as never, paint: { "line-color": "#1a1a2e", "line-width": 2.2, "line-dasharray": [5, 1.5, 1, 1.5] } }, before);
       m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("siv", "atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": ["match", ["get", "sty"], "siv", "#2e9a4a", "#1d46a6"] as never, "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
       m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("park", "glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
+      addIcons(m);
       m.addLayer({
         id: "asp-lbl", type: "symbol", source: "asp", minzoom: 8.5, filter: ["!=", ["get", "lbl"], ""] as never,
         layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8.5, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
         paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
+      }, before);
+      // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
+      m.addLayer({
+        id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para") as never,
+        layout: { "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 0.8, 12, 1.15] } as never,
       }, before);
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
@@ -648,9 +669,14 @@ export function MapView(props: MapViewProps) {
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
         const obs = ["==", ["get", "grp"], "obstacle"];
         // Obstacles : seuls ceux de 300 ft AGL et plus (comme sur la carte OACI) ; les plus hauts de loin, les autres dès le zoom 9,5. Les filtres ne dépendent pas du zoom : un calque par niveau.
-        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["!=", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]] as never }, before);
+        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["in", ["get", "grp"], ["literal", ["navaid", "report"]]], ["all", ["==", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]]] as never }, before);
         m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
         const navaid = ["==", ["get", "grp"], "navaid"];
+        m.addLayer({
+          id: "nav-free", type: "symbol", source: "nav", minzoom: 9, filter: ["==", ["get", "grp"], "freeflight"] as never,
+          layout: { ...(layout as object), "text-field": ["step", ["zoom"], "", 11, ["get", "lbl"]] } as never,
+          paint: { "text-color": "#5a2d7a", "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
+        }, before);
         m.addLayer({
           id: "nav-box", type: "symbol", source: "nav", minzoom: 8.5, filter: navaid as never,
           layout: { "text-field": ["get", "box"], "text-font": font, "text-size": size, "text-anchor": "left", "text-offset": [1.9, 0.3], "text-allow-overlap": false, "icon-image": "nav-frame", "icon-text-fit": "both", "icon-text-fit-padding": [1, 3, 1, 3] } as never,
@@ -664,6 +690,7 @@ export function MapView(props: MapViewProps) {
       }
     }
     for (const id of NAV_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showNav ? "visible" : "none");
+    for (const id of FREE_LAYERS) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", latest.current.showFree ? "visible" : "none");
   }
   /** Radar de pluie : tuiles distantes (le seul calque qui exige le réseau), sous la route et au-dessus des cartes. */
   function syncRadar() {
@@ -678,7 +705,7 @@ export function MapView(props: MapViewProps) {
   }
   useEffect(syncRadar, [props.radarTemplate]);
 
-  useEffect(syncNav, [props.navData, props.showNav]);
+  useEffect(syncNav, [props.navData, props.showNav, props.showFree]);
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   /** Fond IGN et relief : sources raster sous tout le reste. */

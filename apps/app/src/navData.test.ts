@@ -103,3 +103,28 @@ describe("espaces aériens à la manière de la carte OACI", () => {
     expect(area(hole as number[][])).toBeGreaterThan(0);
   });
 });
+
+import { airspacesToGeoJSON, isParachuting } from "./aeroGeo";
+describe("croix, parachutage et vol libre", () => {
+  const asp = (type: number, name: string, d: number) => ({
+    id: name, name, type, typeLabel: "", group: "restricted" as const, icaoClass: null, lower: { reference: "AGL" as const, value: 0, label: "SOL" }, upper: { reference: "AMSL" as const, value: 900, label: "3000 ft AMSL" },
+    rings: [[[0, 0], [d, 0], [d, d], [0, d]]] as unknown as readonly (readonly (readonly [number, number])[])[], bbox: { south: 0, west: 0, north: d, east: d },
+    frequencies: [], remarks: null, activeFrom: null, activeUntil: null, onRequest: false, byNotam: false,
+  });
+  it("petite zone R : croix au centre, contour marqué « small » ; grande zone : pas de croix", () => {
+    const f = airspacesToGeoJSON([asp(1, "LF-R1 PETITE", 0.02), asp(1, "LF-R2 GRANDE", 0.5)]).features;
+    expect(f.filter((x) => x.properties?.["sty"] === "cross")).toHaveLength(1);
+    expect(f.find((x) => x.properties?.["name"] === "LF-R1 PETITE" && x.geometry.type === "Polygon")?.properties?.["small"]).toBe(true);
+    expect(f.find((x) => x.properties?.["name"] === "LF-R2 GRANDE" && x.geometry.type === "Polygon")?.properties?.["small"]).toBe(false);
+  });
+  it("parachutage reconnu par le nom", () => {
+    expect(isParachuting({ type: 28, name: "LF-R15A PARA BRIENNE" })).toBe(true);
+    expect(isParachuting({ type: 28, name: "LF-R212 MONT DE VANNES" })).toBe(false);
+    expect(airspacesToGeoJSON([asp(28, "PARA PERONNE", 0.3)]).features.some((x) => x.properties?.["sty"] === "para")).toBe(true);
+  });
+  it("vol libre : décollage, atterrissage, point chaud", () => {
+    const d = { id: "navdata" as const, meta: { source: "openAIP" as const, licence: "x", exportedAtMs: 0, importedAtMs: 0 }, navaids: [], reporting: [], obstacles: [],
+      hang: [{ lat: 45, lon: 6, name: "DECOLLAGE X", kind: 0, elevM: 1000 }, { lat: 45.1, lon: 6, name: "ATTERRISSAGE X", kind: 1, elevM: 500 }], hotspots: [{ lat: 44, lon: 5, name: "CRETE", kind: 0, elevM: 1800 }] };
+    expect(navToGeoJSON(d).features.map((x) => x.properties?.["sym"])).toEqual(["hang-to", "hang-ld", "hot"]);
+  });
+});
