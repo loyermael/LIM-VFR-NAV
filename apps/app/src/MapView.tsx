@@ -917,7 +917,7 @@ export function MapView(props: MapViewProps) {
    */
   const agglo = useRef(new Map<string, GeoJSON.Feature>());
   const aggloZ = useRef(-1);
-  const aggloReal = useRef(new Map<string, { cx: number; cy: number; geometry: GeoJSON.Geometry }>());
+  const aggloReal = useRef(new Map<string, { x0: number; y0: number; x1: number; y1: number; geometry: GeoJSON.Geometry }>());
   const aggloNPlaces = useRef(0);
   const aggloPlaces = useRef(new Map<string, { lon: number; lat: number; kind: "big" | "mid" }>());
   /** Agglomérations selon la légende OACI : points (petite, repère) et contours (moyenne, grande), à l'échelle réelle. Contours généralisés aux petits zooms, vraies zones bâties au zoom 9,5 et plus. */
@@ -971,7 +971,7 @@ export function MapView(props: MapViewProps) {
         if (aggloReal.current.has(key)) continue;
         let x0 = 180, x1 = -180, y0 = 90, y1 = -90;
         for (const [x, y] of ring0) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-        aggloReal.current.set(key, { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, geometry: f.geometry as GeoJSON.Geometry });
+        aggloReal.current.set(key, { x0, y0, x1, y1, geometry: f.geometry as GeoJSON.Geometry });
         changed = true;
       }
       // la couleur se recalcule avec toutes les villes connues (une ville peut arriver après ses zones bâties) : une grande ville à moins de 8 km l'emporte, sinon une ville moyenne à moins de 4 km
@@ -980,13 +980,15 @@ export function MapView(props: MapViewProps) {
         const places = [...aggloPlaces.current.values()];
         for (const k of [...agglo.current.keys()]) if (k.startsWith("r|")) agglo.current.delete(k);
         for (const [key, r] of aggloReal.current) {
-          const kx = 111320 * Math.cos((r.cy * Math.PI) / 180);
+          const kx = 111320 * Math.cos((((r.y0 + r.y1) / 2) * Math.PI) / 180);
           let bigD = Infinity, midD = Infinity;
           for (const pl of places) {
-            const d = Math.hypot((pl.lon - r.cx) * kx, (pl.lat - r.cy) * 111320);
+            // distance de la ville à l'emprise de la zone bâtie (et non à son centre : une grande zone peut avoir son centre loin de la ville)
+            const dx = Math.max(r.x0 - pl.lon, 0, pl.lon - r.x1) * kx, dy = Math.max(r.y0 - pl.lat, 0, pl.lat - r.y1) * 111320;
+            const d = Math.hypot(dx, dy);
             if (pl.kind === "big") bigD = Math.min(bigD, d); else midD = Math.min(midD, d);
           }
-          const kind = bigD < 8000 ? "big" : midD < 4000 ? "mid" : null;
+          const kind = bigD < 2500 ? "big" : midD < 1500 ? "mid" : null;
           if (kind) agglo.current.set(key, { type: "Feature", properties: { kind, src: "real" }, geometry: r.geometry });
         }
         changed = true;
@@ -1040,15 +1042,15 @@ export function MapView(props: MapViewProps) {
     m.addSource("aerob-agglo", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
     const col = ["match", ["get", "kind"], "big", "#f8a000", "#fff200"];
     const poly = ["==", ["geometry-type"], "Polygon"];
-    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, maxzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "fill-color": col, "fill-opacity": 1 } });
-    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, maxzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "line-color": "#b07400", "line-width": 0.7 } });
+    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, maxzoom: 12.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, maxzoom: 12.5, filter: ["all", poly, ["==", ["get", "src"], "blob"]], paint: { "line-color": "#b07400", "line-width": 0.7 } });
     // zones bâties réelles (OpenStreetMap) rattachées à la ville la plus proche, soudées par un contour de même couleur
     add({ id: "aerob-agglo-real", type: "fill", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], paint: { "fill-color": col, "fill-opacity": 1 } });
     add({ id: "aerob-agglo-realedge", type: "line", source: "aerob-agglo", minzoom: 8.5, filter: ["all", poly, ["==", ["get", "src"], "real"]], layout: { "line-join": "round" }, paint: { "line-color": col, "line-width": ["interpolate", ["linear"], ["zoom"], 8.5, 1.5, 13, 5] } });
     // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
     const pt = (k: string[]) => ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", k]]];
     add({ id: "aerob-agglo-dot-low", type: "circle", source: "aerob-agglo", maxzoom: 7.5, filter: pt(["big", "mid"]) as never, paint: { "circle-color": col as never, "circle-radius": 4, "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.8 } });
-    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 6, 2.6, 11, 5], "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.9 } });
+    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 12, 3.2], "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.9 } });
     add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
