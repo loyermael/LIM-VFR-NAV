@@ -710,7 +710,7 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-sym", type: "symbol", source: "asp", minzoom: 5.5, filter: sty("cross", "para", "acro") as never,
         layout: {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.8, 7, 1.3, 12, 2],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["match", ["get", "grp"], "navaid", 0, "report", 1, 2], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.8, 7, 1.3, 12, 2],
           // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
           "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
           "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
@@ -726,7 +726,7 @@ export function MapView(props: MapViewProps) {
           {
             id, type: "symbol", source: "apt", minzoom, filter: filter as never,
             layout: {
-              "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+              "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["case", ["get", "mil"], 1, 0], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
               "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 11, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
               "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
             } as never,
@@ -777,13 +777,13 @@ export function MapView(props: MapViewProps) {
         // Parachutage, voltige, treuillage : toujours dessinés (ils sont souvent sur un terrain, dont le symbole les chassait) et décalés ; l'aéromodélisme, très dense, évite les chevauchements.
         const key = ["match", ["get", "sym"], "aeromodel-orange", "#e08a00", "aeromodel-purple", "#8a3f9b", "#e8202a"] as never;
         for (const [id, filter, overlap] of [
-          ["act-sym", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]], true],
+          ["act-sym", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]], false],
           ["act-model", ["!", ["in", ["get", "kind"], ["literal", ["para", "acro", "glider"]]]], false],
         ] as const) {
           m.addLayer({
             id, type: "symbol", source: "act", minzoom: 6.5, filter: filter as never,
             layout: {
-              "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
+              "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-padding": 2, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
               "icon-offset": ["match", ["get", "kind"], "glider", ["literal", [34, -20]], "para", ["literal", [20, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, -14]]] as never,
               "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 13, 13],
               "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
@@ -834,7 +834,7 @@ export function MapView(props: MapViewProps) {
         const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const layout = {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
           "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
         } as never;
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
