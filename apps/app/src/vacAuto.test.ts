@@ -26,3 +26,22 @@ describe("index des VAC", () => {
     expect(() => parseVacIndex(bad)).toThrow();
   });
 });
+
+describe("téléchargement d'une VAC", () => {
+  it("vérifie l'empreinte et signale la progression", async () => {
+    const { downloadVac, loadVacIndex, vacFor } = await import("./vacAuto");
+    const bytes = new TextEncoder().encode("%PDF-test");
+    const { sha256Hex } = await import("./dataPack");
+    const sha = await sha256Hex(bytes.buffer as ArrayBuffer);
+    const idx = { format: "lim-nav-vac-index", version: 1, filesBase: "https://x.test/vac", entries: [{ icao: "LFBI", sha256: sha, file: "LFBI.pdf", bytes: bytes.length, chartDate: "2026-10-29", page: 1, georef: { ar: 1, ai: 0, tx: 0, ty: 0 }, renderScale: 2, frame: null, groundMetersPerPoint: 1, residualPt: 0.1 }] };
+    const f = (async (u: string) => (String(u).endsWith("index.json") ? new Response(JSON.stringify(idx)) : new Response(bytes))) as unknown as typeof fetch;
+    const index = await loadVacIndex("https://x.test", f);
+    const e = vacFor(index, "LFBI");
+    expect(e?.file).toBe("LFBI.pdf");
+    const seen: number[] = [];
+    const d = await downloadVac(e!, (done) => seen.push(done), undefined, f);
+    expect(d.sourceDate).toBe("SIA 2026-10-29");
+    expect(seen.length).toBeGreaterThan(0);
+    await expect(downloadVac({ ...e!, sha256: "0".repeat(64) }, () => undefined, undefined, f)).rejects.toThrow(/corrompu/);
+  });
+});

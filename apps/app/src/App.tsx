@@ -27,6 +27,7 @@ import { usePackData } from "./dataPack";
 import { useLink } from "./useLink";
 import { streamState } from "@lim/core";
 import { blobUrl, useDocs } from "./docStore";
+import { downloadVac, loadVacIndex, vacFor } from "./vacAuto";
 import { imageCorners, pixelToLatLon } from "@lim/core";
 import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
 import { useRecorder } from "./trackStore";
@@ -495,6 +496,22 @@ export function App() {
   const linkStream = streamState(link.decoder.lastMsgMs, now);
   const trafficAlert = trafficView.find((x) => x.level >= 2 && !x.stale) ?? null;
   const docs = useDocs();
+  const [vacMsg, setBanner] = useState<{ text: string; alert: boolean } | null>(null);
+  const fetchVac = async (af: { icao?: string | null }) => {
+    const icao = af.icao ?? "";
+    try {
+      setBanner({ text: `VAC ${icao} : 0 %`, alert: false });
+      const e = vacFor(await loadVacIndex(), icao);
+      if (!e) { setBanner({ text: `VAC ${icao} : ${T("ad.vacNone")}`, alert: true }); open("docs"); return; }
+      const d = await downloadVac(e, (done, total) => setBanner({ text: `VAC ${icao} : ${Math.floor((done / Math.max(1, total)) * 100)} %`, alert: false }));
+      docs.put({ ...d, show: "on" });
+      setBanner({ text: `VAC ${icao} : ${d.sourceDate}${d.georef ? "" : ` — ${T("ad.vacUncal")}`}`, alert: false });
+      const g = d.georef;
+      if (g) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: imageCorners(g.georef, g.width, g.height) }));
+    } catch (err) {
+      setBanner({ text: `VAC ${icao} : ${err instanceof Error ? err.message : String(err)}`, alert: true });
+    }
+  };
   const [basePrefs, setBasePrefsState] = useState<BaseMapPrefs>(loadBasePrefs);
   const setBasePrefs = (p: BaseMapPrefs) => { setBasePrefsState(p); saveBasePrefs(p); };
   const mapApi = useRef<{ getBounds: () => { west: number; south: number; east: number; north: number } } | null>(null);
@@ -759,6 +776,7 @@ export function App() {
 
   const banner: { text: string; alert: boolean; onClick?: () => void } | null =
     cdFired ? { text: T("tm.done"), alert: true }
+    : vacMsg ? { ...vacMsg, onClick: () => setBanner(null) }
     : trafficAlert ? { text: trafficText(trafficAlert, fv?.trackTrue ?? null, prefs, T("lk.trafficAlert")), alert: true }
     : status === "lost" ? { text: T("gps.lost"), alert: true }
     : link.config.enabled && link.decoder.messages > 0 && linkStream === "lost" ? { text: T("lk.lostBanner"), alert: true }
@@ -845,7 +863,7 @@ export function App() {
               onAddToRoute={() => { addAirfieldToRoute(af); setAdMenu(null); }}
               onVac={() => {
                 setAdMenu(null);
-                if (!anyDoc) { open("docs"); return; }
+                if (!anyDoc) { void fetchVac(af); return; }
                 if (!doc) { setOpenDocId(anyDoc.id); open("docs"); return; }
                 if (shown) { docs.put({ ...doc, show: "off" }); return; }
                 docs.put({ ...doc, show: "on" });

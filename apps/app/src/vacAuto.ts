@@ -12,6 +12,9 @@ import { RENDER_SCALE, renderPdfPage } from "./pdfRender";
 export interface VacIndexEntry {
   readonly icao: string;
   readonly sha256: string;
+  /** Nom du PDF publié à côté de l'index (absent : à importer soi-même). */
+  readonly file: string | null;
+  readonly bytes: number | null;
   readonly chartDate: string | null;
   readonly page: number;
   readonly georef: Georef;
@@ -37,7 +40,7 @@ export function parseVacIndex(raw: unknown): Map<string, VacIndexEntry> {
     if (!isNum(e["renderScale"]) || !isNum(e["page"]) || !isNum(e["groundMetersPerPoint"]) || !isNum(e["residualPt"])) continue;
     if (fr !== null && !(Array.isArray(fr) && fr.length === 4 && fr.every(isNum))) continue;
     out.set(e["sha256"], {
-      icao: e["icao"], sha256: e["sha256"], chartDate: typeof e["chartDate"] === "string" ? e["chartDate"] : null, page: e["page"] as number,
+      icao: e["icao"], sha256: e["sha256"], file: typeof e["file"] === "string" && /^[A-Za-z0-9._-]+\.pdf$/.test(e["file"]) ? e["file"] : null, bytes: isNum(e["bytes"]) ? e["bytes"] : null, chartDate: typeof e["chartDate"] === "string" ? e["chartDate"] : null, page: e["page"] as number,
       georef: { ar: g["ar"] as number, ai: g["ai"] as number, tx: g["tx"] as number, ty: g["ty"] as number, ...(g["ay"] !== undefined ? { ay: g["ay"] as number } : {}) },
       renderScale: e["renderScale"] as number, frame: fr as VacIndexEntry["frame"], groundMetersPerPoint: e["groundMetersPerPoint"] as number, residualPt: e["residualPt"] as number,
     });
@@ -45,6 +48,7 @@ export function parseVacIndex(raw: unknown): Map<string, VacIndexEntry> {
   return out;
 }
 
+let lastFilesBase: string | null = null;
 let cache: { url: string; at: number; index: Map<string, VacIndexEntry> } | null = null;
 
 /** Index des VAC publié avec les données (`<paquet>/vac/index.json`) ; gardé en mémoire 10 minutes. */
@@ -52,7 +56,10 @@ export async function loadVacIndex(base: string = packBaseUrl(), fetchFn?: typeo
   if (!base) throw new Error("adresse des données non configurée");
   const url = `${base.replace(/\/$/, "")}/vac/index.json`;
   if (cache && cache.url === url && Date.now() - cache.at < 600_000) return cache.index;
-  const index = parseVacIndex(await fetchJson(url, { ...(fetchFn ? { fetchFn } : {}), retries: 1, timeoutMs: 20_000 }));
+  const raw = await fetchJson(url, { ...(fetchFn ? { fetchFn } : {}), retries: 1, timeoutMs: 20_000 });
+  const fb = (raw as { filesBase?: unknown } | null)?.filesBase;
+  lastFilesBase = typeof fb === "string" && /^https:\/\//.test(fb) ? fb.replace(/\/$/, "") : `${base.replace(/\/$/, "")}/vac`;
+  const index = parseVacIndex(raw);
   cache = { url, at: Date.now(), index };
   return index;
 }
@@ -104,4 +111,43 @@ export async function autoGeoreference(doc: DocRecord, index: Map<string, VacInd
       },
     },
   };
+}
+
+/** VAC téléchargeable pour un terrain : l'édition la plus récente de l'index qui a un fichier publié. */
+export function vacFor(index: Map<string, VacIndexEntry>, icao: string): VacIndexEntry | null {
+  let best: VacIndexEntry | null = null;
+  for (const e of index.values()) if (e.icao === icao && e.file && (!best || (e.chartDate ?? "") > (best.chartDate ?? ""))) best = e;
+  return best;
+}
+
+/** Télécharge le PDF d'une VAC (pourcentage), vérifie l'empreinte, crée le document et le cale. Mention SIA + date dans `sourceDate`. */
+export async function downloadVac(
+  e: VacIndexEntry, onProgress: (done: number, total: number) => void, signal?: AbortSignal, fetchFn: typeof fetch = (...a) => fetch(...a),
+): Promise<DocRecord> {
+  if (!e.file || !lastFilesBase) throw new Error("VAC non publiée : importe le PDF toi-même (Docs)");
+  const res = await fetchFn(`${lastFilesBase}/${e.file}`, { signal: signal ?? AbortSignal.timeout(60_000) });
+  if (!res.ok || !res.body) throw new Error(`téléchargement refusé (${res.status})`);
+  const total = Number(res.headers.get("content-length")) || e.bytes || 0;
+  const chunks: Uint8Array[] = [];
+  let got = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const r = await reader.read();
+    if (r.done) break;
+    chunks.push(r.value);
+    got += r.value.byteLength;
+    onProgress(got, Math.max(total, got));
+  }
+  const data = new Blob(chunks as BlobPart[], { type: "application/pdf" });
+  if ((await sha256Hex(await data.arrayBuffer())) !== e.sha256) throw new Error("fichier corrompu (empreinte différente)");
+  const doc: DocRecord = {
+    id: crypto.randomUUID(), name: `VAC ${e.icao}.pdf`, kind: "vac", icao: e.icao, sourceDate: e.chartDate ? `SIA ${e.chartDate}` : "SIA",
+    mime: "application/pdf", size: data.size, addedAt: Date.now(), data, georef: null, show: "auto",
+  };
+  try {
+    const g = await autoGeoreference(doc, new Map([[e.sha256, e]]));
+    return "doc" in g ? g.doc : doc;
+  } catch {
+    return doc; // calage impossible (rendu PDF indisponible) : le PDF reste téléchargé, à caler dans Docs
+  }
 }
