@@ -672,7 +672,7 @@ export function MapView(props: MapViewProps) {
       // Fond transparent : sert à retrouver l'espace au double appui.
       m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0 } }, before);
       // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
-      m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(3, 8), "line-offset": half(1.5, 4), "line-opacity": 0.5 } }, before);
+      m.addLayer({ id: "asp-band", type: "line", source: "asp", filter: sty("ca", "cbd", "ce") as never, layout: { "line-join": "round" }, paint: { "line-color": bandColor, "line-width": half(2, 4), "line-offset": half(1, 2), "line-opacity": 0.85 } }, before);
       // Zones interdites (quadrillage) et réglementées / dangereuses (hachures rouges).
       m.addLayer({ id: "asp-hatch-pro", type: "line", source: "asp", filter: big("pro") as never, paint: { "line-pattern": "hatch-pro", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
       m.addLayer({ id: "asp-hatch-res", type: "line", source: "asp", filter: big("res", "act", "rtba", "parz") as never, paint: { "line-pattern": "hatch-res", "line-width": half(6, 10), "line-offset": half(3, 5) } }, before);
@@ -933,7 +933,9 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
-    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#f8a000", "fill-opacity": 1 } });
+    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], paint: { "fill-color": "#fff200", "fill-opacity": 1 } });
+    // Les morceaux de zones bâties sont soudés par un contour épais de même couleur (forme généralisée comme sur la carte OACI).
+    add({ id: "aerob-urban-edge", type: "line", source: "aerob-v", "source-layer": "landuse", filter: ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]], layout: { "line-join": "round" }, paint: { "line-color": "#fff200", "line-width": ["interpolate", ["linear"], ["zoom"], 8, 3, 12, 8, 14, 10] } });
     // Agglomérations comme la légende OACI : disque orange pour les villes, jaune pour les bourgs et villages (plus petits) ; le contour des zones bâties reste en dessous.
     add({
       id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
