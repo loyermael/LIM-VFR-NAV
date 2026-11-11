@@ -667,13 +667,13 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("park", "glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
       addIcons(m);
       m.addLayer({
-        id: "asp-lbl", type: "symbol", source: "asp", minzoom: 7.4, filter: ["!=", ["get", "lbl"], ""] as never,
+        id: "asp-lbl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["!=", ["get", "lbl"], ""] as never,
         layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
         paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
       }, before);
       // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
       m.addLayer({
-        id: "asp-siv", type: "symbol", source: "asp", minzoom: 7.4, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
+        id: "asp-siv", type: "symbol", source: "asp", minzoom: 6.5, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
         layout: {
           "text-field": ["get", "sivlbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-padding": 4, "text-allow-overlap": true, "icon-allow-overlap": true,
           "icon-image": "siv-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 4, 2, 4],
@@ -682,12 +682,12 @@ export function MapView(props: MapViewProps) {
       }, before);
       // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
       m.addLayer({
-        id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para", "acro") as never,
+        id: "asp-sym", type: "symbol", source: "asp", minzoom: 5.5, filter: sty("cross", "para", "acro") as never,
         layout: {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1.3, 12, 2],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.8, 7, 1.3, 12, 2],
           // la plupart des activités sont sur un terrain : le symbole est décalé pour rester lisible (la légende OACI le permet)
           "icon-offset": ["match", ["get", "sty"], "para", ["literal", [22, -22]], "acro", ["literal", [-22, -22]], ["literal", [0, 0]]],
-          "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
+          "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9, 12, 12], "text-anchor": "left", "text-justify": "left", "text-offset": [1.3, 0], "text-optional": true,
         } as never,
         paint: { "text-color": OACI_RED, "text-halo-color": "#ffffff", "text-halo-width": 1.8 } as never,
       }, before);
@@ -696,11 +696,11 @@ export function MapView(props: MapViewProps) {
       addIcons(m);
       m.addLayer(
         {
-          id: "apt-circle", type: "symbol", source: "apt", minzoom: 6,
+          id: "apt-circle", type: "symbol", source: "apt", minzoom: 4.5,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+            "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
             
-            "text-field": ["step", ["zoom"], "", 7.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
+            "text-field": ["step", ["zoom"], "", 6.6, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
             "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
           } as never,
           paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
@@ -746,9 +746,9 @@ export function MapView(props: MapViewProps) {
       aeroData.current.set("act", activityData);
       if (!m.getLayer("act-sym")) {
         m.addLayer({
-          id: "act-sym", type: "symbol", source: "act", minzoom: 8,
+          id: "act-sym", type: "symbol", source: "act", minzoom: 6.5,
           layout: {
-            "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 8, 1.1, 12, 1.8],
+            "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
             "text-field": ["step", ["zoom"], "", 9, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 10, 13, 13],
             "text-anchor": "left", "text-offset": [1.1, 0], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
           } as never,
@@ -771,9 +771,9 @@ export function MapView(props: MapViewProps) {
       aeroData.current.set("spot", spotData);
       if (!m.getLayer("spot-dot")) {
         const before = m.getLayer("route-line") ? "route-line" : undefined;
-        m.addLayer({ id: "spot-dot", type: "circle", source: "spot", minzoom: 9, paint: { "circle-radius": 1.8, "circle-color": "#222222" } }, before);
+        m.addLayer({ id: "spot-dot", type: "circle", source: "spot", minzoom: 7.5, paint: { "circle-radius": 1.8, "circle-color": "#222222" } }, before);
         m.addLayer({
-          id: "spot-lbl", type: "symbol", source: "spot", minzoom: 9,
+          id: "spot-lbl", type: "symbol", source: "spot", minzoom: 7.5,
           layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["case", ["get", "major"], 13, 10.5], "text-anchor": "left", "text-offset": [0.5, 0], "text-optional": true, "symbol-sort-key": ["-", 0, ["get", "ft"]] } as never,
           paint: { "text-color": "#222222", "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
         }, before);
@@ -797,22 +797,22 @@ export function MapView(props: MapViewProps) {
         const size = ["interpolate", ["linear"], ["zoom"], 7, 11, 12, 14] as never;
         const before = m.getLayer("route-line") ? "route-line" : undefined;
         const layout = {
-          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 7, 1.3, 12, 2.1],
+          "icon-image": ["get", "sym"], "icon-allow-overlap": true, "icon-size": ["interpolate", ["linear"], ["zoom"], 5.5, 0.8, 7, 1.3, 12, 2.1],
           "text-field": ["get", "lbl"], "text-font": font, "text-size": size, "text-anchor": "left", "text-justify": "left", "text-offset": [1.5, 0], "text-optional": true,
         } as never;
         const paint = { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never;
         const obs = ["==", ["get", "grp"], "obstacle"];
         // Obstacles : seuls ceux de 300 ft AGL et plus (comme sur la carte OACI) ; les plus hauts de loin, les autres dès le zoom 9,5. Les filtres ne dépendent pas du zoom : un calque par niveau.
-        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 7, layout, paint, filter: ["any", ["in", ["get", "grp"], ["literal", ["navaid", "report"]]], ["all", ["==", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]]] as never }, before);
-        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 9.5, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
+        m.addLayer({ id: "nav-sym", type: "symbol", source: "nav", minzoom: 5.5, layout, paint, filter: ["any", ["in", ["get", "grp"], ["literal", ["navaid", "report"]]], ["all", ["==", ["get", "grp"], "obstacle"], [">=", ["get", "h"], 152.4]]] as never }, before);
+        m.addLayer({ id: "nav-obs-mid", type: "symbol", source: "nav", minzoom: 8, layout, paint, filter: ["all", obs, [">=", ["get", "h"], 91.44], ["<", ["get", "h"], 152.4]] as never }, before);
         const navaid = ["==", ["get", "grp"], "navaid"];
         m.addLayer({
-          id: "nav-box", type: "symbol", source: "nav", minzoom: 7.6, filter: navaid as never,
+          id: "nav-box", type: "symbol", source: "nav", minzoom: 6.5, filter: navaid as never,
           layout: { "text-field": ["get", "box"], "text-font": font, "text-size": size, "text-anchor": "left", "text-offset": [1.9, 0.3], "text-allow-overlap": false, "icon-image": "nav-frame", "icon-text-fit": "both", "icon-text-fit-padding": [1, 3, 1, 3] } as never,
           paint: { "text-color": OACI_BLUE } as never,
         }, before);
         m.addLayer({
-          id: "nav-name", type: "symbol", source: "nav", minzoom: 7.6, filter: navaid as never,
+          id: "nav-name", type: "symbol", source: "nav", minzoom: 6.5, filter: navaid as never,
           layout: { "text-field": ["get", "nm"], "text-font": font, "text-size": ["interpolate", ["linear"], ["zoom"], 7, 9, 12, 12], "text-anchor": "bottom-left", "text-offset": [1.9, -0.55], "text-optional": true } as never,
           paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
         }, before);
