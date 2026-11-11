@@ -19,8 +19,8 @@ export interface BaseMapDef {
 export const BASE_MAPS: Readonly<Record<BaseMapId, BaseMapDef>> = {
   plan: { id: "plan", layer: "GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2", format: "image/png", maxZoom: 19, avgTileBytes: 22_000 },
   ortho: { id: "ortho", layer: "ORTHOIMAGERY.ORTHOPHOTOS", format: "image/jpeg", maxZoom: 19, avgTileBytes: 30_000 },
-  // Fond « aéro » : tuiles vectorielles OpenStreetMap (OpenFreeMap) + relief Terrarium, dessinés au style de la carte OACI. Poids moyen d'une tuile vectorielle + tuile de relief.
-  aero: { id: "aero", layer: "openfreemap+terrarium", format: "image/png", maxZoom: 14, avgTileBytes: 55_000 },
+  // Fond « aéro » : tuiles vectorielles OpenStreetMap (OpenFreeMap) + relief Terrarium, dessinés au style de la carte OACI. Poids moyen mesuré (200 à 350 Ko par tuile vectorielle + relief, région de Toulouse).
+  aero: { id: "aero", layer: "openfreemap+terrarium", format: "image/png", maxZoom: 14, avgTileBytes: 230_000 },
   relief: { id: "relief", layer: "IGNF_LIDAR-HD_MNT_ELEVATION.ELEVATIONGRIDCOVERAGE.SHADOW", format: "image/png", maxZoom: 18, avgTileBytes: 40_000 },
 };
 
