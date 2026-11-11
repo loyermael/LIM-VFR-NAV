@@ -23,6 +23,7 @@ import { BackupPanel } from "./BackupPanel";
 import { BaseMapPanel } from "./BaseMapPanel";
 import { importNavFiles, type NavDataset } from "./navData";
 import { activitiesToGeoJSON, parseActivities, type ActivityDataset } from "./activities";
+import { parseSpots, spotsToGeoJSON, type SpotDataset } from "./spots";
 import { loadBasePrefs, saveBasePrefs, type BaseMapPrefs } from "./baseMaps";
 import { DataPanel } from "./DataPanel";
 import { usePackData } from "./dataPack";
@@ -139,6 +140,7 @@ export function App() {
   const [aspSet, setAspSet] = useState<AirspaceDataset | null>(null);
   const [navSet, setNavSet] = useState<NavDataset | null>(null);
   const [actSet, setActSet] = useState<ActivityDataset | null>(null);
+  const [spotSet, setSpotSet] = useState<SpotDataset | null>(null);
   const [aptSet, setAptSet] = useState<AirfieldDataset | null>(null);
   const [aeroBusy, setAeroBusy] = useState(false);
   const [aeroProblems, setAeroProblems] = useState<string[]>([]);
@@ -365,6 +367,16 @@ export function App() {
     setAeroBusy(false);
     if (aeroInput.current) aeroInput.current.value = "";
   };
+  const importSpots = async (files: ArrayLike<File>) => {
+    for (const f of Array.from(files)) {
+      try {
+        const ds = parseSpots(JSON.parse(await f.text()), Date.now());
+        if (ds.items.length > 0) { await saveDataset(ds).catch(() => undefined); setSpotSet(ds); }
+      } catch (e) {
+        setAeroProblems((p) => [...p, `${f.name} : ${e instanceof Error ? e.message : String(e)}`]);
+      }
+    }
+  };
   const importActivities = async (files: ArrayLike<File>) => {
     for (const f of Array.from(files)) {
       try {
@@ -388,10 +400,12 @@ export function App() {
     void deleteDataset("airfields");
     void deleteDataset("navdata");
     void deleteDataset("activities");
+    void deleteDataset("spots");
     setAspSet(null);
     setAptSet(null);
     setNavSet(null);
     setActSet(null);
+    setSpotSet(null);
   };
   const toggleGroup = (g: string) => {
     const next = visibleGroups.includes(g) ? visibleGroups.filter((x) => x !== g) : [...visibleGroups, g];
@@ -449,7 +463,8 @@ export function App() {
           if (d.id === "airspaces") setAspSet(d);
           else if (d.id === "airfields") setAptSet(d);
           else if (d.id === "navdata") setNavSet(d);
-          else setActSet(d);
+          else if (d.id === "activities") setActSet(d);
+          else setSpotSet(d);
         }
       })
       .catch(() => undefined);
@@ -515,6 +530,7 @@ export function App() {
   const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
   const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
+  const spotGeo = useMemo(() => (spotSet ? spotsToGeoJSON(spotSet) : null), [spotSet]);
   const actGeo = useMemo(() => (actSet ? activitiesToGeoJSON(actSet) : null), [actSet]);
   const navGeo = useMemo(() => (navSet ? navToGeoJSON(navSet) : null), [navSet]);
   const airfieldGeo = useMemo(() => (aptSet ? airfieldsToGeoJSON(aptSet.items) : null), [aptSet]);
@@ -554,6 +570,7 @@ export function App() {
   const pack = usePackData(null, async (id, files) => {
     if (id === "navdata") await importNav(files);
     else if (id === "activities") await importActivities(files);
+    else if (id === "spots") await importSpots(files);
     else if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
     else if (id === "weather") await importWx(files);
   });
@@ -887,6 +904,8 @@ export function App() {
           airfieldData={airfieldGeo}
           navData={navGeo}
           activityData={actGeo}
+          spotData={spotGeo}
+          showSpots={showNav}
           showActivities={showNav}
           showNav={showNav}
           showAirspaces={showAsp}

@@ -43,6 +43,9 @@ export interface MapViewProps {
   /** Activités de l'AIP (parachutage, voltige, aéromodélisme, treuillage) et leur affichage. */
   activityData: FeatureCollection | null;
   showActivities: boolean;
+  /** Points cotés indicatifs (altitude des sommets, en pieds). */
+  spotData: FeatureCollection | null;
+  showSpots: boolean;
   showAirspaces: boolean;
   showAirfields: boolean;
   /** Modèle d'URL des tuiles du radar de pluie (réseau requis), ou null. */
@@ -82,7 +85,7 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const ASP_LAYERS = ["asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
+const ASP_LAYERS = ["asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-lbl"];
 
 /** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
 let hatchCache: Map<string, ImageData> | null = null;
@@ -241,7 +244,12 @@ function navIcons(): Map<string, ImageData> {
   const fcv = document.createElement("canvas");
   fcv.width = 32; fcv.height = 32;
   const fc = fcv.getContext("2d");
-  if (fc) { fc.fillStyle = "rgba(255,255,255,0.92)"; fc.fillRect(0, 0, 32, 32); fc.strokeStyle = OACI_BLUE; fc.lineWidth = 3; fc.strokeRect(1.5, 1.5, 29, 29); out.set("nav-frame", fc.getImageData(0, 0, 32, 32)); }
+  if (fc) {
+    for (const [name, color] of [["nav-frame", OACI_BLUE], ["siv-frame", "#1f7a3a"]] as const) {
+      fc.clearRect(0, 0, 32, 32); fc.fillStyle = "rgba(255,255,255,0.92)"; fc.fillRect(0, 0, 32, 32); fc.strokeStyle = color; fc.lineWidth = 3; fc.strokeRect(1.5, 1.5, 29, 29);
+      out.set(name, fc.getImageData(0, 0, 32, 32));
+    }
+  }
   iconCache = out;
   return out;
 }
@@ -360,6 +368,7 @@ export function MapView(props: MapViewProps) {
         syncAeroBase();
         syncNav();
         syncActivities();
+        syncSpots();
         syncCharts();
         syncOverlays();
         syncRoute();
@@ -640,6 +649,15 @@ export function MapView(props: MapViewProps) {
         layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-optional": true, "text-padding": 6 } as never,
         paint: { "text-color": ["match", ["get", "sty"], "pro", "#e0202a", "res", "#e0202a", "#1b3f9a"] as never, "text-halo-color": "#ffffff", "text-halo-width": 1.8 },
       }, before);
+      // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
+      m.addLayer({
+        id: "asp-siv", type: "symbol", source: "asp", minzoom: 7.4, filter: ["all", ["has", "sivlbl"], ["!=", ["get", "sivlbl"], ""]] as never,
+        layout: {
+          "text-field": ["get", "sivlbl"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.4, 9, 12, 12], "text-justify": "center", "text-padding": 4, "text-allow-overlap": true, "icon-allow-overlap": true,
+          "icon-image": "siv-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 4, 2, 4],
+        } as never,
+        paint: { "text-color": "#1f7a3a" },
+      }, before);
       // Au-dessus des étiquettes : les symboles ponctuels (croix, parachute) ne doivent pas être masqués par elles.
       m.addLayer({
         id: "asp-sym", type: "symbol", source: "asp", minzoom: 7, filter: sty("cross", "para", "acro") as never,
@@ -669,7 +687,8 @@ export function MapView(props: MapViewProps) {
     }
     if (m.getLayer("asp-fill")) {
       const ceilingM = flightLevelToMeters(ceilingFL);
-      const common = ["all", ["in", ["get", "group"], ["literal", [...visibleGroups]]], ["<", ["get", "floorM"], ceilingM]] as never;
+      // les secteurs SIV (groupe « autre ») restent affichés : ils font partie de la carte OACI
+      const common = ["all", ["any", ["in", ["get", "group"], ["literal", [...visibleGroups]]], ["==", ["get", "sty"], "siv"]], ["<", ["get", "floorM"], ceilingM]] as never;
       for (const id of ASP_LAYERS) {
         const l = m.getLayer(id);
         if (!l) continue;
@@ -687,7 +706,7 @@ export function MapView(props: MapViewProps) {
     for (const [name, img] of oaciIcons) if (!m.hasImage(name)) m.addImage(name, img, { pixelRatio: OACI_PIXEL_RATIO });
     for (const [name, img] of navIcons()) {
       if (m.hasImage(name)) continue;
-      if (name === "nav-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
+      if (name === "nav-frame" || name === "siv-frame") m.addImage(name, img, { pixelRatio: 2, stretchX: [[8, 24]], stretchY: [[8, 24]], content: [8, 8, 24, 24] } as never);
       else m.addImage(name, img, { pixelRatio: 2 });
     }
   }
@@ -715,6 +734,29 @@ export function MapView(props: MapViewProps) {
       }
     }
     if (m.getLayer("act-sym")) m.setLayoutProperty("act-sym", "visibility", showActivities ? "visible" : "none");
+    raiseDocs();
+  }
+  /** Points cotés : petit point et altitude en pieds (gras au-dessus de 3 000 ft), comme sur la carte OACI. */
+  function syncSpots() {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    const { spotData, showSpots } = latest.current;
+    if (spotData) {
+      const src = m.getSource("spot") as maplibregl.GeoJSONSource | undefined;
+      if (!src) m.addSource("spot", { type: "geojson", data: spotData });
+      else if (aeroData.current.get("spot") !== spotData) src.setData(spotData);
+      aeroData.current.set("spot", spotData);
+      if (!m.getLayer("spot-dot")) {
+        const before = m.getLayer("route-line") ? "route-line" : undefined;
+        m.addLayer({ id: "spot-dot", type: "circle", source: "spot", minzoom: 9, paint: { "circle-radius": 1.8, "circle-color": "#222222" } }, before);
+        m.addLayer({
+          id: "spot-lbl", type: "symbol", source: "spot", minzoom: 9,
+          layout: { "text-field": ["get", "lbl"], "text-font": ["Open Sans Semibold"], "text-size": ["case", ["get", "major"], 13, 10.5], "text-anchor": "left", "text-offset": [0.5, 0], "text-optional": true, "symbol-sort-key": ["-", 0, ["get", "ft"]] } as never,
+          paint: { "text-color": "#222222", "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
+        }, before);
+      }
+    }
+    for (const id of ["spot-dot", "spot-lbl"]) if (m.getLayer(id)) m.setLayoutProperty(id, "visibility", showSpots ? "visible" : "none");
     raiseDocs();
   }
   function syncNav() {
@@ -771,6 +813,7 @@ export function MapView(props: MapViewProps) {
 
   useEffect(syncNav, [props.navData, props.showNav]);
   useEffect(syncActivities, [props.activityData, props.showActivities]);
+  useEffect(syncSpots, [props.spotData, props.showSpots]);
   useEffect(syncAero, [props.airspaceData, props.airfieldData, props.showAirspaces, props.showAirfields, props.visibleGroups, props.ceilingFL]);
 
   /** Fond IGN et relief : sources raster sous tout le reste. */

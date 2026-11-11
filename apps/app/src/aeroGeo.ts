@@ -74,7 +74,8 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
     const lbl = LABELLED.has(sty) ? [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") : "";
     features.push({
       type: "Feature" as const,
-      properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty, lbl: small ? "" : lbl, small },
+      // secteur d'information de vol (SIV) : nom, limites et fréquence dans un encadré vert, comme sur la carte OACI
+      properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty, lbl: small ? "" : lbl, small, sivlbl: sty === "siv" ? [a.name, `${limitText(a.lower.label)} - ${limitText(a.upper.label)}`, a.frequencies[0]?.mhz ?? ""].filter(Boolean).join("\n") : "" },
       geometry: { type: "Polygon" as const, coordinates: orientRings(a.rings) },
     });
     const centre = { type: "Point" as const, coordinates: [(a.bbox.east + a.bbox.west) / 2, (a.bbox.north + a.bbox.south) / 2] };
