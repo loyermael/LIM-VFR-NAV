@@ -42,9 +42,8 @@ describe("symboles de la carte aéro", () => {
       hang: [], hotspots: [],
     };
     const f = navToGeoJSON(d).features.map((x) => x.properties);
-    expect(f.map((p) => p?.["sym"]).sort()).toEqual(["mast", "ndb", "rp-c", "wind"]);
-    expect(f.map((p) => p?.["grp"]).sort()).toEqual(["navaid", "obstacle", "obstacle", "report"]);
-    expect(f.find((p) => p?.["sym"] === "mast")?.["h"]).toBe(0);
+    expect(f.map((p) => p?.["sym"]).sort()).toEqual(["ndb", "rp-c", "wind"]);
+    expect(f.map((p) => p?.["grp"]).sort()).toEqual(["navaid", "obstacle", "report"]);
   });
 });
 
@@ -163,14 +162,13 @@ describe("étiquette d'espace contrôlé", () => {
 });
 
 describe("éoliennes", () => {
-  it("sans hauteur : supposées hautes, un symbole par maille, la plus haute connue gardée", () => {
+  it("sans hauteur : non affichées ; un symbole par maille, la plus haute gardée", () => {
     const o = (lat: number, lon: number, heightM: number | null) => ({ lat, lon, name: "Obstacle", kind: 0, elevM: 5, heightM, what: "wind" as const });
     const d = { id: "navdata" as const, meta: { source: "openAIP" as const, licence: "x", exportedAtMs: 0, importedAtMs: 0 }, navaids: [], reporting: [], hang: [], hotspots: [],
       obstacles: [o(46.0, 1.0, null), o(46.001, 1.001, null), o(46.0015, 1.0, 120), o(47.0, 2.0, null)] };
     const f = navToGeoJSON(d).features.map((x) => x.properties);
-    expect(f).toHaveLength(2);
-    expect(f.find((p) => p?.["heightM"] === 120)?.["h"]).toBe(120);
-    expect(f.find((p) => p?.["heightM"] === "")?.["h"]).toBe(100);
+    expect(f).toHaveLength(1);
+    expect(f[0]?.["h"]).toBe(120);
   });
 });
 
