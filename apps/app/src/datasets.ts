@@ -6,6 +6,7 @@ import type { Airfield, Airspace } from "@lim/core";
 import { parseOpenAipAirfields, parseOpenAipAirspaces } from "@lim/core";
 import { tx } from "./db";
 import type { NavDataset } from "./navData";
+import type { ActivityDataset } from "./activities";
 
 export interface DatasetMeta {
   readonly source: "openAIP";
@@ -21,7 +22,7 @@ export interface DatasetMeta {
 
 export interface AirspaceDataset { readonly id: "airspaces"; readonly meta: DatasetMeta; readonly items: Airspace[] }
 export interface AirfieldDataset { readonly id: "airfields"; readonly meta: DatasetMeta; readonly items: Airfield[] }
-export type Dataset = AirspaceDataset | AirfieldDataset | NavDataset;
+export type Dataset = AirspaceDataset | AirfieldDataset | NavDataset | ActivityDataset;
 
 export const loadDatasets = (): Promise<Dataset[]> => tx("datasets", "readonly", (s) => s.getAll() as IDBRequest<Dataset[]>);
 export const saveDataset = (d: Dataset): Promise<IDBValidKey> => tx("datasets", "readwrite", (s) => s.put(d));

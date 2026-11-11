@@ -22,6 +22,7 @@ import { LinkPanel } from "./LinkPanel";
 import { BackupPanel } from "./BackupPanel";
 import { BaseMapPanel } from "./BaseMapPanel";
 import { importNavFiles, type NavDataset } from "./navData";
+import { activitiesToGeoJSON, parseActivities, type ActivityDataset } from "./activities";
 import { loadBasePrefs, saveBasePrefs, type BaseMapPrefs } from "./baseMaps";
 import { DataPanel } from "./DataPanel";
 import { usePackData } from "./dataPack";
@@ -137,6 +138,7 @@ export function App() {
   // Données aéronautiques importées (openAIP) et leur affichage.
   const [aspSet, setAspSet] = useState<AirspaceDataset | null>(null);
   const [navSet, setNavSet] = useState<NavDataset | null>(null);
+  const [actSet, setActSet] = useState<ActivityDataset | null>(null);
   const [aptSet, setAptSet] = useState<AirfieldDataset | null>(null);
   const [aeroBusy, setAeroBusy] = useState(false);
   const [aeroProblems, setAeroProblems] = useState<string[]>([]);
@@ -363,6 +365,16 @@ export function App() {
     setAeroBusy(false);
     if (aeroInput.current) aeroInput.current.value = "";
   };
+  const importActivities = async (files: ArrayLike<File>) => {
+    for (const f of Array.from(files)) {
+      try {
+        const ds = parseActivities(JSON.parse(await f.text()), Date.now());
+        if (ds.items.length > 0) { await saveDataset(ds).catch(() => undefined); setActSet(ds); }
+      } catch (e) {
+        setAeroProblems((p) => [...p, `${f.name} : ${e instanceof Error ? e.message : String(e)}`]);
+      }
+    }
+  };
   const importNav = async (files: ArrayLike<File>) => {
     const { dataset, problems } = await importNavFiles(Array.from(files), Date.now());
     if (dataset.navaids.length + dataset.reporting.length + dataset.obstacles.length > 0) {
@@ -375,9 +387,11 @@ export function App() {
     void deleteDataset("airspaces");
     void deleteDataset("airfields");
     void deleteDataset("navdata");
+    void deleteDataset("activities");
     setAspSet(null);
     setAptSet(null);
     setNavSet(null);
+    setActSet(null);
   };
   const toggleGroup = (g: string) => {
     const next = visibleGroups.includes(g) ? visibleGroups.filter((x) => x !== g) : [...visibleGroups, g];
@@ -434,7 +448,8 @@ export function App() {
         for (const d of ds) {
           if (d.id === "airspaces") setAspSet(d);
           else if (d.id === "airfields") setAptSet(d);
-          else setNavSet(d);
+          else if (d.id === "navdata") setNavSet(d);
+          else setActSet(d);
         }
       })
       .catch(() => undefined);
@@ -500,6 +515,7 @@ export function App() {
   const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
   const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
+  const actGeo = useMemo(() => (actSet ? activitiesToGeoJSON(actSet) : null), [actSet]);
   const navGeo = useMemo(() => (navSet ? navToGeoJSON(navSet) : null), [navSet]);
   const airfieldGeo = useMemo(() => (aptSet ? airfieldsToGeoJSON(aptSet.items) : null), [aptSet]);
   const aspById = useMemo(() => new Map((aspSet?.items ?? []).map((a) => [a.id, a])), [aspSet]);
@@ -537,6 +553,7 @@ export function App() {
   /** Données extérieures (espaces, terrains, météo) : téléchargées et mises à jour toutes seules une fois le pays choisi. */
   const pack = usePackData(null, async (id, files) => {
     if (id === "navdata") await importNav(files);
+    else if (id === "activities") await importActivities(files);
     else if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
     else if (id === "weather") await importWx(files);
   });
@@ -869,6 +886,8 @@ export function App() {
           airspaceData={airspaceGeo}
           airfieldData={airfieldGeo}
           navData={navGeo}
+          activityData={actGeo}
+          showActivities={showNav}
           showNav={showNav}
           showAirspaces={showAsp}
           showAirfields={showApt}
