@@ -75,7 +75,7 @@ export function activitiesToGeoJSON(d: ActivityDataset): FeatureCollection {
     if (!sym) continue;
     features.push({
       type: "Feature", geometry: { type: "Point", coordinates: shiftedPosition(a.lat, a.lon, a.kind) },
-      properties: { sym, kind: a.kind, ref: a.ref, lbl: a.kind === "glider" ? `${a.ref}
+      properties: { sym, kind: a.kind, ref: a.ref, onAd: /\((LF|LS)[A-Z0-9]{2}\)/.test(a.name), lbl: a.kind === "glider" ? `${a.ref}
 CABLE` : a.ref, cat: `Activité ${a.kind === "para" ? "de parachutage" : a.kind === "acro" ? "de voltige" : a.kind === "glider" ? "de treuillage (planeur)" : a.kind === "aeromodel" ? "d'aéromodélisme" : "aérienne"}`, name: a.name, upper: a.upper ?? "", lower: a.lower ?? "", hours: a.hours ?? "" },
     });
   }

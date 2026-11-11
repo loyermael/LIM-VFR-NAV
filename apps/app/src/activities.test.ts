@@ -38,3 +38,10 @@ describe("position des activités", () => {
     expect(shiftedPosition(45, 2, "acro")).toEqual([2, 45]);
   });
 });
+
+describe("activités sur un terrain", () => {
+  it("repérées par le code OACI dans le nom (décalage d'affichage)", () => {
+    const d = parseActivities({ format: "lim-nav-activities", items: [{ ref: "1017", kind: "glider", name: "GRAULHET MONTDRAGON AERODROME (LFCQ)", lat: 43.7, lon: 2 }, { ref: "867", kind: "glider", name: "LEVROUX (36)", lat: 46.9, lon: 1.6 }] }, 1);
+    expect(activitiesToGeoJSON(d).features.map((f) => f.properties?.["onAd"])).toEqual([true, false]);
+  });
+});

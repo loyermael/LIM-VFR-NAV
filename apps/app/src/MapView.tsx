@@ -781,7 +781,9 @@ export function MapView(props: MapViewProps) {
           m.addLayer({
             id, type: "symbol", source: "act", minzoom: 6.5, filter: filter as never,
             layout: {
-              "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-padding": 2, "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
+              "icon-image": ["get", "sym"], "icon-allow-overlap": overlap, "icon-padding": 2,
+              // sur un terrain : le symbole est écarté de celui du terrain (déplacement permis par la légende OACI). Décalage faible, proportionnel à la taille du symbole : il reste collé au terrain à tout zoom.
+              "icon-offset": ["case", ["get", "onAd"], ["match", ["get", "kind"], "glider", ["literal", [-30, 6]], "para", ["literal", [-20, -26]], "acro", ["literal", [-30, -14]], ["literal", [0, 0]]], ["literal", [0, 0]]], "icon-size": ["interpolate", ["linear"], ["zoom"], 6.5, 0.8, 8, 1.1, 12, 1.8],
               "text-field": ["step", ["zoom"], "", 8, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 8, 10, 13, 13],
               // voltige : le numéro est écrit au centre de la boucle du symbole, comme sur l'OACI ; les autres activités : numéro à droite
               "text-anchor": ["match", ["get", "kind"], "acro", "center", "left"], "text-offset": ["match", ["get", "kind"], "acro", ["literal", [0, -0.6]], ["literal", [1.1, 0]]], "text-optional": true, "symbol-sort-key": ["match", ["get", "kind"], "para", 0, "acro", 1, "glider", 2, 3],
