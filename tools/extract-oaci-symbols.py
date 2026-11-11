@@ -37,6 +37,8 @@ BOXES = {
     "balloon": (4, 432, 1172, 20, 30, "red"), "glider": (4, 600, 1160, 60, 24, "red", "raw"), "gliders-airfield": (4, 541, 1225, 26, 26, "red"),
     # activités (symboles en police dans le PDF : découpe brute, puis on ne garde que le rouge et on efface les numéros de référence)
     "acro": (4, 72, 1178, 52, 56, "red", "raw"), "aeromodel": (4, 585, 1272, 45, 38, "red", "raw"),
+    # règles de survol (page 2) : parc très petit, installation à marque distinctive, centrale nucléaire
+    "park-small": (2, 420, 278, 14, 14, "red"), "mark-site": (2, 396, 307, 15, 15, "red"), "nuclear": (2, 440, 309, 16, 16),
     # points de report
     "rp-c": (4, 418, 1500, 18, 18), "rp": (4, 535, 1500, 18, 18),
 }

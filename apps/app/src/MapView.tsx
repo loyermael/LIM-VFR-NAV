@@ -359,6 +359,12 @@ function visibleCollection(fc: FeatureCollection, ceilingFL: number): FeatureCol
   return { type: "FeatureCollection", features: fc.features.filter((f) => isAirspaceVisible(floorOf(f), ceilingFL)) };
 }
 
+function hash32(str: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
 export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
@@ -905,6 +911,51 @@ export function MapView(props: MapViewProps) {
    * Fond « aéro » dans l'esprit de la carte OACI (légende « Fonds cartographiques ») : teintes hypsométriques (blanc, jaune pâle à orangé, bleu pâle au-dessus de 11 500 ft),
    * végétation vert pâle, agglomérations jaunes, autoroutes et routes brun-gris, voies ferrées noires, frontière rose. Données OpenStreetMap (OpenFreeMap) et relief Terrarium.
    */
+  const agglo = useRef(new Map<string, GeoJSON.Feature>());
+  /** Contours d'agglomération : un polygone irrégulier (forme stable d'une ville à l'autre) à l'échelle réelle autour de chaque ville des tuiles chargées. */
+  function syncAglo() {
+    const m = map.current;
+    if (!m || !loaded.current || !m.getSource("aerob-agglo") || !m.getSource("aerob-v")) return;
+    let changed = false;
+    for (const f of m.querySourceFeatures("aerob-v", { sourceLayer: "place" })) {
+      const pr = f.properties ?? {};
+      const cls = String(pr["class"] ?? "");
+      if (!["city", "town", "village"].includes(cls) || f.geometry.type !== "Point") continue;
+      const [lon, lat] = f.geometry.coordinates as [number, number];
+      const name = String(pr["name"] ?? "");
+      const key = `${name}|${lon.toFixed(3)}|${lat.toFixed(3)}`;
+      if (agglo.current.has(key)) continue;
+      const big = cls === "city" || Number(pr["capital"] ?? 99) <= 6 || Number(pr["rank"] ?? 99) <= 7;
+      const kind = big ? "big" : cls === "town" ? "mid" : "small";
+      if (kind === "small") {
+        agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
+      } else {
+        // largeur moyenne : > 3600 m (grande, ~5 km) ou 1200 à 3600 m (moyenne, ~2,4 km)
+        const r = (big ? 3000 : 1500) * (0.85 + 0.3 * ((hash32(name) % 100) / 100));
+        const n = 12, ring: [number, number][] = [];
+        for (let k = 0; k < n; k++) {
+          const h = hash32(`${name}${k}`) % 1000 / 1000;
+          const a = ((k + (h - 0.5) * 0.5) / n) * Math.PI * 2, rr = r * (0.62 + 0.62 * h);
+          ring.push([lon + (rr * Math.cos(a)) / (111320 * Math.cos((lat * Math.PI) / 180)), lat + (rr * Math.sin(a)) / 111320]);
+        }
+        ring.push(ring[0]!);
+        agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Polygon", coordinates: [ring] } });
+        // un point sert aux petits zooms, où le polygone est trop petit pour se voir
+        agglo.current.set(`${key}|pt`, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
+      }
+      changed = true;
+    }
+    if (changed) (m.getSource("aerob-agglo") as maplibregl.GeoJSONSource).setData({ type: "FeatureCollection", features: [...agglo.current.values()].slice(-30000) });
+  }
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const on = () => syncAglo();
+    m.on("idle", on);
+    m.on("moveend", on);
+    return () => { m.off("idle", on); m.off("moveend", on); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   function syncAeroBase() {
     const m = map.current;
     if (!m || !loaded.current) return;
@@ -915,6 +966,8 @@ export function MapView(props: MapViewProps) {
         for (const l of m.getStyle().layers) if (l.id.startsWith("aerob-")) m.removeLayer(l.id);
         m.removeSource("aerob-v");
         m.removeSource("aerob-dem");
+        if (m.getSource("aerob-agglo")) m.removeSource("aerob-agglo");
+        agglo.current.clear();
       }
       return;
     }
@@ -933,16 +986,18 @@ export function MapView(props: MapViewProps) {
     add({ id: "aerob-hypso", type: "color-relief", source: "aerob-dem", paint: { "color-relief-color": ["interpolate", ["linear"], ["elevation"], -500, "#ffffff", ...stops], "color-relief-opacity": 1 } });
     add({ id: "aerob-wood", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["in", ["get", "class"], ["literal", ["wood", "forest"]]], paint: { "fill-color": "#e2eedd" } });
     add({ id: "aerob-marsh", type: "fill", source: "aerob-v", "source-layer": "landcover", filter: ["==", ["get", "class"], "wetland"], paint: { "fill-color": "#a1c3ce", "fill-opacity": 0.45 } });
-    // Agglomérations selon la légende OACI (largeur moyenne) : grande (> 3600 m) orange, moyenne (1200 à 3600 m) jaune, petite (< 1200 m) simple point jaune.
-    // Taille réelle approchée par un disque à l'échelle de la carte ; au-delà du zoom 11,5 on montre les vraies zones bâties.
-    const urbanCls = ["in", ["get", "class"], ["literal", ["residential", "commercial", "industrial", "retail"]]];
-    add({ id: "aerob-urban", type: "fill", source: "aerob-v", "source-layer": "landuse", minzoom: 11.5, filter: urbanCls, paint: { "fill-color": "#f8a000", "fill-opacity": 0.95 } });
+    // Agglomérations selon la légende OACI : grande (largeur > 3600 m) orange, moyenne (1200 à 3600 m) jaune, toutes deux en contour ; petite (< 1200 m) simple point jaune.
+    // Les contours sont des polygones à l'échelle réelle générés autour des villes de la carte (cf. syncAglo).
+    m.addSource("aerob-agglo", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+    const col = ["match", ["get", "kind"], "big", "#f8a000", "#fff200"];
+    add({ id: "aerob-agglo-fill", type: "fill", source: "aerob-agglo", minzoom: 7.5, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": col, "fill-opacity": 1 } });
+    add({ id: "aerob-agglo-line", type: "line", source: "aerob-agglo", minzoom: 7.5, filter: ["==", ["geometry-type"], "Polygon"], paint: { "line-color": "#b07400", "line-width": 0.7 } });
     add({
-      id: "aerob-city", type: "circle", source: "aerob-v", "source-layer": "place", minzoom: 5, maxzoom: 11.5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
+      id: "aerob-agglo-dot", type: "circle", source: "aerob-agglo", filter: ["==", ["geometry-type"], "Point"],
       paint: {
-        "circle-radius": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], ["interpolate", ["exponential", 2], ["zoom"], 5, 2600/80000*32, 12, 2600/80000*4096], ["==", ["get", "class"], "town"], ["interpolate", ["exponential", 2], ["zoom"], 5, 1500/80000*32, 12, 1500/80000*4096], ["interpolate", ["linear"], ["zoom"], 5, 1.5, 11, 4]],
-        "circle-color": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], "#f8a000", "#fff200"], "circle-opacity": 1,
-        "circle-stroke-color": "#b87800", "circle-stroke-width": ["case", ["any", ["==", ["get", "class"], "city"], ["<=", ["coalesce", ["get", "capital"], 99], 6], ["<=", ["coalesce", ["get", "rank"], 99], 7]], 0.8, ["==", ["get", "class"], "town"], 0.6, 0.4],
+        "circle-color": col, "circle-stroke-color": "#b07400", "circle-stroke-width": 0.6,
+        "circle-radius": ["case", ["==", ["get", "kind"], "small"], ["interpolate", ["linear"], ["zoom"], 6, 2, 11, 4.5], ["step", ["zoom"], 3.5, 7.5, 0]],
+        "circle-stroke-opacity": ["case", ["==", ["get", "kind"], "small"], 1, ["step", ["zoom"], 1, 7.5, 0]],
       },
     });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });

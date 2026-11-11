@@ -95,7 +95,7 @@ export function airspacesToGeoJSON(airspaces: readonly Airspace[]): FeatureColle
     const cLat = (a.bbox.north + a.bbox.south) / 2, cLon = (a.bbox.east + a.bbox.west) / 2;
     const sh = (kind: "para" | "acro") => ({ type: "Point" as const, coordinates: shiftedPosition(cLat, cLon, kind) }); // décalage fixé sur le terrain, pas en pixels
     // Croix (petite zone) et parachute : symboles ponctuels au centre de l'emprise, filtrés comme l'espace lui-même (groupe, plafond).
-    if (small) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "cross", sym: "small-area", lbl: [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") }, geometry: centre });
+    if (small) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "cross", sym: a.type === 29 ? "park-small" : "small-area", lbl: [a.name, limitText(a.upper.label), limitText(a.lower.label)].join("\n") }, geometry: centre });
     if (isAerobatics(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "acro", sym: "acro", lbl: "" }, geometry: sh("acro") });
     if (isParachuting(a)) features.push({ type: "Feature" as const, properties: { id: a.id, name: a.name, group: a.group, floorM: floorMeters(a), sty: "para", sym: "para", lbl: "" }, geometry: sh("para") });
   }
@@ -218,7 +218,15 @@ export function freshnessWarnings(f: DatasetFreshness): string[] {
  * Balises, points de report et obstacles pour la carte aéro, en un seul jeu de points. `sym` = image à dessiner, `cat` = nom affiché à l'appui,
  * `grp` = famille (filtre d'affichage), `h` = hauteur au-dessus du sol (m) pour trier les obstacles par importance.
  */
-export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null): FeatureCollection {
+/** Centrales nucléaires françaises (survol à 1000 ft minimum sur la carte OACI) : positions indicatives à ±1 km, à vérifier sur la carte officielle. */
+const NUCLEAR_SITES: readonly [string, number, number][] = [
+  ["Gravelines", 51.015, 2.136], ["Penly", 49.976, 1.211], ["Paluel", 49.858, 0.635], ["Flamanville", 49.536, -1.882], ["La Hague", 49.678, -1.882],
+  ["Cattenom", 49.407, 6.218], ["Chooz", 50.09, 4.79], ["Nogent-sur-Seine", 48.515, 3.518], ["Saint-Laurent-des-Eaux", 47.721, 1.58], ["Dampierre-en-Burly", 47.733, 2.518],
+  ["Belleville-sur-Loire", 47.51, 2.875], ["Chinon", 47.229, 0.17], ["Civaux", 46.457, 0.651], ["Golfech", 44.107, 0.846], ["Blayais", 45.256, -0.693],
+  ["Bugey", 45.798, 5.27], ["Saint-Alban", 45.404, 4.755], ["Cruas", 44.633, 4.756], ["Tricastin", 44.331, 4.732], ["Marcoule", 44.158, 4.708], ["Fessenheim", 47.903, 7.563],
+];
+
+export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null, withNuclear = false): FeatureCollection {
   const features: FeatureCollection["features"] = [];
   const add = (lon: number, lat: number, properties: Record<string, unknown>) => features.push({ type: "Feature", properties, geometry: { type: "Point", coordinates: [lon, lat] } });
   for (const v of d.navaids) {
@@ -226,6 +234,7 @@ export function navToGeoJSON(d: NavDataset, ona: OnaDataset | null = null): Feat
     const freq = v.freq ? `${Number.parseFloat(v.freq)} ${v.freqUnit === 1 ? "kHz" : "MHz"}` : "";
     add(v.lon, v.lat, { sym, grp: "navaid", cat: sym === "ndb" ? "NDB" : sym === "dme" ? "DME" : sym === "vor" ? "VOR" : "VOR/DME", name: v.name, ident: v.ident, freq, h: 0, lbl: "", nm: v.name.toUpperCase(), box: navaidBox(v, sym) });
   }
+  if (withNuclear) for (const [name, lat, lon] of NUCLEAR_SITES) add(lon, lat, { sym: "nuclear", grp: "report", cat: "Centrale nucléaire (position indicative)", name, h: 0, lbl: "" });
   for (const r of d.reporting) add(r.lon, r.lat, { sym: r.compulsory ? "rp-c" : "rp", grp: "report", cat: r.compulsory ? "Point de report obligatoire" : "Point de report", name: r.name, h: 0, lbl: r.name });
   if (ona) {
     // Obstacles officiels (AIP ENR 5.4.1) : seuls ceux de 300 ft et plus (règle de la carte OACI) ; mât ou obstacle balisé de nuit ; éoliennes en parcs (la plus haute par maille).
