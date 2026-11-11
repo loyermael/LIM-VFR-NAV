@@ -270,6 +270,7 @@ function navIcons(): Map<string, ImageData> {
     const cv = document.createElement("canvas"); cv.width = 32; cv.height = 32;
     const c = cv.getContext("2d");
     if (c) {
+      c.fillStyle = "rgba(255,255,255,0.78)"; c.fillRect(0, 0, 32, 32);
       c.strokeStyle = OACI_BLUE; c.lineWidth = 3; c.lineCap = "square";
       c.beginPath();
       for (const [x, y, dx, dy] of [[1.5, 1.5, 1, 1], [30.5, 1.5, -1, 1], [1.5, 30.5, 1, -1], [30.5, 30.5, -1, -1]] as const) { c.moveTo(x + dx * 9, y); c.lineTo(x, y); c.lineTo(x, y + dy * 9); }
@@ -690,11 +691,11 @@ export function MapView(props: MapViewProps) {
       m.addLayer({
         id: "asp-ctl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["all", ["has", "ctllbl"], ["!=", ["get", "ctllbl"], ""]] as never,
         layout: {
-          "text-field": ["format", ["image", ["get", "cls"]], {}, "  ", {}, ["get", "ctllbl"], { "text-color": OACI_BLUE }],
-          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 9, 12, 12], "text-justify": "left", "text-padding": 6, "text-optional": false,
-          "icon-image": "ctl-frame", "icon-text-fit": "both", "icon-text-fit-padding": [3, 5, 3, 5],
+          "text-field": ["format", ["image", ["get", "cls"]], {}, "\n", {}, ["get", "ctllbl"], { "text-color": OACI_BLUE }],
+          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 10.5, 12, 14], "text-justify": "center", "text-align": "center", "text-padding": 6, "text-optional": false, "text-line-height": 1.15,
+          "icon-image": "ctl-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 3, 2, 3],
         } as never,
-        paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
+        paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2.2 },
       }, before);
       // Secteurs d'information de vol : nom, limites et fréquence dans un encadré vert.
       m.addLayer({
@@ -984,7 +985,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || !loaded.current) return;
     const top = m.getLayer("route-line") ? "route-line" : undefined;
-    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "asp-ctl", "apt-minor", "apt-circle"]) if (m.getLayer(id)) m.moveLayer(id, top);
+    for (const id of ["spot-dot", "spot-lbl", "nav-sym", "nav-obs-mid", "nav-box", "nav-name", "act-sym", "asp-siv", "asp-sym", "apt-minor", "apt-circle", "asp-ctl"]) if (m.getLayer(id)) m.moveLayer(id, top);
   }
   function raiseDocs() {
     raiseSymbols();
