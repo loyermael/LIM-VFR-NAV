@@ -28,7 +28,7 @@ import { usePackData } from "./dataPack";
 import { useLink } from "./useLink";
 import { streamState } from "@lim/core";
 import { blobUrl, useDocs } from "./docStore";
-import { downloadVac, loadVacIndex, vacFor } from "./vacAuto";
+import { downloadVacPages, loadVacIndex, vacsFor } from "./vacAuto";
 import { imageCorners, pixelToLatLon } from "@lim/core";
 import { ReplayBar, TimersTab, TracesTab, type ReplayState } from "./TracesScreens";
 import { useRecorder } from "./trackStore";
@@ -517,12 +517,14 @@ export function App() {
     const icao = af.icao ?? "";
     try {
       setBanner({ text: `VAC ${icao} : 0 %`, alert: false });
-      const e = vacFor(await loadVacIndex(), icao);
-      if (!e) { setBanner({ text: `VAC ${icao} : ${T("ad.vacNone")}`, alert: true }); open("docs"); return; }
-      const d = await downloadVac(e, (done, total) => setBanner({ text: `VAC ${icao} : ${Math.floor((done / Math.max(1, total)) * 100)} %`, alert: false }));
-      docs.put({ ...d, show: "on" });
-      setBanner({ text: `VAC ${icao} : ${d.sourceDate}${d.georef ? "" : ` — ${T("ad.vacUncal")}`}`, alert: false });
-      const g = d.georef;
+      const es = vacsFor(await loadVacIndex(), icao);
+      if (es.length === 0) { setBanner({ text: `VAC ${icao} : ${T("ad.vacNone")}`, alert: true }); open("docs"); return; }
+      const ds = await downloadVacPages(es, (done, total) => setBanner({ text: `VAC ${icao} : ${Math.floor((done / Math.max(1, total)) * 100)} %`, alert: false }));
+      // la première carte (approche à vue, sinon atterrissage) s'affiche ; l'autre reste disponible dans le menu du terrain (appui sur VAC)
+      ds.forEach((d, i) => docs.put({ ...d, show: i === 0 ? "on" : "off" }));
+      const d = ds[0];
+      setBanner({ text: `VAC ${icao} : ${d?.sourceDate ?? ""}${d?.georef ? "" : ` — ${T("ad.vacUncal")}`}${ds.length > 1 ? ` — ${ds.length} cartes` : ""}`, alert: false });
+      const g = d?.georef;
       if (g) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: imageCorners(g.georef, g.width, g.height) }));
     } catch (err) {
       setBanner({ text: `VAC ${icao} : ${err instanceof Error ? err.message : String(err)}`, alert: true });
@@ -883,9 +885,12 @@ export function App() {
 
         {adMenu && mapActive && (() => {
           const af = adMenu.airfield;
-          const doc = docs.list.find((x) => af.icao && x.icao === af.icao && x.georef) ?? null;
+          // cartes calées du terrain, approche à vue d'abord
+          const geoDocs = docs.list.filter((x) => af.icao && x.icao === af.icao && x.georef).sort((p, q) => Number(/Atterrissage/.test(p.name)) - Number(/Atterrissage/.test(q.name)));
+          const doc = geoDocs[0] ?? null;
           const anyDoc = docs.list.find((x) => af.icao && x.icao === af.icao) ?? null;
-          const shown = !!doc && docCharts.some((c) => c.id === doc.id);
+          const shownIdx = geoDocs.findIndex((d) => docCharts.some((c) => c.id === d.id));
+          const shown = shownIdx >= 0;
           const vacState = doc ? (shown ? "shown" : "hidden") : anyDoc ? "uncalibrated" : "none";
           return (
             <AdMenu
@@ -902,9 +907,12 @@ export function App() {
                 setAdMenu(null);
                 if (!anyDoc) { void fetchVac(af); return; }
                 if (!doc) { setOpenDocId(anyDoc.id); open("docs"); return; }
-                if (shown) { docs.put({ ...doc, show: "off" }); return; }
-                docs.put({ ...doc, show: "on" });
-                const g = doc.georef;
+                // appuis successifs : approche à vue, atterrissage à vue (s'il existe), masquée
+                if (shown) docs.put({ ...(geoDocs[shownIdx] as typeof doc), show: "off" });
+                const next = shown ? geoDocs[shownIdx + 1] : doc;
+                if (!next) return;
+                docs.put({ ...next, show: "on" });
+                const g = next.georef;
                 if (g) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: imageCorners(g.georef, g.width, g.height) }));
               }}
             />

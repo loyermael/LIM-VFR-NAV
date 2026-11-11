@@ -10,13 +10,13 @@ const index = (entries: unknown[]) => ({ format: "lim-nav-vac-index", version: 1
 describe("index des VAC", () => {
   it("lit une entrée valide, indexée par empreinte", () => {
     const m = parseVacIndex(index([entry()]));
-    expect(m.get("a".repeat(64))?.icao).toBe("LFCQ");
-    expect(m.get("a".repeat(64))?.georef.ay).toBeCloseTo(18.43, 6);
+    expect(m.get("a".repeat(64) + "#1")?.icao).toBe("LFCQ");
+    expect(m.get("a".repeat(64) + "#1")?.georef.ay).toBeCloseTo(18.43, 6);
   });
   it("écarte une entrée mal formée sans casser les autres", () => {
     const m = parseVacIndex(index([entry({ sha256: "pas-un-hash" }), entry({ georef: { ar: "x" } }), entry({ frame: [1, 2] }), entry({ sha256: "b".repeat(64) })]));
     expect(m.size).toBe(1);
-    expect(m.has("b".repeat(64))).toBe(true);
+    expect(m.has("b".repeat(64) + "#1")).toBe(true);
   });
   it("accepte une carte sans ay (similitude) et sans cadre", () => {
     const m = parseVacIndex(index([entry({ georef: { ar: 2, ai: 0.1, tx: 1, ty: 2 }, frame: null })]));
@@ -33,7 +33,7 @@ describe("téléchargement d'une VAC", () => {
     const bytes = new TextEncoder().encode("%PDF-test");
     const { sha256Hex } = await import("./dataPack");
     const sha = await sha256Hex(bytes.buffer as ArrayBuffer);
-    const idx = { format: "lim-nav-vac-index", version: 1, filesBase: "https://x.test/vac", entries: [{ icao: "LFBI", sha256: sha, file: "LFBI.pdf", bytes: bytes.length, chartDate: "2026-10-29", page: 1, georef: { ar: 1, ai: 0, tx: 0, ty: 0 }, renderScale: 2, frame: null, groundMetersPerPoint: 1, residualPt: 0.1 }] };
+    const idx = { format: "lim-nav-vac-index", version: 1, filesBase: "https://x.test/vac", entries: [{ icao: "LFBI", kind: "app", sha256: sha, file: "LFBI.pdf", bytes: bytes.length, chartDate: "2026-10-29", page: 1, georef: { ar: 1, ai: 0, tx: 0, ty: 0 }, renderScale: 2, frame: null, groundMetersPerPoint: 1, residualPt: 0.1 }] };
     const f = (async (u: string) => (String(u).endsWith("index.json") ? new Response(JSON.stringify(idx)) : new Response(bytes))) as unknown as typeof fetch;
     const index = await loadVacIndex("https://x.test", f);
     const e = vacFor(index, "LFBI");
@@ -43,5 +43,15 @@ describe("téléchargement d'une VAC", () => {
     expect(d.sourceDate).toBe("SIA 2026-10-29");
     expect(seen.length).toBeGreaterThan(0);
     await expect(downloadVac({ ...e!, sha256: "0".repeat(64) }, () => undefined, undefined, f)).rejects.toThrow(/corrompu/);
+  });
+});
+
+describe("plusieurs cartes par PDF", () => {
+  it("approche à vue d'abord, une entrée par page, empreinte retrouvée", async () => {
+    const { vacsFor, entryBySha } = await import("./vacAuto");
+    const m = parseVacIndex(index([entry({ page: 2, kind: "att", file: "LFCQ.pdf" }), entry({ page: 1, kind: "app", file: "LFCQ.pdf" })]));
+    expect(m.size).toBe(2);
+    expect(vacsFor(m, "LFCQ").map((e) => e.kind)).toEqual(["app", "att"]);
+    expect(entryBySha(m, "a".repeat(64))?.page).toBe(1);
   });
 });

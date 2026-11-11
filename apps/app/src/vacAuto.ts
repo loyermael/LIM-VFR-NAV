@@ -12,6 +12,8 @@ import { RENDER_SCALE, renderPdfPage } from "./pdfRender";
 export interface VacIndexEntry {
   readonly icao: string;
   readonly sha256: string;
+  /** Nature de la carte : approche à vue (app), atterrissage à vue (att), transit VFR (tran) ou VAC unique (vac). */
+  readonly kind: "app" | "att" | "tran" | "vac";
   /** Nom du PDF publié à côté de l'index (absent : à importer soi-même). */
   readonly file: string | null;
   readonly bytes: number | null;
@@ -39,8 +41,9 @@ export function parseVacIndex(raw: unknown): Map<string, VacIndexEntry> {
     if (!isNum(g["ar"]) || !isNum(g["ai"]) || !isNum(g["tx"]) || !isNum(g["ty"]) || (g["ay"] !== undefined && !isNum(g["ay"]))) continue;
     if (!isNum(e["renderScale"]) || !isNum(e["page"]) || !isNum(e["groundMetersPerPoint"]) || !isNum(e["residualPt"])) continue;
     if (fr !== null && !(Array.isArray(fr) && fr.length === 4 && fr.every(isNum))) continue;
-    out.set(e["sha256"], {
-      icao: e["icao"], sha256: e["sha256"], file: typeof e["file"] === "string" && /^[A-Za-z0-9._-]+\.pdf$/.test(e["file"]) ? e["file"] : null, bytes: isNum(e["bytes"]) ? e["bytes"] : null, chartDate: typeof e["chartDate"] === "string" ? e["chartDate"] : null, page: e["page"] as number,
+    // plusieurs cartes par PDF (approche, atterrissage) : une entrée par page
+    out.set(`${e["sha256"]}#${e["page"] as number}`, {
+      icao: e["icao"], sha256: e["sha256"], kind: e["kind"] === "app" || e["kind"] === "att" || e["kind"] === "tran" ? e["kind"] : "vac", file: typeof e["file"] === "string" && /^[A-Za-z0-9._-]+\.pdf$/.test(e["file"]) ? e["file"] : null, bytes: isNum(e["bytes"]) ? e["bytes"] : null, chartDate: typeof e["chartDate"] === "string" ? e["chartDate"] : null, page: e["page"] as number,
       georef: { ar: g["ar"] as number, ai: g["ai"] as number, tx: g["tx"] as number, ty: g["ty"] as number, ...(g["ay"] !== undefined ? { ay: g["ay"] as number } : {}) },
       renderScale: e["renderScale"] as number, frame: fr as VacIndexEntry["frame"], groundMetersPerPoint: e["groundMetersPerPoint"] as number, residualPt: e["residualPt"] as number,
     });
@@ -95,13 +98,23 @@ async function cropPng(png: Blob, x0: number, y0: number, w: number, h: number):
   }
 }
 
+/** Première carte (page la plus basse) d'un PDF reconnu par son empreinte. */
+export function entryBySha(index: Map<string, VacIndexEntry>, sha: string): VacIndexEntry | null {
+  let best: VacIndexEntry | null = null;
+  for (const e of index.values()) if (e.sha256 === sha && (!best || e.page < best.page)) best = e;
+  return best;
+}
+
+export const KIND_LABEL: Readonly<Record<VacIndexEntry["kind"], string>> = { app: "Approche à vue", att: "Atterrissage à vue", tran: "Transit VFR", vac: "VAC" };
+const KIND_ORDER: Readonly<Record<VacIndexEntry["kind"], number>> = { app: 0, att: 1, tran: 2, vac: 3 };
+
 export type AutoResult = { readonly doc: DocRecord } | { readonly reason: "not-pdf" | "unknown-edition" | "no-index" };
 
 /** Cale automatiquement un PDF importé s'il figure dans l'index (même empreinte) ; sinon explique pourquoi pas. */
 export async function autoGeoreference(doc: DocRecord, index: Map<string, VacIndexEntry>): Promise<AutoResult> {
   if (doc.mime !== "application/pdf" && !/\.pdf$/i.test(doc.name)) return { reason: "not-pdf" };
   const sha = await sha256Hex(await doc.data.arrayBuffer());
-  const e = index.get(sha);
+  const e = entryBySha(index, sha);
   if (!e) return { reason: "unknown-edition" };
   const rendered = await renderPdfPage(doc.data, e.page);
   const k = RENDER_SCALE / e.renderScale; // l'index suppose le même facteur de rendu : on corrige sinon
@@ -125,21 +138,27 @@ export async function autoGeoreference(doc: DocRecord, index: Map<string, VacInd
   };
 }
 
-/** VAC téléchargeable pour un terrain : l'édition la plus récente de l'index qui a un fichier publié. */
-export function vacFor(index: Map<string, VacIndexEntry>, icao: string): VacIndexEntry | null {
-  let best: VacIndexEntry | null = null;
-  for (const e of index.values()) if (e.icao === icao && e.file && (!best || (e.chartDate ?? "") > (best.chartDate ?? ""))) best = e;
-  return best;
+/** Cartes d'un terrain publiées dans l'index : approche à vue d'abord (elle couvre la zone autour du terrain), puis atterrissage à vue. */
+export function vacsFor(index: Map<string, VacIndexEntry>, icao: string): VacIndexEntry[] {
+  const out = [...index.values()].filter((e) => e.icao === icao && e.file && e.kind !== "tran");
+  return out.sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.page - b.page);
 }
 
-/** Télécharge le PDF d'une VAC (pourcentage), vérifie l'empreinte, crée le document et le cale. Mention SIA + date dans `sourceDate`. */
-export async function downloadVac(
-  e: VacIndexEntry, onProgress: (done: number, total: number) => void, signal?: AbortSignal, fetchFn: typeof fetch = (...a) => fetch(...a),
-): Promise<DocRecord> {
-  if (!e.file || !lastFilesBase) throw new Error("VAC non publiée : importe le PDF toi-même (Docs)");
-  const res = await fetchFn(`${lastFilesBase}/${e.file}`, { signal: signal ?? AbortSignal.timeout(60_000) });
+/** Carte préférée d'un terrain (approche à vue, sinon atterrissage). */
+export function vacFor(index: Map<string, VacIndexEntry>, icao: string): VacIndexEntry | null {
+  return vacsFor(index, icao)[0] ?? null;
+}
+
+/** Télécharge le PDF d'une VAC une seule fois (pourcentage), vérifie l'empreinte, puis crée un document calé par carte demandée (approche, atterrissage). */
+export async function downloadVacPages(
+  entries: readonly VacIndexEntry[], onProgress: (done: number, total: number) => void, signal?: AbortSignal, fetchFn: typeof fetch = (...a) => fetch(...a),
+): Promise<DocRecord[]> {
+  const e0 = entries[0];
+  if (!e0) return [];
+  if (!e0.file || !lastFilesBase) throw new Error("VAC non publiée : importe le PDF toi-même (Docs)");
+  const res = await fetchFn(`${lastFilesBase}/${e0.file}`, { signal: signal ?? AbortSignal.timeout(60_000) });
   if (!res.ok || !res.body) throw new Error(`téléchargement refusé (${res.status})`);
-  const total = Number(res.headers.get("content-length")) || e.bytes || 0;
+  const total = Number(res.headers.get("content-length")) || e0.bytes || 0;
   const chunks: Uint8Array[] = [];
   let got = 0;
   const reader = res.body.getReader();
@@ -151,15 +170,29 @@ export async function downloadVac(
     onProgress(got, Math.max(total, got));
   }
   const data = new Blob(chunks as BlobPart[], { type: "application/pdf" });
-  if ((await sha256Hex(await data.arrayBuffer())) !== e.sha256) throw new Error("fichier corrompu (empreinte différente)");
-  const doc: DocRecord = {
-    id: crypto.randomUUID(), name: `VAC ${e.icao}.pdf`, kind: "vac", icao: e.icao, sourceDate: e.chartDate ? `SIA ${e.chartDate}` : lastCycle ? `SIA AIRAC ${lastCycle}` : "SIA",
-    mime: "application/pdf", size: data.size, addedAt: Date.now(), data, georef: null, show: "auto",
-  };
-  try {
-    const g = await autoGeoreference(doc, new Map([[e.sha256, e]]));
-    return "doc" in g ? g.doc : doc;
-  } catch {
-    return doc; // calage impossible (rendu PDF indisponible) : le PDF reste téléchargé, à caler dans Docs
+  if ((await sha256Hex(await data.arrayBuffer())) !== e0.sha256) throw new Error("fichier corrompu (empreinte différente)");
+  const docs: DocRecord[] = [];
+  for (const e of entries) {
+    const doc: DocRecord = {
+      id: crypto.randomUUID(), name: entries.length > 1 || e.kind !== "vac" ? `VAC ${e.icao} – ${KIND_LABEL[e.kind]}` : `VAC ${e.icao}`, kind: "vac", icao: e.icao,
+      sourceDate: e.chartDate ? `SIA ${e.chartDate}` : lastCycle ? `SIA AIRAC ${lastCycle}` : "SIA",
+      mime: "application/pdf", size: data.size, addedAt: Date.now(), data, georef: null, show: "off",
+    };
+    try {
+      const g = await autoGeoreference(doc, new Map([[`${e.sha256}#${e.page}`, e]]));
+      docs.push("doc" in g ? g.doc : doc);
+    } catch {
+      docs.push(doc); // calage impossible (rendu PDF indisponible) : le PDF reste téléchargé, à caler dans Docs
+    }
   }
+  return docs;
+}
+
+/** Une seule carte (compatibilité) : voir downloadVacPages. */
+export async function downloadVac(
+  e: VacIndexEntry, onProgress: (done: number, total: number) => void, signal?: AbortSignal, fetchFn: typeof fetch = (...a) => fetch(...a),
+): Promise<DocRecord> {
+  const [d] = await downloadVacPages([e], onProgress, signal, fetchFn);
+  if (!d) throw new Error("VAC indisponible");
+  return { ...d, show: "auto" };
 }
