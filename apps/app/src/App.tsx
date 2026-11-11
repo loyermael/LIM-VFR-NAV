@@ -21,6 +21,7 @@ import { AdInfo, AdMenu } from "./AdMenu";
 import { LinkPanel } from "./LinkPanel";
 import { BackupPanel } from "./BackupPanel";
 import { BaseMapPanel } from "./BaseMapPanel";
+import { importNavFiles, type NavDataset } from "./navData";
 import { loadBasePrefs, saveBasePrefs, type BaseMapPrefs } from "./baseMaps";
 import { DataPanel } from "./DataPanel";
 import { usePackData } from "./dataPack";
@@ -134,6 +135,7 @@ export function App() {
   const [fit, setFit] = useState({ nonce: 0, force: false });
   // Données aéronautiques importées (openAIP) et leur affichage.
   const [aspSet, setAspSet] = useState<AirspaceDataset | null>(null);
+  const [navSet, setNavSet] = useState<NavDataset | null>(null);
   const [aptSet, setAptSet] = useState<AirfieldDataset | null>(null);
   const [aeroBusy, setAeroBusy] = useState(false);
   const [aeroProblems, setAeroProblems] = useState<string[]>([]);
@@ -353,17 +355,27 @@ export function App() {
     for (const d of out.datasets) {
       await saveDataset(d).catch(() => undefined);
       if (d.id === "airspaces") setAspSet(d);
-      else setAptSet(d);
+      else if (d.id === "airfields") setAptSet(d);
     }
     setAeroProblems(out.problems);
     setAeroBusy(false);
     if (aeroInput.current) aeroInput.current.value = "";
   };
+  const importNav = async (files: ArrayLike<File>) => {
+    const { dataset, problems } = await importNavFiles(Array.from(files), Date.now());
+    if (dataset.navaids.length + dataset.reporting.length + dataset.obstacles.length > 0) {
+      await saveDataset(dataset).catch(() => undefined);
+      setNavSet(dataset);
+    }
+    if (problems.length > 0) setAeroProblems((p) => [...p, ...problems]);
+  };
   const removeAero = () => {
     void deleteDataset("airspaces");
     void deleteDataset("airfields");
+    void deleteDataset("navdata");
     setAspSet(null);
     setAptSet(null);
+    setNavSet(null);
   };
   const toggleGroup = (g: string) => {
     const next = visibleGroups.includes(g) ? visibleGroups.filter((x) => x !== g) : [...visibleGroups, g];
@@ -419,7 +431,8 @@ export function App() {
       .then((ds) => {
         for (const d of ds) {
           if (d.id === "airspaces") setAspSet(d);
-          else setAptSet(d);
+          else if (d.id === "airfields") setAptSet(d);
+          else setNavSet(d);
         }
       })
       .catch(() => undefined);
@@ -518,7 +531,8 @@ export function App() {
   const mapApi = useRef<{ getBounds: () => { west: number; south: number; east: number; north: number } } | null>(null);
   /** Données extérieures (espaces, terrains, météo) : téléchargées et mises à jour toutes seules une fois le pays choisi. */
   const pack = usePackData(null, async (id, files) => {
-    if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
+    if (id === "navdata") await importNav(files);
+    else if (id === "aero" || id === "airspaces" || id === "airfields") await importAero(files);
     else if (id === "weather") await importWx(files);
   });
   const [openDocId, setOpenDocId] = useState<string | null>(null);

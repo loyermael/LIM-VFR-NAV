@@ -5,6 +5,7 @@
 import type { Airfield, Airspace } from "@lim/core";
 import { parseOpenAipAirfields, parseOpenAipAirspaces } from "@lim/core";
 import { tx } from "./db";
+import type { NavDataset } from "./navData";
 
 export interface DatasetMeta {
   readonly source: "openAIP";
@@ -20,7 +21,7 @@ export interface DatasetMeta {
 
 export interface AirspaceDataset { readonly id: "airspaces"; readonly meta: DatasetMeta; readonly items: Airspace[] }
 export interface AirfieldDataset { readonly id: "airfields"; readonly meta: DatasetMeta; readonly items: Airfield[] }
-export type Dataset = AirspaceDataset | AirfieldDataset;
+export type Dataset = AirspaceDataset | AirfieldDataset | NavDataset;
 
 export const loadDatasets = (): Promise<Dataset[]> => tx("datasets", "readonly", (s) => s.getAll() as IDBRequest<Dataset[]>);
 export const saveDataset = (d: Dataset): Promise<IDBValidKey> => tx("datasets", "readwrite", (s) => s.put(d));
@@ -53,7 +54,7 @@ export function detectKind(json: unknown): ImportKind | null {
 }
 
 export interface ImportOutcome {
-  readonly datasets: Dataset[];
+  readonly datasets: (AirspaceDataset | AirfieldDataset)[];
   /** Fichiers non reconnus ou invalides, avec la raison. */
   readonly problems: string[];
 }
@@ -75,7 +76,7 @@ export async function importAeroFiles(files: readonly File[], now: number): Prom
   const dates = new Map<string, number>();
   for (const p of parsed) if (p.kind === "manifest") for (const [k, v] of manifestDates(p.json)) dates.set(k, v);
 
-  const datasets: Dataset[] = [];
+  const datasets: (AirspaceDataset | AirfieldDataset)[] = [];
   for (const p of parsed) {
     if (p.kind === "manifest") continue;
     const fromManifest = dates.get(p.file.name);
