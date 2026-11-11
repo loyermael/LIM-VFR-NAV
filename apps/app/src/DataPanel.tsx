@@ -27,24 +27,46 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number }) {
             {k.countries.length === 0 && <span className="muted small">{k.checking ? T("dp.checking") : T("dp.noList")}</span>}
           </div>
           {k.installed.country && (
-            <table className="navlog"><tbody>
+            <div className="datalist">
               {(country?.datasets ?? []).map((d) => {
                 const have = k.installed.datasets[d.id];
                 const st = k.status[d.id];
+                const mo = (n: number) => (n / 1048576).toFixed(1);
+                const size = d.files.reduce((a, f) => a + f.bytes, 0);
+                const busy = st?.state === "downloading" || st?.state === "installing";
+                const pct = st?.state === "downloading" ? Math.min(100, Math.floor((st.loaded / Math.max(1, st.total)) * 100)) : null;
                 return (
-                  <tr key={d.id}>
-                    <td className="legname">{d.title}</td>
-                    <td>
-                      {st?.state === "downloading" ? T("dp.downloading") : st?.state === "error" ? `${T("dp.error")} : ${st.message ?? ""}` : have ? `${T("dp.version")} ${ageText(have.updatedAt, p.nowMs, p.lang)}` : T("dp.missing")}
-                    </td>
-                  </tr>
+                  <div className="datarow" key={d.id}>
+                    <div className="datahead">
+                      <b>{d.title}</b>
+                      <span className="mono small">{mo(size)} {T("dp.mb")}</span>
+                    </div>
+                    {st?.state === "downloading" && (
+                      <>
+                        <progress max={100} value={pct ?? 0} aria-label={`${d.title} ${pct} %`} />
+                        <div className="mono small">{pct} % · {mo(st.loaded)} / {mo(st.total)} {T("dp.mb")}</div>
+                      </>
+                    )}
+                    {st?.state === "installing" && (
+                      <>
+                        <progress aria-label={T("dp.installing")} />
+                        <div className="mono small">{T("dp.installing")}</div>
+                      </>
+                    )}
+                    {st?.state === "error" && <div className="error" role="alert">{T("dp.error")} : {st.message}</div>}
+                    {!busy && st?.state !== "error" && (
+                      <div className="muted small">{have ? `${T("dp.upToDate")} · ${T("dp.version")} ${ageText(have.updatedAt, p.nowMs, p.lang)}` : k.checking ? T("dp.waiting") : T("dp.missing")}</div>
+                    )}
+                  </div>
                 );
               })}
-            </tbody></table>
+            </div>
           )}
           {k.lastError && <p className="muted small" role="status">{T("dp.offline")} ({k.lastError})</p>}
           <div className="choices">
-            <button disabled={k.checking || !k.installed.country} onClick={k.refresh}>{k.checking ? T("dp.checking") : T("dp.refresh")}</button>
+            {k.checking
+              ? <button className="brand" onClick={k.cancel}>{T("dp.cancel")}</button>
+              : <button disabled={!k.installed.country} onClick={k.refresh}>{Object.values(k.status).some((v) => v.state === "error") ? T("dp.retry") : T("dp.refresh")}</button>}
           </div>
           {country && country.datasets.map((d) => <p className="muted small" key={d.id}>{d.title} : {d.source} — {d.licence}</p>)}
           <p className="muted small">{T("dp.note")}</p>

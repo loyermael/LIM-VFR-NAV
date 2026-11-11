@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PackError, datasetsToUpdate, downloadDataset, parseInstalled, parsePackManifest, sha256Hex, type PackManifest } from "./dataPack";
+import { PackError, datasetsToUpdate, parseInstalled, parsePackManifest, sha256Hex, type PackManifest } from "./dataPack";
 
 const enc = (s: string) => new TextEncoder().encode(s);
 const hash = (s: string) => sha256Hex(enc(s).buffer as ArrayBuffer);
@@ -60,30 +60,6 @@ describe("quels jeux télécharger", () => {
   });
   it("pays absent du manifeste : rien", () => {
     expect(datasetsToUpdate(m("2026-11-11T01:00:00Z"), { country: "ch", datasets: {} })).toEqual([]);
-  });
-});
-
-describe("téléchargement contrôlé", () => {
-  const ok = (body: string): typeof fetch => (async () => new Response(body)) as unknown as typeof fetch;
-  it("fichier intact : accepté", async () => {
-    const m = parsePackManifest(await manifestFor('{"a":1}'));
-    const files = await downloadDataset("https://x.example/pack/", m.countries[0]!.datasets[0]!, ok('{"a":1}'));
-    expect(files).toHaveLength(1);
-    expect(files[0]!.name).toBe("a.json");
-    expect(await files[0]!.text()).toBe('{"a":1}');
-  });
-  it("contenu altéré de même taille : refusé (SHA-256)", async () => {
-    const m = parsePackManifest(await manifestFor('{"a":1}'));
-    await expect(downloadDataset("https://x.example", m.countries[0]!.datasets[0]!, ok('{"a":2}'))).rejects.toThrow(/SHA-256/);
-  });
-  it("fichier tronqué : refusé (taille)", async () => {
-    const m = parsePackManifest(await manifestFor('{"a":1}'));
-    await expect(downloadDataset("https://x.example", m.countries[0]!.datasets[0]!, ok('{"a"'))).rejects.toThrow(/taille/);
-  });
-  it("erreur HTTP : refusée", async () => {
-    const m = parsePackManifest(await manifestFor("[]"));
-    const f = (async () => new Response("", { status: 404 })) as unknown as typeof fetch;
-    await expect(downloadDataset("https://x.example", m.countries[0]!.datasets[0]!, f)).rejects.toThrow(/404/);
   });
 });
 

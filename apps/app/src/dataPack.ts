@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AbortedError, downloadDataset, fetchJson } from "./packDownload";
 
 /**
  * Paquet de données téléchargé automatiquement : un manifeste (manifest.json) liste, par pays, des jeux de données
@@ -72,20 +73,6 @@ export async function sha256Hex(buf: ArrayBuffer): Promise<string> {
   return Array.from(new Uint8Array(h)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/** Télécharge les fichiers d'un jeu et contrôle taille et SHA-256 : un fichier altéré ou tronqué est refusé, jamais importé. */
-export async function downloadDataset(base: string, ds: PackDataset, fetchFn: typeof fetch = fetch): Promise<File[]> {
-  const files: File[] = [];
-  for (const f of ds.files) {
-    const res = await fetchFn(`${base.replace(/\/$/, "")}/${f.path}`, { cache: "no-store" });
-    if (!res.ok) throw new PackError(`${f.path} : HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength !== f.bytes) throw new PackError(`${f.path} : taille ${buf.byteLength} au lieu de ${f.bytes} (téléchargement tronqué ?)`);
-    if ((await sha256Hex(buf)) !== f.sha256) throw new PackError(`${f.path} : empreinte SHA-256 différente (fichier altéré)`);
-    files.push(new File([buf], f.path.split("/").pop() as string, { type: "application/json" }));
-  }
-  return files;
-}
-
 /** Paquet officiel du projet (GitHub Pages du dépôt de données). */
 export const DEFAULT_PACK_URL = "https://loyermael.github.io/lim-vfr-nav-data";
 const STATE_KEY = "lim.datapack.v1";
@@ -132,7 +119,13 @@ export function setPackBaseUrl(u: string): void {
   } catch { /* ignoré */ }
 }
 
-export type DatasetStatus = { readonly state: "idle" | "downloading" | "ok" | "error"; readonly message?: string };
+export type DatasetStatus =
+  | { readonly state: "idle" }
+  | { readonly state: "downloading"; readonly loaded: number; readonly total: number; readonly attempt: number }
+  | { readonly state: "installing" }
+  | { readonly state: "ok" }
+  | { readonly state: "error"; readonly message: string };
+
 export interface PackHook {
   readonly baseUrl: string;
   readonly installed: InstalledPack;
@@ -142,37 +135,46 @@ export interface PackHook {
   readonly lastError: string | null;
   readonly manifest: PackManifest | null;
   chooseCountry(code: string): void;
+  /** Vérification manuelle : relance aussi ce qui a été annulé ou a échoué. */
   refresh(): void;
+  /** Annule le téléchargement en cours ; les vérifications automatiques ne le relancent pas avant 10 minutes. */
+  cancel(): void;
 }
 
 const CHECK_EVERY_MS = 15 * 60 * 1000;
+const CANCEL_PAUSE_MS = 10 * 60 * 1000;
 
 /**
  * Téléchargement et mise à jour automatiques : au lancement, au retour du réseau, au retour au premier plan, puis toutes
  * les 15 minutes. Un jeu n'est retéléchargé que si la version publiée est plus récente que la version installée.
+ * Chaque téléchargement montre sa progression, a un délai d'inactivité, des nouveaux essais et peut être annulé.
  * Hors-ligne ou en cas d'échec : les données déjà installées restent utilisées, rien n'est effacé.
  */
 export function usePackData(baseUrlOverride: string | null, onDataset: (id: string, files: File[]) => Promise<void>): PackHook {
-  const [baseUrl, setBase] = useState(() => baseUrlOverride ?? packBaseUrl());
+  const [baseUrl] = useState(() => baseUrlOverride ?? packBaseUrl());
   const [installed, setInstalled] = useState<InstalledPack>(load);
   const [manifest, setManifest] = useState<PackManifest | null>(null);
   const [status, setStatus] = useState<Record<string, DatasetStatus>>({});
   const [checking, setChecking] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const busy = useRef(false);
+  const abort = useRef<AbortController | null>(null);
+  const pausedUntil = useRef(0);
   const stateRef = useRef(installed);
   stateRef.current = installed;
   const cb = useRef(onDataset);
   cb.current = onDataset;
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (manual: boolean) => {
     if (busy.current || !baseUrl) return;
+    if (!manual && Date.now() < pausedUntil.current) return;
     busy.current = true;
+    const ctl = new AbortController();
+    abort.current = ctl;
     setChecking(true);
+    if (manual) pausedUntil.current = 0;
     try {
-      const res = await fetch(`${baseUrl.replace(/\/$/, "")}/manifest.json`, { cache: "no-store" });
-      if (!res.ok) throw new PackError(`manifeste : HTTP ${res.status}`);
-      const m = parsePackManifest(await res.json());
+      const m = parsePackManifest(await fetchJson(`${baseUrl.replace(/\/$/, "")}/manifest.json`, { signal: ctl.signal }));
       setManifest(m);
       setLastError(null);
       let cur = stateRef.current;
@@ -184,32 +186,45 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
         const have = cur.datasets[ds.id];
         if (have && Date.parse(ds.updatedAt) <= Date.parse(have.updatedAt)) cur = { ...cur, datasets: { ...cur.datasets, [ds.id]: { ...have, checkedAt: now } } };
       }
-      for (const ds of datasetsToUpdate(m, cur)) {
-        setStatus((s) => ({ ...s, [ds.id]: { state: "downloading" } }));
+      const todo = datasetsToUpdate(m, cur);
+      for (const ds of todo) setStatus((s) => ({ ...s, [ds.id]: { state: "downloading", loaded: 0, total: ds.files.reduce((a, f) => a + f.bytes, 0), attempt: 1 } }));
+      for (const ds of todo) {
+        const total = ds.files.reduce((a, f) => a + f.bytes, 0);
         try {
-          const files = await downloadDataset(baseUrl, ds);
+          const files = await downloadDataset(baseUrl, ds, { signal: ctl.signal, onProgress: (loaded) => setStatus((s) => ({ ...s, [ds.id]: { state: "downloading", loaded, total, attempt: 1 } })) });
+          setStatus((s) => ({ ...s, [ds.id]: { state: "installing" } }));
           await cb.current(ds.id, files);
           cur = { ...cur, datasets: { ...cur.datasets, [ds.id]: { updatedAt: ds.updatedAt, checkedAt: Date.now() } } };
+          save(cur);
+          setInstalled(cur);
           setStatus((s) => ({ ...s, [ds.id]: { state: "ok" } }));
         } catch (e) {
+          if (e instanceof AbortedError) {
+            // Annulation : tout ce qui restait à faire repasse au repos.
+            setStatus((s) => Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v.state === "downloading" || v.state === "installing" ? { state: "idle" } : v])));
+            pausedUntil.current = Date.now() + CANCEL_PAUSE_MS;
+            break;
+          }
           setStatus((s) => ({ ...s, [ds.id]: { state: "error", message: e instanceof Error ? e.message : String(e) } }));
         }
       }
       save(cur);
       setInstalled(cur);
     } catch (e) {
-      setLastError(e instanceof Error ? e.message : String(e)); // hors-ligne ou serveur indisponible : on garde l'existant
+      if (!(e instanceof AbortedError)) setLastError(e instanceof Error ? e.message : String(e)); // hors-ligne ou serveur indisponible : on garde l'existant
+      else pausedUntil.current = Date.now() + CANCEL_PAUSE_MS;
     } finally {
       busy.current = false;
+      abort.current = null;
       setChecking(false);
     }
   }, [baseUrl]);
 
   useEffect(() => {
     if (!baseUrl) return;
-    void check();
-    const id = setInterval(() => void check(), CHECK_EVERY_MS);
-    const wake = () => document.visibilityState !== "hidden" && void check();
+    void check(false);
+    const id = setInterval(() => void check(false), CHECK_EVERY_MS);
+    const wake = () => document.visibilityState !== "hidden" && void check(false);
     window.addEventListener("online", wake);
     document.addEventListener("visibilitychange", wake);
     return () => {
@@ -234,7 +249,8 @@ export function usePackData(baseUrlOverride: string | null, onDataset: (id: stri
     lastError,
     manifest,
     chooseCountry,
-    refresh: () => void check(),
+    refresh: () => void check(true),
+    cancel: () => abort.current?.abort(),
   };
 }
 
