@@ -84,7 +84,7 @@ export function AdInfo(p: {
     <aside className="sheet adinfo" aria-label={a.icao ?? a.name}>
       <header>
         <h2>{a.icao ? `${a.icao} · ` : ""}{a.name}</h2>
-        <button onClick={p.onClose}>{T("close")}</button>
+        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
       </header>
       <div className="choices"><button className="brand" onClick={p.onDirect}>{T("ad.direct")}</button></div>
       <dl>

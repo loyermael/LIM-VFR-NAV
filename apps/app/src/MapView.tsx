@@ -1,3 +1,4 @@
+import { t, type Lang } from "./i18n";
 import { metersPerPixel } from "./routeSnap";
 import { useEffect, useRef } from "react";
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
@@ -62,6 +63,7 @@ export interface MapViewProps {
   selectedIndex: number | null;
   /** Mode tracé : un appui sur la carte ajoute un point, les points se déplacent au doigt. */
   editMode: boolean;
+  lang: Lang;
   /** Demande de cadrage sur la route ; `force` ignore la présence d'un GPS (action de l'utilisateur). */
   fitRequest: { nonce: number; force: boolean };
   /** Appui en mode tracé : position et mètres par pixel d'écran (rayon d'aimantation). */
@@ -146,6 +148,8 @@ function placeNameAt(m: maplibregl.Map, pt: { x: number; y: number }): string | 
   return best?.name ?? null;
 }
 
+/** Durée d'animation de la caméra : nulle si l'utilisateur demande moins de mouvement (prefers-reduced-motion). */
+const motion = (ms: number) => (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : ms);
 const OACI_PIXEL_RATIO = 4;
 const oaciIcons = new Map<string, ImageData>();
 const oaciReady: Promise<void> = (async () => {
@@ -635,7 +639,7 @@ export function MapView(props: MapViewProps) {
     if (rp && rp.key !== replayKey.current && rp.line.length >= 2) {
       const b = new maplibregl.LngLatBounds(rp.line[0] as [number, number], rp.line[0] as [number, number]);
       rp.line.forEach((c) => b.extend(c));
-      m.fitBounds(b, { padding: 60, duration: 600, maxZoom: 13 });
+      m.fitBounds(b, { padding: 60, duration: motion(600), maxZoom: 13 });
     }
     replayKey.current = rp ? rp.key : null;
   }
@@ -651,6 +655,10 @@ export function MapView(props: MapViewProps) {
       const el = document.createElement("div");
       el.className = `wp${i === props.targetIndex ? " target" : ""}${i === props.selectedIndex ? " selected" : ""}`;
       el.textContent = String(i + 1);
+      el.setAttribute("role", "button");
+      el.tabIndex = 0;
+      el.setAttribute("aria-label", `${t(latest.current.lang, "wp.aria")} ${i + 1} : ${p.name}`);
+      el.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); el.click(); } });
       el.addEventListener("click", (ev) => {
         ev.stopPropagation(); // sinon la carte comprend un appui « ajouter un point »
         // Hors tracé, un point posé sur un terrain se comporte comme le terrain : on ouvre son menu (Direct, Infos, VAC, Route).
@@ -683,13 +691,13 @@ export function MapView(props: MapViewProps) {
     m.resize(); // le conteneur vient peut-être de changer de taille (panneau Route) : on recalcule avant de cadrer
     if (route.points.length === 1) {
       const p0 = route.points[0]!;
-      m.easeTo({ center: [p0.position.lon, p0.position.lat], zoom: 9, duration: 600 });
+      m.easeTo({ center: [p0.position.lon, p0.position.lat], zoom: 9, duration: motion(600) });
       return;
     }
     const b = new maplibregl.LngLatBounds();
     route.points.forEach((p) => b.extend([p.position.lon, p.position.lat]));
     // Marges plus grandes en haut et à gauche : bannière, pastille GPS et boutons de la carte s'y trouvent.
-    m.fitBounds(b, { padding: { top: 110, bottom: 70, left: 100, right: 70 }, maxZoom: 11, duration: 600 });
+    m.fitBounds(b, { padding: { top: 110, bottom: 70, left: 100, right: 70 }, maxZoom: 11, duration: motion(600) });
   }, [props.fitRequest.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Espaces aériens et terrains : données posées une fois, filtres (groupe, plafond, visibilité) appliqués sans recharger. */
@@ -1184,7 +1192,7 @@ export function MapView(props: MapViewProps) {
     const cam = m.cameraForBounds(b, { padding: 20 });
     if (cam && typeof cam.zoom === "number") {
       targetZoom.current = Math.min(15, cam.zoom);
-      m.easeTo({ zoom: targetZoom.current, duration: 800 });
+      m.easeTo({ zoom: targetZoom.current, duration: motion(800) });
     }
   }, [props.docFocus]);
   useEffect(syncOverlays, [props.overlays, props.ceilingFL]);
@@ -1253,7 +1261,7 @@ export function MapView(props: MapViewProps) {
         center: lngLat,
         zoom: targetZoom.current,
         bearing: orientation === "track" && trackTrue !== null ? trackTrue : 0,
-        duration: 900,
+        duration: motion(900),
         easing: (t) => t,
       });
     }
@@ -1263,7 +1271,7 @@ export function MapView(props: MapViewProps) {
     const m = map.current;
     if (!m || props.zoomCommand.nonce === 0) return;
     targetZoom.current = Math.max(0, Math.min(18, targetZoom.current + props.zoomCommand.delta));
-    m.easeTo({ zoom: targetZoom.current, duration: 250 });
+    m.easeTo({ zoom: targetZoom.current, duration: motion(250) });
   }, [props.zoomCommand]);
 
   return (

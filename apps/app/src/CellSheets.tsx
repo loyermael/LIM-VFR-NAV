@@ -35,7 +35,7 @@ export function UnitSheet({ cell, lang, prefs, setUnit, onClose }: CommonProps &
     <aside className="sheet" aria-label={T(CELL_TITLE[cell])}>
       <header>
         <h2>{T(CELL_TITLE[cell])}</h2>
-        <button onClick={onClose}>{T("close")}</button>
+        <button className="btn-inline" aria-label={T("close")} onClick={onClose}>✕</button>
       </header>
       <div className="choices">
         {UNIT_CHOICES[field].map((choice) => (
@@ -121,7 +121,7 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
     <aside className="sheet" aria-label={T("alt.title")}>
       <header>
         <h2>{T("alt.title")}</h2>
-        <button onClick={p.onClose}>{T("close")}</button>
+        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
       </header>
       {showQnh && (
         <>

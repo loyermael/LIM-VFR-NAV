@@ -118,6 +118,9 @@ interface NavProps {
   tab: number;
   /** Retour à la liste des routes. */
   onGoRoutes: () => void;
+  /** Vue de l'onglet Route (liste ou détail), tenue par l'application pour que « Retour » remonte d'un niveau. */
+  routeView: "list" | "detail";
+  onRouteView: (v: "list" | "detail") => void;
   /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
   airspaces: readonly Airspace[];
   hasAero: boolean;
@@ -153,7 +156,8 @@ const loadCruise = (): number => {
 export function NavScreen(p: NavProps) {
   const T = (k: Key) => t(p.lang, k);
   /** Deux vues séparées : la liste des routes (choix), puis la route elle-même. */
-  const [view, setView] = useState<"list" | "detail">("list");
+  const view = p.routeView;
+  const setView = p.onRouteView;
   const [cruiseM, setCruiseM] = useState(loadCruise);
   const [awMsg, setAwMsg] = useState<string | null>(null);
   const [awRetry, setAwRetry] = useState(0);
@@ -297,9 +301,6 @@ export function NavScreen(p: NavProps) {
 
       {p.tab === 0 && view === "detail" && (
         <>
-          <div className="route-head">
-            <button onClick={() => setView("list")}>← {T("nav.routes")}</button>
-          </div>
           {!route && <p className="muted">{T("nav.needRoute")}</p>}
           {route && (
             <>
@@ -500,7 +501,7 @@ export function PointSheet(p: {
     <aside className="sheet" aria-label={T("nav.points")}>
       <header>
         <h2>{p.index + 1} · {pt.name}</h2>
-        <button onClick={p.onClose}>{T("close")}</button>
+        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
       </header>
       <label className="numfield">
         <span>{T("nav.name")}</span>

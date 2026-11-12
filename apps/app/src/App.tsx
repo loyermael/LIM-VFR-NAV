@@ -126,6 +126,7 @@ export function App() {
   const simSpeedRef = useRef(1);
   simSpeedRef.current = simSpeed;
   const [drawer, setDrawer] = useState(false);
+  const [routeView, setRouteView] = useState<"list" | "detail">("list");
   const [ceiling, setCeiling] = useState<number>(CEILING_FILTER.defaultFL);
   const [prefs, setPrefs] = useState<UnitPrefs>(loadUnitPrefs);
   const [gpsAltRef, setGpsAltRef] = useState<GpsAltitudeRef>(loadGpsAltitudeRef);
@@ -843,11 +844,16 @@ export function App() {
   const T = (k: Key) => t(lang, k);
   const toggleLang = () => setLang(lang === "fr" ? "en" : "fr");
   const toggleTheme = () => setTheme(theme === "day" ? "night" : "day");
+  // La barre du haut défile sur téléphone : l'onglet actif reste toujours dans la vue.
+  useEffect(() => { document.querySelector<HTMLElement>(".toolbar button[aria-pressed='true']")?.scrollIntoView({ inline: "nearest", block: "nearest" }); }, [screen, drawer]);
   const open = (s: Screen) => {
     setScreen(s);
     setTab(0);
     setDrawer(false);
+    if (s === "nav") setRouteView("list");
   };
+  /** « Retour » remonte d'un niveau : du détail d'une route vers la liste, sinon vers la carte. */
+  const goBack = () => { if (screen === "nav" && tab === 0 && routeView === "detail") setRouteView("list"); else open("map"); };
   const soon = (title: Key) => {
     setSoonTitle(title);
     open("soon");
@@ -1007,7 +1013,7 @@ export function App() {
 
   return (
     <div className="app">
-      <nav className="toolbar" aria-label="outils">
+      <nav className="toolbar" aria-label={T("toolbar.aria")}>
         {toolbar.map((b) => (
           <button key={b.label} className={b.sep ? "sep" : undefined} aria-pressed={b.pressed} onClick={b.action}>
             {T(b.label)}
@@ -1044,6 +1050,7 @@ export function App() {
           targetIndex={targetIndex}
           selectedIndex={selectedPoint}
           editMode={editMode}
+          lang={lang}
           fitRequest={fit}
           onMapTap={onMapTap}
           onPointTap={(i) => { setDirectOpen(false); setCellSheet(null); setDetails(null); setSelectedPoint(i); }}
@@ -1135,8 +1142,8 @@ export function App() {
         {mapActive && (
           <>
             <div className="mapctl">
-              <button aria-label="zoom +" onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
-              <button aria-label="zoom −" onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
+              <button aria-label={T("map.zoomIn")} onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
+              <button aria-label={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
               <button aria-pressed={follow} aria-label={T("tb.center")} onClick={() => setFollow(true)}>◎</button>
               <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>
               <button aria-pressed={orientation === "track"} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}>
@@ -1150,7 +1157,7 @@ export function App() {
           <aside className="sheet" aria-label={T("details.title")}>
             <header>
               <h2>{T("details.title")}</h2>
-              <button onClick={() => setDetails(null)}>{T("close")}</button>
+              <button className="btn-inline" aria-label={T("close")} onClick={() => setDetails(null)}>✕</button>
             </header>
             {details.length === 0 ? (
               <p className="muted">{T("details.empty")}</p>
@@ -1295,7 +1302,7 @@ export function App() {
         {screen !== "map" && (
           <section className="screen">
             <header className="screen-head">
-              <button onClick={() => open("map")}>← {T("back")}</button>
+              <button onClick={goBack}>← {T("back")}</button>
               <h2>
                 {screen === "soon" ? T(soonTitle) : T(SCREEN_TITLE[screen] ?? "soon")}
               </h2>
@@ -1495,7 +1502,9 @@ export function App() {
             ) : screen === "nav" && tab <= 1 ? (
               <NavScreen
                 tab={tab}
-                onGoRoutes={() => setTab(0)}
+                onGoRoutes={() => { setTab(0); setRouteView("list"); }}
+                routeView={routeView}
+                onRouteView={setRouteView}
                 aircraftList={ac.list}
                 aircraft={ac.active}
                 loads={ac.loads}
