@@ -31,6 +31,11 @@
   /* Chiffres de vol : une seule couleur pour tous, bleu marine très sombre. Contraste sur --field : 13,1:1 (jour) ; l'encre fait 16,9:1 */
   --data-figure: #0a2a66;
 
+  /* Carte : trace de route (vert vif, liseré sombre) et « direct vers » (magenta). Mêmes valeurs jour et nuit : la carte aéro reste claire. */
+  --route: #22d65f;
+  --route-casing: #04331a;
+  --direct: #c2188c;
+
   --font-display: 'Archivo', 'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif;
   --font-text: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
@@ -45,6 +50,12 @@
   --fs-32: 32px;
   --fs-40: 40px;
   --fs-64: 64px;
+
+  /* Tailles fluides pour les écrans denses (Log, NOTAM) : 4 paliers, jamais de clamp() en dur dans les composants. */
+  --fs-fluid-xs: clamp(11px, 2.9vw, 15px);
+  --fs-fluid-s: clamp(13px, 3.4vw, 18px);
+  --fs-fluid-m: clamp(15px, 4vw, 22px);
+  --fs-fluid-l: clamp(22px, 5.6vw, 32px);
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -62,6 +73,10 @@
   /* Cible cockpit */
   --h-control: 56px;
   --h-strip: 72px;
+  /* Hauteurs de contrôle : 56 = principal (cockpit), 44 = champ ou bouton de saisie (cible tactile minimale), 40 = bouton secondaire compact (jamais en vol) */
+  --h-touch: 44px;
+  --h-compact: 40px;
+  /* Points de rupture (ne peuvent pas être des variables CSS dans @media) : ≤ 600 téléphone, ≥ 900 tablette, ≥ 1100 bureau. Les anciens 480 / 700 sont ramenés à 600. */
   --focus-ring: 3px solid var(--ink);
 
   color-scheme: light;

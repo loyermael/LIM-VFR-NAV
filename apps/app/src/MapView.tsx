@@ -146,9 +146,6 @@ function placeNameAt(m: maplibregl.Map, pt: { x: number; y: number }): string | 
   return best?.name ?? null;
 }
 
-/** Route : vert vif (très visible sur le fond aéro) ; direct vers un point : magenta, pour ne pas les confondre. */
-const ROUTE_GREEN = "#22d65f";
-const DIRECT_MAGENTA = "#c2188c";
 const OACI_PIXEL_RATIO = 4;
 const oaciIcons = new Map<string, ImageData>();
 const oaciReady: Promise<void> = (async () => {
@@ -318,7 +315,7 @@ function navIcons(): Map<string, ImageData> {
 function tokens() {
   const css = getComputedStyle(document.documentElement);
   const v = (n: string) => css.getPropertyValue(n).trim();
-  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand"), good: v("--zone-good"), bad: v("--zone-bad"), warn: v("--zone-warn"), muted: v("--ink-muted"), data: v("--data-figure") };
+  return { paper: v("--paper"), ink: v("--ink"), signal: v("--signal"), hair: v("--hair"), brand: v("--brand"), good: v("--zone-good"), bad: v("--zone-bad"), warn: v("--zone-warn"), muted: v("--ink-muted"), data: v("--data-figure"), route: v("--route"), routeCasing: v("--route-casing"), direct: v("--direct") };
 }
 
 // Style vide : aucune donnée aéronautique en dur, aucun appel réseau. Les fonds de carte (MBTiles, J1 suite) et
@@ -434,12 +431,12 @@ export function MapView(props: MapViewProps) {
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       // Trace de route : vert vif légèrement transparent sur un liseré vert très sombre (contraste sur tous les fonds).
-      m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#04331a", "line-width": 11, "line-opacity": 0.7 } });
-      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ROUTE_GREEN, "line-width": 6, "line-opacity": 0.9 } });
+      m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.routeCasing, "line-width": 11, "line-opacity": 0.7 } });
+      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.route, "line-width": 6, "line-opacity": 0.9 } });
       m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": DIRECT_MAGENTA, "line-width": 4 } });
+      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.direct, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       // les symboles OACI (images PNG de la légende) sont chargés avant le premier dessin des couches
       void oaciReady.then(() => {
@@ -1199,8 +1196,9 @@ export function MapView(props: MapViewProps) {
     const tk = tokens();
     m.setPaintProperty("background", "background-color", tk.paper);
     m.setPaintProperty("vector-line", "line-color", tk.signal);
-    m.setPaintProperty("route-line", "line-color", ROUTE_GREEN);
-    m.setPaintProperty("direct-line", "line-color", DIRECT_MAGENTA);
+    m.setPaintProperty("route-line", "line-color", tk.route);
+    m.setPaintProperty("route-casing", "line-color", tk.routeCasing);
+    m.setPaintProperty("direct-line", "line-color", tk.direct);
     for (const id of addedOverlays.current.keys()) {
       m.setPaintProperty(`ov-${id}-fill`, "fill-color", tk.ink);
       m.setPaintProperty(`ov-${id}-line`, "line-color", tk.ink);
