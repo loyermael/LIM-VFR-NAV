@@ -56,13 +56,13 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "nav.profile"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "wx.notam", "nav.profile"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
 /** Onglets annoncés mais pas encore construits : affichés grisés. */
 const DISABLED_TABS: ReadonlySet<Key> = new Set<Key>(["nav.profile"]);
 const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
-const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds", "wx.notam"];
+const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.documents"];
 
@@ -1456,7 +1456,7 @@ export function App() {
                 };
                 return tab === 0 ? <BriefingTab {...common} /> : tab === 1 ? <MetarTab {...common} /> : tab === 2 ? <TafTab {...common} /> : <SigmetTab {...common} />;
               })()
-            ) : screen === "wx" && tab === 5 ? (
+            ) : screen === "nav" && tab === 2 ? (
               (() => {
                 const startMs = route?.departureMs ?? now;
                 const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, arr) => (i === 0 ? 0 : acc + distance((arr[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;
