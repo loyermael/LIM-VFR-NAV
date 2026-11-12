@@ -85,7 +85,7 @@ export interface MapViewProps {
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
-const ASP_LAYERS = ["asp-ctl", "asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-park-line", "asp-park-dots", "asp-lbl"];
+const ASP_LAYERS = ["asp-ctl", "asp-siv", "asp-sym", "asp-fill", "asp-band", "asp-hatch-pro", "asp-hatch-res", "asp-edge", "asp-dash-rmz", "asp-dash-dot", "asp-dash-minor", "asp-park-line", "asp-park-dots", "asp-siv-line", "asp-lbl"];
 
 /** Motifs de hachures des zones rouges (tuile de 16 px, diagonales sans couture) : réglementée/dangereuse = diagonale, interdite = quadrillage. */
 let hatchCache: Map<string, ImageData> | null = null;
@@ -674,7 +674,7 @@ export function MapView(props: MapViewProps) {
       const big = (...v: string[]) => ["all", sty(...v), ["!=", ["get", "small"], true]]; // les petites zones P/R/D sont figurées par une croix
       const half = (a: number, b: number) => ["interpolate", ["linear"], ["zoom"], 5, a, 12, b] as never;
       const bandColor = ["match", ["get", "sty"], "ca", "#e8506a", "cbd", "#5f82c6", "#a9c5ea"] as never;
-      const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#222222", "#777777"] as never;
+      const edgeColor = ["match", ["get", "sty"], "ca", "#c8183a", "cbd", "#1d46a6", "ce", "#3d68b5", "pro", "#e0202a", "res", "#e0202a", "rtba", "#e0202a", "parz", "#e0202a", "act", "#e0202a", "park", "#e0202a", "fir", "#1b5faa", "#777777"] as never;
       // Fond transparent : sert à retrouver l'espace au double appui.
       m.addLayer({ id: "asp-fill", type: "fill", source: "asp", paint: { "fill-color": "#1d46a6", "fill-opacity": 0 } }, before);
       // Espaces contrôlés : bande colorée à l'intérieur de la limite, puis trait.
@@ -685,8 +685,10 @@ export function MapView(props: MapViewProps) {
       m.addLayer({ id: "asp-edge", type: "line", source: "asp", filter: big("ca", "cbd", "ce", "pro", "res", "act", "fir", "rtba", "parz") as never, layout: { "line-join": "round" }, paint: { "line-color": edgeColor, "line-width": ["match", ["get", "sty"], "rtba", 4.5, "parz", 3, 1.4] as never } }, before);
       // RMZ / TMZ : trait mixte ; ATZ et secteurs SIV : pointillés ; parcs, transits planeur : tirets fins.
       m.addLayer({ id: "asp-dash-rmz", type: "line", source: "asp", filter: sty("rmz") as never, paint: { "line-color": "#1a1a2e", "line-width": 2.2, "line-dasharray": [5, 1.5, 1, 1.5] } }, before);
-      m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("siv", "atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": ["match", ["get", "sty"], "siv", "#2e9a4a", "#1d46a6"] as never, "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
+      m.addLayer({ id: "asp-dash-dot", type: "line", source: "asp", filter: sty("atz") as never, layout: { "line-cap": "round" }, paint: { "line-color": "#1d46a6", "line-width": 3, "line-dasharray": [0.1, 2.2] } }, before);
       m.addLayer({ id: "asp-dash-minor", type: "line", source: "asp", filter: sty("glider", "other") as never, paint: { "line-color": ["match", ["get", "sty"], "park", "#e0202a", "glider", "#2e9a4a", "#777777"] as never, "line-width": 1.1, "line-dasharray": [3, 2.5] } }, before);
+      // Limite de secteur d'information de vol (SIV) : trait épais mauve clair comme sur la carte OACI.
+      m.addLayer({ id: "asp-siv-line", type: "line", source: "asp", filter: big("siv") as never, layout: { "line-join": "round" }, paint: { "line-color": "#b9a2d0", "line-width": ["interpolate", ["linear"], ["zoom"], 5, 1.6, 10, 3.2] } }, before);
       // Grand parc ou réserve naturelle (légende OACI) : trait rouge continu et rangée de points ronds rouges juste en dessous.
       m.addLayer({ id: "asp-park-line", type: "line", source: "asp", filter: big("park") as never, layout: { "line-join": "round" }, paint: { "line-color": "#e8202a", "line-width": 1.6 } }, before);
       m.addLayer({ id: "asp-park-dots", type: "line", source: "asp", filter: big("park") as never, layout: { "line-cap": "round" }, paint: { "line-color": "#e8202a", "line-width": 3.4, "line-offset": 4, "line-dasharray": [0.01, 2.6] } }, before);
@@ -1050,8 +1052,8 @@ export function MapView(props: MapViewProps) {
     // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
     const pt = (k: string[]) => ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", k]]];
     add({ id: "aerob-agglo-dot-low", type: "circle", source: "aerob-agglo", maxzoom: 7.5, filter: pt(["big", "mid"]) as never, paint: { "circle-color": col as never, "circle-radius": 4, "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.8 } });
-    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 1.8, 12, 3.2], "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.9 } });
-    add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
+    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
+    add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
     add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
