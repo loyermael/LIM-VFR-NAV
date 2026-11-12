@@ -71,11 +71,6 @@ export function LogSheet(p: {
         <div><i>FL100</i><b className="mono">{m.winds.fl100}</b></div>
         <button className="btn-inline" disabled={p.windsBusy} onClick={p.onLoadWinds}>{p.windsBusy ? "…" : "↻"}</button>
       </div>
-      <div className="ls-meta">
-        <In k="msa" label="MSA" />
-        <In k="atis" label={T("log.atis")} />
-      </div>
-
       <div className="ls-table">
         <div className="lt-head lt-z"><span>Z vol</span><span>Z min</span></div>
         <div className="lt-head lt-c"><span>Cm</span><span>Rm</span></div>

@@ -656,6 +656,14 @@ export function MapView(props: MapViewProps) {
       el.textContent = String(i + 1);
       el.addEventListener("click", (ev) => {
         ev.stopPropagation(); // sinon la carte comprend un appui « ajouter un point »
+        // Hors tracé, un point posé sur un terrain se comporte comme le terrain : on ouvre son menu (Direct, Infos, VAC, Route).
+        if (!latest.current.editMode) {
+          const sp = m.project([p.position.lon, p.position.lat]);
+          const layers = ["apt-circle", "apt-minor"].filter((l) => m.getLayer(l));
+          const hit = layers.length > 0 ? m.queryRenderedFeatures([[sp.x - 16, sp.y - 16], [sp.x + 16, sp.y + 16]] as [maplibregl.PointLike, maplibregl.PointLike], { layers })[0] : undefined;
+          const id = hit ? String((hit.properties as { id?: unknown } | null)?.id ?? "") : "";
+          if (hit && id) { latest.current.onAirfieldTap({ id, x: sp.x, y: sp.y }); return; }
+        }
         latest.current.onPointTap(i);
       });
       const mk = new maplibregl.Marker({ element: el, draggable: props.editMode })
