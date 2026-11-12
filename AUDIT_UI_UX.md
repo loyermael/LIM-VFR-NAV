@@ -120,3 +120,38 @@ Gravité : **bloquant** / fort / moyen / faible. Effort : faible (< 1 h) / moyen
 8. **UX-14, UX-15, UX-17, UX-18** : échelle fluide, paliers de rupture, mouvement réduit, nettoyage du CSS.
 
 *Si tu ne devais en faire que trois : UX-01 (saisies du Log), UX-02 (suppressions) et UX-03 (débordements).*
+
+---
+
+## 5. Suivi des corrections (12/11/2026)
+
+Statuts : **corrigé**, **partiel**, **reporté** (avec la raison). Règles suivies : DA inchangée, jetons uniquement, pas de nouvelle fonction, de suppression ni de décoration sans ton accord. Vérifications faites après chaque lot : rendu à 320, 360 et 375 px, contrôle des débordements et des cibles, 205 tests, `tsc` propre. Non fait : test clavier complet de chaque écran, test sur appareil réel.
+
+| ID | Statut | Ce qui a été fait / pourquoi le reste attend |
+|---|---|---|
+| UX-01 | **corrigé** | Z min, Hr et le champ d'info des reports font 44 px de haut avec un cadre visible (`--ink-muted`) ; lignes du Log portées de 96 à 128 px pour les loger. Mesuré à 360 px : plus aucune cible < 40 px dans le tableau. |
+| UX-02 | **partiel** | Confirmation ajoutée pour NOTAM, cartes importées, surcouches et données aéro (même bouton que le reste). **Reporté** : points de route (suppression fréquente) : la bonne solution est une annulation de 5 s, donc un nouveau composant « toast » : à valider. |
+| UX-03 | **corrigé** | Cause : colonnes de grille et boutons à `nowrap` qui s'élargissaient. Docs, Avion, Route, Réglages (barre d'onglets) mesurés sans débordement à 320 px. |
+| UX-04 | **partiel** | L'onglet actif de la barre reste toujours visible. **Reporté** : bouton « Plus » (nouvelle fonction) et indicateur de défilement (dégradé exclu par tes règles) : à valider. |
+| UX-05 | **corrigé** | Filets de saisie du Log en `--ink-muted` (8:1) au lieu de `--hair` (2:1). |
+| UX-06 | **partiel** | Valeur périmée à 65 % d'opacité (4,6:1 jour, 6,2:1 nuit). **Reporté** : afficher l'âge de la donnée (nouvelle information). |
+| UX-07 | **reporté** | Supprimer l'onglet « Profil » est une suppression : à valider. |
+| UX-08 | **corrigé** | Bouton « Réessayer » dans le message d'erreur du vent, et relance automatique au retour du réseau. |
+| UX-09 | **partiel** | Le vent automatique utilise maintenant le même interrupteur que Calques (`.tgl`, désormais commun). **Reporté** : pastilles multi-choix (Types d'espaces) et Réglages, gardées car ce sont des filtres et des choix exclusifs : à valider. |
+| UX-10 | **partiel** | Lignes de point compactes (≈ 100 px au lieu de 140) et « Tracer sur la carte » en bouton primaire. **Reporté** : placer « Vent et décollage » avant les points, car tu avais demandé les points en premier. |
+| UX-11 | **corrigé** | « Retour » remonte d'un niveau (détail de route → liste → carte) et la deuxième flèche est supprimée ; toutes les fiches se ferment par ✕. |
+| UX-12 | **corrigé** | Libellé court « Info · Com · Z » et info-bulle (`title`) de définition sur chaque en-tête du Log. Réserve : une info-bulle ne s'affiche pas au tactile. |
+| UX-13 | **corrigé** | Composant `ConfirmButton` unique (7 écrans) : retombe après 4 s ou à l'appui ailleurs, double appui ignoré 0,35 s. |
+| UX-14 | **corrigé** | 4 jetons fluides `--fs-fluid-xs/s/m/l`, plus aucun `clamp()` en dur. |
+| UX-15 | **partiel** | Points de rupture ramenés à 600 / 900 / 1100 (480 et 700 supprimés au profit de 600). **Reporté** : mise en page à deux colonnes sur tablette (nouvelle mise en page). |
+| UX-16 | **partiel** | Libellés des commandes de zoom et de la barre traduits ; points de route atteignables au clavier (`role`, `tabindex`, libellé, Entrée/Espace). **Non traité** : repères de trafic. |
+| UX-17 | **partiel** | La caméra de la carte n'est plus animée si le système demande moins de mouvement. Aucune transition ajoutée (pas d'animation gratuite). |
+| UX-18 | **reporté** | Suppression d'environ 35 classes CSS mortes : à valider (suppression). |
+| UX-19 | **corrigé** | Jetons `--route`, `--route-casing`, `--direct` dans `tokens.css`, lus par la carte. |
+
+### À valider avec toi
+1. **Supprimer l'onglet « Profil »** (UX-07) et **les ~120 lignes de CSS mortes** (UX-18).
+2. **Annulation de 5 s** après suppression d'un point de route (UX-02), au lieu d'une confirmation en deux temps.
+3. **Bouton « Plus »** pour regrouper Docs / Données / Réglages sur téléphone (UX-04).
+4. **Âge de la donnée** affiché sur les chiffres périmés (UX-06).
+5. **Deux colonnes sur tablette** pour Route / Log / NOTAM (UX-15).
