@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeNotams, notamSubject, notamsForFlight, notamsFromApi, parseNotams } from "./notam";
+import { likelyAlternates, mergeNotams, notamSubject, notamsAtAirfield, notamsForFlight, notamsFromApi, parseNotams } from "./notam";
 
 const SAMPLE = `(A1234/26 NOTAMN
 Q) LFFF/QMRLC/IV/NBO/A/000/999/4509N00623E005
@@ -85,5 +85,26 @@ describe("réponse de l'API", () => {
     const j = [{ id: "x", all: "(A9999/26 NOTAMN\nQ) LFFF/QFALC/IV/NBO/A/000/999/4509N00623E005\nA) LFLB B) 2601011200 C) 2601011800\nE) AD CLSD)" }];
     expect(notamsFromApi(j)[0]?.id).toBe("A9999/26");
     expect(() => notamsFromApi({})).toThrow();
+  });
+});
+
+describe("terrains de dégagement et fiche terrain", () => {
+  const af = (icao: string, lat: number, lon: number, paved = true) => ({ id: icao, name: icao, icao, type: 0, position: { lat, lon }, elevation: 0, private: false, frequencies: [], runways: [{ designator: "01", trueHeading: 10, lengthM: 1000, paved }] }) as never;
+  const airfields = [af("LFAA", 45, 2), af("LFBB", 45.5, 2), af("LFCC", 45.6, 2.1), af("LFDD", 45.55, 2.05, false), af("LFEE", 47, 5)];
+  it("choisit les terrains proches de l'arrivée, à piste en dur, hors terrains du vol", () => {
+    const route = [{ position: { lat: 45, lon: 2 } }, { position: { lat: 45.5, lon: 2 } }];
+    expect(likelyAlternates(route, airfields)).toEqual(["LFCC"]);
+  });
+  it("NOTAM de dégagement classés après départ, arrivée et escales", () => {
+    const n = parseNotams("(A0001/26 NOTAMN\nQ) LFFF/QFALC/IV/NBO/A/000/999/4536N00206E005\nA) LFCC B) 2601010000 C) 2612312359\nE) AD CLSD)");
+    const route = [{ position: { lat: 45, lon: 2 } }, { position: { lat: 45.5, lon: 2 } }];
+    const r = notamsForFlight(n, route, airfields, { startMs: Date.UTC(2026, 5, 1), endMs: Date.UTC(2026, 5, 1, 2) });
+    expect(r[0]?.role).toBe("alt");
+  });
+  it("NOTAM d'un terrain, encore en vigueur", () => {
+    const n = parseNotams("(A0002/26 NOTAMN\nQ) LFFF/QMRLC/IV/NBO/A/000/999/4509N00623E005\nA) LFAA B) 2601010000 C) 2601020000\nE) RWY CLSD)");
+    expect(notamsAtAirfield(n, "LFAA", Date.UTC(2026, 0, 1, 12)).length).toBe(1);
+    expect(notamsAtAirfield(n, "LFAA", Date.UTC(2026, 5, 1)).length).toBe(0);
+    expect(notamsAtAirfield(n, null, 0)).toEqual([]);
   });
 });

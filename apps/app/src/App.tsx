@@ -47,7 +47,7 @@ import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { SAME_PLACE_M, SNAP_PIXELS, isInRoute, snapTap, type SnapCandidate } from "./routeSnap";
 import { WindsTab } from "./WxScreen";
 import { NotamTab } from "./NotamTab";
-import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, parseNotams, saveNotams, type NotamSet } from "./notam";
+import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, notamsAtAirfield, parseNotams, saveNotams, type NotamSet } from "./notam";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
 import { fetchWinds, loadWindCache, windKey } from "./windClient";
@@ -1113,6 +1113,8 @@ export function App() {
             metars={metarSet?.items ?? []}
             tafs={tafSet?.items ?? []}
             docs={docs.list}
+            notams={notamsAtAirfield(notamSet?.items ?? [], adInfo.icao, now)}
+            notamReceivedMs={notamSet?.importedAtMs ?? null}
             onDirect={() => { pickAirfield(adInfo); setAdInfo(null); }}
             onOpenDoc={(id) => { setOpenDocId(id); setAdInfo(null); open("docs"); }}
             onClose={() => setAdInfo(null)}

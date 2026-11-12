@@ -17,6 +17,33 @@ import {
 } from "./routeEdit";
 import type { StoredPerf } from "./prefs";
 
+/** Champ numérique compact (sans libellé) pour les tableaux : texte libre, validé à la sortie du champ. */
+export function MiniNum(props: { value: number | null; onCommit: (v: number | null) => void; label: string; decimals?: number; placeholder?: string }) {
+  const decimals = props.decimals ?? 0;
+  const show = (v: number | null) => (v === null ? "" : v.toFixed(decimals));
+  const [text, setText] = useState(show(props.value));
+  useEffect(() => setText(show(props.value)), [props.value, decimals]); // eslint-disable-line react-hooks/exhaustive-deps
+  const commit = () => {
+    const s = text.trim().replace(",", ".");
+    if (s === "") return props.onCommit(null);
+    const v = Number(s);
+    if (Number.isFinite(v)) props.onCommit(v);
+    else setText(show(props.value));
+  };
+  return (
+    <input
+      className="mini mono"
+      inputMode="decimal"
+      aria-label={props.label}
+      value={text}
+      placeholder={props.placeholder}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => e.key === "Enter" && commit()}
+    />
+  );
+}
+
 /** Champ numérique : texte libre, validé à la sortie du champ (jamais de valeur inventée si le texte n'est pas un nombre). */
 export function NumField(props: {
   label: string;
@@ -319,11 +346,11 @@ export function NavScreen(p: NavProps) {
               ))}
 
               <h3>{T("nav.wind")}</h3>
-              <div className="params">
-                <label className="numfield">
-                  <span>{T("nav.dep")}{detected ? ` · ${T("nav.dep.detected")}` : ""}</span>
+              <div className="wd-grid">
+                <label className="wd-field">
+                  <span>{T("nav.dep.short")}{detected ? <em> · {T("nav.dep.badge")}</em> : null}</span>
                   <input
-                    className="field mono"
+                    className="mini mono"
                     type="datetime-local"
                     min={toLocalInput(nowMin)}
                     max={toLocalInput(maxDep)}
@@ -331,43 +358,48 @@ export function NavScreen(p: NavProps) {
                     onChange={(e) => changeDeparture(e.target.value)}
                   />
                 </label>
-                <NumField
-                  label={`${T("nav.aw.alt")} (${altUnit})`}
-                  value={fromSI("altitude", prefs, cruiseM)}
-                  onCommit={(v) => v !== null && v > 0 && setCruise(toSI("altitude", prefs, v))}
-                />
+                <label className="wd-field">
+                  <span>{T("nav.aw.alt.short")} ({altUnit})</span>
+                  <MiniNum label={T("nav.aw.alt")} value={fromSI("altitude", prefs, cruiseM)} onCommit={(v) => v !== null && v > 0 && setCruise(toSI("altitude", prefs, v))} />
+                </label>
               </div>
               {depStale && <p className="error" role="alert">{T("nav.dep.stale")}</p>}
-              <p className={awMsg !== null && awMsg !== T("nav.aw.done") ? "error" : "muted small"} role="status">
+              <p className={awMsg !== null && awMsg !== T("nav.aw.done") ? "error small" : "muted small"} role="status">
                 {!autoOn ? T("nav.aw.manual") : !canAuto ? T("nav.aw.needAircraft") : p.autoWindBusy ? T("nav.aw.busy") : (awMsg ?? "")}
               </p>
-              <details className="perfbox">
+              <details className="windbox">
                 <summary>{T("nav.legwind")}</summary>
-                <button aria-pressed={autoOn} onClick={() => setAuto(!autoOn)}>{T("nav.aw.auto")}</button>
-                <div className="params">
-                  <NumField label={T("nav.wind.dir")} value={route.windDefault?.directionDeg ?? null} suffix="°V" onCommit={(d) => applyDefaultWind(d, windSpeedShown(route.windDefault))} />
-                  <NumField label={`${T("nav.wind.speed")} (${speedUnit})`} value={windSpeedShown(route.windDefault)} onCommit={(sp) => applyDefaultWind(route.windDefault?.directionDeg ?? null, sp)} />
+                <label className="wd-auto">
+                  <input type="checkbox" checked={autoOn} onChange={(e) => setAuto(e.target.checked)} />
+                  <span>{T("nav.aw.auto")}</span>
+                </label>
+                <div className="wind-grid">
+                  <span /><span className="wg-h">{T("nav.wind.dirShort")}</span><span className="wg-h">{T("nav.wind.speedShort")} ({speedUnit})</span><span />
+                  <span className="wg-n">{T("nav.wind.default")}</span>
+                  <MiniNum label={T("nav.wind.dir")} value={route.windDefault?.directionDeg ?? null} onCommit={(d) => applyDefaultWind(d, windSpeedShown(route.windDefault))} />
+                  <MiniNum label={T("nav.wind.speed")} value={windSpeedShown(route.windDefault)} onCommit={(sp) => applyDefaultWind(route.windDefault?.directionDeg ?? null, sp)} />
+                  <span />
+                  {route.points.slice(1).map((pt, k) => {
+                    const own = k in route.windByLeg;
+                    const w = own ? (route.windByLeg[k] ?? null) : route.windDefault;
+                    return (
+                      <div className="wg-row" key={pt.id}>
+                        <span className="wg-n" title={`${route.points[k]?.name ?? ""} → ${pt.name}`}>{T("nav.wind.leg")} {k + 1}</span>
+                        <MiniNum label={`${T("nav.wind.dir")} ${k + 1}`} value={w?.directionDeg ?? null} onCommit={(d) => { setAutoOff(); commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
+                        <MiniNum label={`${T("nav.wind.speed")} ${k + 1}`} value={windSpeedShown(w)} onCommit={(sp) => { setAutoOff(); commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
+                        <button className="btn-inline wg-reset" aria-label={T("nav.legwind.reset")} title={T("nav.legwind.reset")} disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>↺</button>
+                      </div>
+                    );
+                  })}
                 </div>
-                {route.points.slice(1).map((pt, k) => {
-                  const own = k in route.windByLeg;
-                  const w = own ? (route.windByLeg[k] ?? null) : route.windDefault;
-                  return (
-                    <div className="point-row" key={pt.id}>
-                      <b className="mono">{k + 1}</b>
-                      <NumField label="°V" value={w?.directionDeg ?? null} onCommit={(d) => { setAutoOff(); commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
-                      <NumField label={speedUnit} value={windSpeedShown(w)} onCommit={(sp) => { setAutoOff(); commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
-                      <button disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>{T("nav.legwind.reset")}</button>
-                    </div>
-                  );
-                })}
               </details>
 
               <h3>{T("nav.exportTitle")}</h3>
-              <div className="choices">
+              <div className="choices export-row">
                 {(["gpx", "kml", "fpl", "pln"] as RouteFormat[]).map((f) => (
-                  <button key={f} disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</button>
+                  <button key={f} className="btn-inline" disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</button>
                 ))}
-                <button className="brand" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
+                <button className="btn-inline brand" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
               </div>
             </>
           )}

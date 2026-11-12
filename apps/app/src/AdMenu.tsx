@@ -1,3 +1,5 @@
+import { NotamCard } from "./NotamTab";
+import type { Notam } from "./notam";
 import { distance, formatQuantity, latestMetarByStation, latestTafByStation, unitLabel, type Airfield, type LatLon, type Metar, type Taf, type UnitPrefs } from "@lim/core";
 import { airfieldDetails } from "./aeroGeo";
 import { t, type Key, type Lang } from "./i18n";
@@ -61,6 +63,9 @@ export function AdInfo(p: {
   metars: readonly Metar[];
   tafs: readonly Taf[];
   docs: readonly DocRecord[];
+  /** NOTAM en vigueur sur ce terrain (déjà filtrés), et date de réception du dernier jeu de NOTAM (null = aucun reçu). */
+  notams: readonly Notam[];
+  notamReceivedMs: number | null;
   onDirect: () => void;
   onOpenDoc: (id: string) => void;
   onClose: () => void;
@@ -105,8 +110,13 @@ export function AdInfo(p: {
       )}
       {taf && <details className="rawbox"><summary>TAF</summary><pre className="wx-raw">{taf.raw}</pre></details>}
 
-      <h3>NOTAM</h3>
-      <p className="muted small">{T("ad.notamNone")}</p>
+      <h3>NOTAM{p.notams.length > 0 ? ` (${p.notams.length})` : ""}</h3>
+      {p.notams.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
+      {p.notams.length === 0 && (
+        <p className="muted small">
+          {p.notamReceivedMs === null ? T("ad.notamNone") : `${T("notam.noneAd")} (${T("notam.received")} ${new Date(p.notamReceivedMs).toISOString().slice(0, 16).replace("T", " ")}Z)`}
+        </p>
+      )}
 
       <h3>{T("ad.vacTitle")}</h3>
       {docs.length === 0 && <p className="muted small">{T("ad.noVac")}</p>}

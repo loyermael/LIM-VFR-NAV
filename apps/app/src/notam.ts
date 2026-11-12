@@ -127,7 +127,7 @@ export function notamSubject(qcode: string): string {
   return SUBJECTS[k] ?? qcode;
 }
 
-export type NotamRole = "dep" | "arr" | "route" | "other";
+export type NotamRole = "dep" | "arr" | "via" | "alt" | "route" | "other";
 export interface RelevantNotam { readonly notam: Notam; readonly role: NotamRole; readonly during: boolean }
 
 /** Distance (m) d'un point à une route (polyligne échantillonnée tous les 4 km). */
@@ -159,8 +159,24 @@ export function icaoAt(p: LatLon, airfields: readonly Airfield[], maxM = 3000): 
 }
 
 /**
- * NOTAM utiles pour un vol : valides pendant la fenêtre [startMs, endMs] et, soit sur un terrain du vol (départ, arrivée, autres points),
- * soit dont la zone (ligne Q) touche un couloir de 10 NM autour de la route. `during` = vrai si valide pendant le vol.
+ * Terrains de dégagement probables : les plus proches de l'arrivée (jusqu'à 40 NM) puis les plus proches du milieu de la route (jusqu'à 25 NM),
+ * publics et à piste en dur, hors terrains déjà utilisés par le vol. Rend des codes OACI.
+ */
+export function likelyAlternates(route: readonly { position: LatLon }[], airfields: readonly Airfield[], max = 5): string[] {
+  if (route.length === 0) return [];
+  const used = new Set(route.map((p) => icaoAt(p.position, airfields)).filter((x): x is string => x !== null));
+  const ok = (a: Airfield) => !!a.icao && !a.private && !used.has(a.icao) && a.runways.some((r) => r.paved === true);
+  const pick = (centre: LatLon, maxM: number, n: number) =>
+    airfields.filter(ok).map((a) => ({ icao: a.icao!, d: distance(centre, a.position) })).filter((x) => x.d <= maxM).sort((a, b) => a.d - b.d).slice(0, n).map((x) => x.icao);
+  const arrival = route[route.length - 1]!.position;
+  const mid = route[Math.floor((route.length - 1) / 2)]!.position;
+  return [...new Set([...pick(arrival, 40 * 1852, 3), ...pick(mid, 25 * 1852, 2)])].slice(0, max);
+}
+
+/**
+ * NOTAM utiles pour un vol, classés : terrain de départ, d'arrivée, autres points de la route posés sur un terrain, terrains de dégagement
+ * probables, puis dangers sur la route (grue, zone temporaire, drones, parachutage…) dont la zone (ligne Q) touche un couloir de 10 NM.
+ * Seuls les NOTAM valides pendant la fenêtre [startMs, endMs] sont gardés.
  */
 export function notamsForFlight(
   notams: readonly Notam[],
@@ -172,7 +188,8 @@ export function notamsForFlight(
   const pts = route.map((p) => p.position);
   const dep = pts[0] ? icaoAt(pts[0], airfields) : null;
   const arr = pts.length > 1 ? icaoAt(pts[pts.length - 1]!, airfields) : null;
-  const viaIcao = new Set(pts.map((p) => icaoAt(p, airfields)).filter((x): x is string => x !== null));
+  const via = new Set(pts.slice(1, -1).map((p) => icaoAt(p, airfields)).filter((x): x is string => x !== null));
+  const alts = new Set(likelyAlternates(route, airfields));
   const out: RelevantNotam[] = [];
   for (const n of notams) {
     const during = (n.fromMs === null || n.fromMs <= win.endMs) && (n.toMs === null || n.toMs >= win.startMs);
@@ -180,7 +197,8 @@ export function notamsForFlight(
     let role: NotamRole | null = null;
     if (dep && n.locations.includes(dep)) role = "dep";
     else if (arr && n.locations.includes(arr)) role = "arr";
-    else if (n.locations.some((l) => viaIcao.has(l))) role = "route";
+    else if (n.locations.some((l) => via.has(l))) role = "via";
+    else if (n.locations.some((l) => alts.has(l))) role = "alt";
     else if (n.lat !== null && n.lon !== null && pts.length > 0) {
       const radiusM = (n.radiusNm ?? 0) * 1852;
       // zone très étendue (rayon 999 NM = toute la FIR) : on ne la rattache pas à la route par la géométrie
@@ -188,8 +206,14 @@ export function notamsForFlight(
     }
     if (role) out.push({ notam: n, role, during });
   }
-  const order: Record<NotamRole, number> = { dep: 0, arr: 1, route: 2, other: 3 };
-  return out.sort((a, b) => order[a.role] - order[b.role] || a.notam.id.localeCompare(b.notam.id));
+  const order: Record<NotamRole, number> = { dep: 0, arr: 1, via: 2, alt: 3, route: 4, other: 5 };
+  return out.sort((a, b) => order[a.role] - order[b.role] || a.notam.locations.join().localeCompare(b.notam.locations.join()) || a.notam.id.localeCompare(b.notam.id));
+}
+
+/** NOTAM encore en vigueur (ou à venir) sur un terrain, pour sa fiche. */
+export function notamsAtAirfield(notams: readonly Notam[], icao: string | null, nowMs: number): Notam[] {
+  if (!icao) return [];
+  return notams.filter((n) => n.locations.includes(icao) && (n.toMs === null || n.toMs >= nowMs));
 }
 
 // ---- stockage (hors-ligne)

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Airfield } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
-import { notamSubject, notamsForFlight, type Notam, type NotamRole, type NotamSet } from "./notam";
+import { icaoAt, likelyAlternates, notamSubject, notamsForFlight, type Notam, type NotamRole, type NotamSet } from "./notam";
 import type { RouteRecord } from "./routeEdit";
 
 const KEY_STORAGE = "lim.notam.apiKey";
@@ -11,7 +11,32 @@ const ageText = (ms: number, now: number) => {
   return h < 1 ? "< 1 h" : h < 48 ? `${h} h` : `${Math.round(h / 24)} j`;
 };
 
-/** Onglet NOTAM (Météo) : import d'un texte NOTAM, récupération par API avec sa propre clé, liste triée par pertinence pour le vol. */
+/** Carte d'un NOTAM (utilisée dans l'onglet NOTAM et dans la fiche d'un terrain). */
+export function NotamCard({ lang, n, role }: { lang: Lang; n: Notam; role: NotamRole | null }) {
+  const T = (k: Key) => t(lang, k);
+  const roleLabel: Record<NotamRole, Key> = { dep: "notam.role.dep", arr: "notam.role.arr", via: "notam.role.via", alt: "notam.role.alt", route: "notam.role.route", other: "notam.role.other" };
+  return (
+    <div className={`wx-card${role === "dep" || role === "arr" ? " onroute" : ""}`}>
+      <div className="wx-head">
+        <b>{n.id}</b> <span className="muted small">{n.locations.join(" ") || n.fir}</span>
+        {role && <span className="badge">{T(roleLabel[role])}</span>}
+      </div>
+      <div className="small"><b>{notamSubject(n.qcode)}</b></div>
+      <p className="notam-text">{n.text}</p>
+      <div className="muted small">
+        {n.fromMs !== null ? utc(n.fromMs) : "---"} → {n.toMs === null ? T("notam.perm") : utc(n.toMs)}{n.estimated ? " (EST)" : ""}
+        {n.schedule ? ` · ${n.schedule}` : ""}
+        {n.lowerText || n.upperText ? ` · ${n.lowerText || "SFC"} → ${n.upperText || "UNL"}` : ""}
+      </div>
+      <details className="rawbox"><summary>{T("wx.raw")}</summary><pre className="wx-raw">{n.raw}</pre></details>
+    </div>
+  );
+}
+
+/**
+ * Onglet NOTAM (écran Route) : import d'un texte NOTAM, récupération par API avec sa propre clé, puis NOTAM du vol rangés par groupes :
+ * terrain de départ, terrain d'arrivée, autres points posés sur un terrain, dégagements probables, dangers sur la route.
+ */
 export function NotamTab(p: {
   lang: Lang;
   route: RouteRecord | null;
@@ -50,24 +75,18 @@ export function NotamTab(p: {
     setBusy(false);
   };
   const saveKey = (v: string) => { setKey(v); try { localStorage.setItem(KEY_STORAGE, v); } catch { /* stockage bloqué */ } };
-  const roleLabel: Record<NotamRole, Key> = { dep: "notam.role.dep", arr: "notam.role.arr", route: "notam.role.route", other: "notam.role.other" };
 
-  const Card = ({ n, role }: { n: Notam; role: NotamRole | null }) => (
-    <div className={`wx-card${role === "dep" || role === "arr" ? " onroute" : ""}`}>
-      <div className="wx-head">
-        <b>{n.id}</b> <span className="muted small">{n.locations.join(" ") || n.fir}</span>
-        {role && <span className="badge">{T(roleLabel[role])}</span>}
-      </div>
-      <div className="small"><b>{notamSubject(n.qcode)}</b></div>
-      <p className="notam-text">{n.text}</p>
-      <div className="muted small">
-        {n.fromMs !== null ? utc(n.fromMs) : "---"} → {n.toMs === null ? T("notam.perm") : utc(n.toMs)}{n.estimated ? " (EST)" : ""}
-        {n.schedule ? ` · ${n.schedule}` : ""}
-        {n.lowerText || n.upperText ? ` · ${n.lowerText || "SFC"} → ${n.upperText || "UNL"}` : ""}
-      </div>
-      <details className="rawbox"><summary>{T("wx.raw")}</summary><pre className="wx-raw">{n.raw}</pre></details>
-    </div>
-  );
+  const adName = (icao: string | null) => (icao ? (p.airfields.find((x) => x.icao === icao)?.name ?? "") : "");
+  const depIcao = p.route && p.route.points[0] ? icaoAt(p.route.points[0].position, p.airfields) : null;
+  const arrIcao = p.route && p.route.points.length > 1 ? icaoAt(p.route.points[p.route.points.length - 1]!.position, p.airfields) : null;
+  const alternates = useMemo(() => (p.route ? likelyAlternates(p.route.points, p.airfields) : []), [p.route, p.airfields]);
+  const groupDefs: { role: NotamRole; title: Key; hint: string; always: boolean }[] = [
+    { role: "dep", title: "notam.group.dep", hint: depIcao ? `${depIcao} ${adName(depIcao)}`.trim() : "", always: !!depIcao },
+    { role: "arr", title: "notam.group.arr", hint: arrIcao ? `${arrIcao} ${adName(arrIcao)}`.trim() : "", always: !!arrIcao },
+    { role: "via", title: "notam.group.via", hint: "", always: false },
+    { role: "alt", title: "notam.group.alt", hint: alternates.join(", "), always: alternates.length > 0 },
+    { role: "route", title: "notam.group.route", hint: "", always: false },
+  ];
 
   return (
     <div className="navscreen">
@@ -106,9 +125,19 @@ export function NotamTab(p: {
 
       {p.set && p.route && p.route.points.length > 0 && (
         <>
-          <h3>{T("notam.forFlight")} ({relevant.length})</h3>
+          {groupDefs.map((g) => {
+            const list = relevant.filter((r) => r.role === g.role);
+            if (list.length === 0 && !g.always) return null;
+            return (
+              <section key={g.role} className="notam-group">
+                <h3>{T(g.title)} ({list.length})</h3>
+                {g.hint && <p className="muted small">{g.hint}</p>}
+                {list.length === 0 && <p className="muted small">{T("notam.noneAd")}</p>}
+                {list.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
+              </section>
+            );
+          })}
           {relevant.length === 0 && <p className="muted small">{T("notam.noneFlight")}</p>}
-          {relevant.map((r) => <Card key={r.notam.id} n={r.notam} role={r.role} />)}
         </>
       )}
       {p.set && others.length > 0 && (
@@ -116,7 +145,7 @@ export function NotamTab(p: {
           <div className="choices">
             <button onClick={() => setShowAll(!showAll)}>{showAll ? T("notam.hideOthers") : `${T("notam.showOthers")} (${others.length})`}</button>
           </div>
-          {showAll && others.map((n) => <Card key={n.id} n={n} role={null} />)}
+          {showAll && others.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
         </>
       )}
     </div>
