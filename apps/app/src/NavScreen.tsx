@@ -4,7 +4,11 @@ import {
   exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
-import { LegTable, PaperLog } from "./NavLogSheet";
+import { LogSheet, useLogForm } from "./LogSheet";
+import { buildLogModel, vpKey } from "./logModel";
+import { buildLogPdf } from "./logPdf";
+import { windKey } from "./windClient";
+import type { WindForecast } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import {
   removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
@@ -101,6 +105,10 @@ interface NavProps {
   autoWindBusy: boolean;
   /** Heure de décollage détectée (ms), sinon null. */
   takeoffMs: number | null;
+  /** Prévisions de vent déjà reçues (clé = position arrondie) ; chargement de celles des points donnés. */
+  windForecasts: ReadonlyMap<string, WindForecast>;
+  onLoadWinds: (points: LatLon[]) => void;
+  windsBusy: boolean;
 }
 
 const CRUISE_KEY = "lim.cruiseAltM";
@@ -117,6 +125,18 @@ export function NavScreen(p: NavProps) {
   const [view, setView] = useState<"list" | "detail">("list");
   const [cruiseM, setCruiseM] = useState(loadCruise);
   const [awMsg, setAwMsg] = useState<string | null>(null);
+  const logForm = useLogForm(p.route?.id ?? "none");
+  /** Vp modifié sur le log (m/s), par route ; null = vitesse de l'avion. */
+  const [vpOver, setVpOver] = useState<number | null>(null);
+  useEffect(() => {
+    if (!p.route) return setVpOver(null);
+    try { const v = Number(localStorage.getItem(vpKey(p.route.id))); setVpOver(Number.isFinite(v) && v > 0 ? v : null); } catch { setVpOver(null); }
+  }, [p.route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setVp = (mps: number | null) => {
+    setVpOver(mps);
+    if (!p.route) return;
+    try { if (mps === null) localStorage.removeItem(vpKey(p.route.id)); else localStorage.setItem(vpKey(p.route.id), String(mps)); } catch { /* stockage bloqué */ }
+  };
   const { prefs, route } = p;
   const now = () => Date.now();
   const speedUnit = unitLabel("groundSpeed", prefs);
@@ -126,12 +146,29 @@ export function NavScreen(p: NavProps) {
 
   // Les performances viennent de l'avion choisi dans l'écran Avion.
   const ac = p.aircraft;
-  const tas = ac?.tasMps ?? null;
+  const tas = vpOver ?? ac?.tasMps ?? null;
   const flow = ac?.fuelFlowLph ?? null;
   const log = useMemo(() => {
     if (!route || tas === null) return null;
     return computeNavLog(route, { tas: tas as never, fuelFlow: litersPerHour(flow ?? 0) }, toWindPlan(route), p.date, route.departureMs);
   }, [route, tas, flow, p.date]);
+
+  const depPoint = route?.points[0]?.position ?? null;
+  const depForecast = depPoint ? (p.windForecasts.get(windKey(depPoint.lat, depPoint.lon)) ?? null) : null;
+  const logModel = useMemo(() => {
+    if (!route || !log || tas === null || log.legs.length === 0) return null;
+    return buildLogModel({ prefs, route, log, aircraftName: ac ? `${ac.registration ? ac.registration + " " : ""}${ac.name}`.trim() : "", tasMps: tas, fuelFlowLph: flow, airfields: p.airfields, airspaces: p.airspaces, departureForecast: depForecast, nowMs: p.date.getTime() });
+  }, [route, log, tas, flow, prefs, ac, p.airfields, p.airspaces, depForecast, p.date]);
+  const makeLogPdf = async () => {
+    if (!logModel || !route) return;
+    const bytes = await buildLogPdf({ model: logModel, form: logForm.form });
+    const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${route.name.replace(/[\\/:*?"<>|]/g, "_")}-log.pdf`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
 
   const crossed = useMemo(
     () => (route && route.points.length >= 2 && p.airspaces.length > 0 ? airspacesAlongRoute(route, p.airspaces) : []),
@@ -328,18 +365,21 @@ export function NavScreen(p: NavProps) {
               {log.warnings.map((w, i) => (
                 <p className="error" role="alert" key={i}>{w.kind === "wind-too-strong" ? `${T("warn.wind")} ${w.leg + 1}` : T("warn.mag")}</p>
               ))}
-              <div className="log-sum">
-                <div><span>Vp</span><b className="mono">{spd(tas)} {speedUnit}</b></div>
-                <div><span>{T("log.fuelflow")}</span><b className="mono">{flow === null ? "---" : `${formatQuantity("fuel", prefs, flow)} ${fuelUnit}/h`}</b></div>
-                <div><span>{T("log.dist")}</span><b className="mono">{dist(log.totals.distance)} {distUnit}</b></div>
-                <div><span>{T("log.time")}</span><b className="mono">{formatDuration(log.totals.timeWithWind)}</b></div>
-                <div><span>{T("log.fuelTrip")}</span><b className="mono">{fuelTxt(log.totals.fuel)} {flow === null ? "" : fuelUnit}</b></div>
-              </div>
-              <LegTable lang={p.lang} prefs={prefs} route={route} log={log} airfields={p.airfields} airspaces={p.airspaces} activeLeg={p.targetIndex !== null && p.targetIndex >= 1 ? p.targetIndex - 1 : null} />
-              <details className="perfbox">
-                <summary>{T("log.paper")}</summary>
-                {ac && tas !== null && <PaperLog lang={p.lang} prefs={prefs} route={route} log={log} aircraft={ac} tas={tas} flow={flow} now={p.date} />}
-              </details>
+              {logModel && (
+                <LogSheet
+                  lang={p.lang}
+                  routeId={route.id}
+                  model={logModel}
+                  form={logForm.form}
+                  setField={logForm.set}
+                  vpEdited={vpOver !== null}
+                  onVp={(v) => setVp(v === null ? null : toSI("groundSpeed", prefs, v))}
+                  activeLeg={p.targetIndex !== null && p.targetIndex >= 1 ? p.targetIndex - 1 : null}
+                  onLoadWinds={() => depPoint && p.onLoadWinds([depPoint])}
+                  windsBusy={p.windsBusy}
+                  onPdf={() => void makeLogPdf()}
+                />
+              )}
             </>
           )}
 

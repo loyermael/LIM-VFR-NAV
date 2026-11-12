@@ -1436,6 +1436,9 @@ export function App() {
                 onSelectAircraft={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
                 onGoAircraft={() => open("aircraft")}
                 onAutoWind={autoWinds}
+                windForecasts={windForecasts}
+                onLoadWinds={(pts) => void loadWinds(pts)}
+                windsBusy={windBusy}
                 autoWindBusy={autoWindBusy}
                 takeoffMs={recorder.takeoffMs}
                 lang={lang}
