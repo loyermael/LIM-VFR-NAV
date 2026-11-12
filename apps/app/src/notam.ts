@@ -159,18 +159,25 @@ export function icaoAt(p: LatLon, airfields: readonly Airfield[], maxM = 3000): 
 }
 
 /**
- * Terrains de dégagement probables : les plus proches de l'arrivée (jusqu'à 40 NM) puis les plus proches du milieu de la route (jusqu'à 25 NM),
- * publics et à piste en dur, hors terrains déjà utilisés par le vol. Rend des codes OACI.
+ * Terrains de dégagement probables : terrains publics (piste de 500 m ou plus, en dur ou en herbe) hors terrains du vol, choisis
+ * (1) à moins de 12 NM de la route, les plus proches d'abord (les pistes en dur gagnent 3 NM), et (2) parmi les 3 plus proches de l'arrivée (30 NM).
+ * Rend des codes OACI, au plus `max`.
  */
-export function likelyAlternates(route: readonly { position: LatLon }[], airfields: readonly Airfield[], max = 5): string[] {
-  if (route.length === 0) return [];
-  const used = new Set(route.map((p) => icaoAt(p.position, airfields)).filter((x): x is string => x !== null));
-  const ok = (a: Airfield) => !!a.icao && !a.private && !used.has(a.icao) && a.runways.some((r) => r.paved === true);
-  const pick = (centre: LatLon, maxM: number, n: number) =>
-    airfields.filter(ok).map((a) => ({ icao: a.icao!, d: distance(centre, a.position) })).filter((x) => x.d <= maxM).sort((a, b) => a.d - b.d).slice(0, n).map((x) => x.icao);
-  const arrival = route[route.length - 1]!.position;
-  const mid = route[Math.floor((route.length - 1) / 2)]!.position;
-  return [...new Set([...pick(arrival, 40 * 1852, 3), ...pick(mid, 25 * 1852, 2)])].slice(0, max);
+export function likelyAlternates(route: readonly { position: LatLon }[], airfields: readonly Airfield[], max = 6): string[] {
+  const pts = route.map((p) => p.position);
+  if (pts.length === 0) return [];
+  const used = new Set(pts.map((p) => icaoAt(p, airfields)).filter((x): x is string => x !== null));
+  const ok = (a: Airfield) => !!a.icao && !a.private && !used.has(a.icao) && a.runways.some((r) => (r.lengthM ?? 0) >= 500);
+  const paved = (a: Airfield) => a.runways.some((r) => r.paved === true);
+  const cand = airfields.filter(ok);
+  const arrival = pts[pts.length - 1]!;
+  const nearArrival = cand.map((a) => ({ a, d: distance(arrival, a.position) })).filter((x) => x.d <= 30 * 1852).sort((x, y) => x.d - y.d).slice(0, 3).map((x) => x.a.icao!);
+  const nearRoute = cand
+    .map((a) => ({ a, d: distanceToRoute(a.position, pts) - (paved(a) ? 3 * 1852 : 0) }))
+    .filter((x) => x.d <= 12 * 1852)
+    .sort((x, y) => x.d - y.d)
+    .map((x) => x.a.icao!);
+  return [...new Set([...nearArrival, ...nearRoute])].slice(0, max);
 }
 
 /**

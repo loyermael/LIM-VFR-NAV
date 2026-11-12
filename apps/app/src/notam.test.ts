@@ -91,9 +91,14 @@ describe("réponse de l'API", () => {
 describe("terrains de dégagement et fiche terrain", () => {
   const af = (icao: string, lat: number, lon: number, paved = true) => ({ id: icao, name: icao, icao, type: 0, position: { lat, lon }, elevation: 0, private: false, frequencies: [], runways: [{ designator: "01", trueHeading: 10, lengthM: 1000, paved }] }) as never;
   const airfields = [af("LFAA", 45, 2), af("LFBB", 45.5, 2), af("LFCC", 45.6, 2.1), af("LFDD", 45.55, 2.05, false), af("LFEE", 47, 5)];
-  it("choisit les terrains proches de l'arrivée, à piste en dur, hors terrains du vol", () => {
+  it("choisit les terrains proches de l'arrivée ou de la route, en dur ou en herbe, hors terrains du vol", () => {
     const route = [{ position: { lat: 45, lon: 2 } }, { position: { lat: 45.5, lon: 2 } }];
-    expect(likelyAlternates(route, airfields)).toEqual(["LFCC"]);
+    const alts = likelyAlternates(route, airfields);
+    expect(alts).toContain("LFCC");
+    expect(alts).toContain("LFDD"); // piste en herbe, juste à côté de la route
+    expect(alts).not.toContain("LFAA");
+    expect(alts).not.toContain("LFBB");
+    expect(alts).not.toContain("LFEE"); // trop loin
   });
   it("NOTAM de dégagement classés après départ, arrivée et escales", () => {
     const n = parseNotams("(A0001/26 NOTAMN\nQ) LFFF/QFALC/IV/NBO/A/000/999/4536N00206E005\nA) LFCC B) 2601010000 C) 2612312359\nE) AD CLSD)");

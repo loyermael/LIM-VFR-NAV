@@ -80,9 +80,10 @@ export function NotamTab(p: {
   const depIcao = p.route && p.route.points[0] ? icaoAt(p.route.points[0].position, p.airfields) : null;
   const arrIcao = p.route && p.route.points.length > 1 ? icaoAt(p.route.points[p.route.points.length - 1]!.position, p.airfields) : null;
   const alternates = useMemo(() => (p.route ? likelyAlternates(p.route.points, p.airfields) : []), [p.route, p.airfields]);
+  const sameAd = !!depIcao && depIcao === arrIcao;
   const groupDefs: { role: NotamRole; title: Key; hint: string; always: boolean }[] = [
-    { role: "dep", title: "notam.group.dep", hint: depIcao ? `${depIcao} ${adName(depIcao)}`.trim() : "", always: !!depIcao },
-    { role: "arr", title: "notam.group.arr", hint: arrIcao ? `${arrIcao} ${adName(arrIcao)}`.trim() : "", always: !!arrIcao },
+    { role: "dep", title: sameAd ? "notam.group.depArr" : "notam.group.dep", hint: depIcao ? `${depIcao} ${adName(depIcao)}`.trim() : "", always: !!depIcao },
+    ...(sameAd ? [] : [{ role: "arr" as NotamRole, title: "notam.group.arr" as Key, hint: arrIcao ? `${arrIcao} ${adName(arrIcao)}`.trim() : "", always: !!arrIcao }]),
     { role: "via", title: "notam.group.via", hint: "", always: false },
     { role: "alt", title: "notam.group.alt", hint: alternates.join(", "), always: alternates.length > 0 },
     { role: "route", title: "notam.group.route", hint: "", always: false },
