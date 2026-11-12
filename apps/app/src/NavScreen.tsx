@@ -467,52 +467,54 @@ export function DirectSheet(p: {
   );
   const dist = (m: number) => `${formatQuantity("distance", p.prefs, m)} ${unitLabel("distance", p.prefs)}`;
   const pick = (a: Airfield) => { p.onPickAirfield(a); p.onClose(); };
+  const row = (key: string, label: string, side: string | null, pressed: boolean, onClick: () => void) => (
+    <button className="dirrow" key={key} aria-pressed={pressed} onClick={onClick}>
+      <span className="dirname">{label}</span>
+      {side && <span className="dirside mono">{side}</span>}
+    </button>
+  );
+  const afName = (a: Airfield) => `${a.icao ? `${a.icao} · ` : ""}${a.name}`;
+  const hasRoute = !!p.route && p.route.points.length > 0;
   return (
-    <aside className="sheet" aria-label={T("direct.title")}>
+    <aside className="sheet directsheet" aria-label={T("direct.title")}>
       <header>
         <h2>{T("direct.title")}</h2>
-        <button onClick={p.onClose}>{T("close")}</button>
+        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
       </header>
-      {p.route && p.route.points.length > 0 && (
-        <div className="choices">
-          {p.route.points.map((pt, i) => (
-            <button key={pt.id} aria-pressed={p.targetIndex === i} onClick={() => { p.onPick(i); p.onClose(); }}>
-              {i + 1} · {pt.name}
-            </button>
-          ))}
-        </div>
-      )}
-      <h3>{T("direct.airfields")}</h3>
-      {p.airfields.length === 0 && <p className="muted small">{T("direct.needdata")}</p>}
+      <p className="muted small">{T("direct.help")}</p>
       {p.airfields.length > 0 && (
+        <input
+          className="field dirsearch"
+          placeholder={T("direct.search")}
+          aria-label={T("direct.search")}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      )}
+      {query.trim() === "" && hasRoute && (
         <>
-          <input
-            className="field"
-            style={{ textAlign: "left", width: "100%" }}
-            placeholder={T("direct.search")}
-            aria-label={T("direct.search")}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {query.trim() !== "" && results.length === 0 && <p className="muted small">{T("direct.noresults")}</p>}
-          <div className="choices">
-            {results.map((a) => (
-              <button key={a.id} onClick={() => pick(a)}>{a.icao ? `${a.icao} · ` : ""}{a.name}</button>
-            ))}
+          <h3>{T("direct.route")}</h3>
+          <div className="dirlist">
+            {p.route!.points.map((pt, i) => row(pt.id, `${i + 1} · ${pt.name}`, null, p.targetIndex === i, () => { p.onPick(i); p.onClose(); }))}
           </div>
-          {query.trim() === "" && !p.position && <p className="muted small">{T("direct.needgps")}</p>}
-          {query.trim() === "" && p.position && (
-            <div className="choices">
-              {nearby.map((n) => (
-                <button key={n.airfield.id} onClick={() => pick(n.airfield)}>
-                  {n.airfield.icao ? `${n.airfield.icao} · ` : ""}{n.airfield.name} · {dist(n.distance)}
-                </button>
-              ))}
-            </div>
-          )}
         </>
       )}
-      {(!p.route || p.route.points.length === 0) && p.airfields.length === 0 && <p className="muted">{T("direct.none")}</p>}
+      {p.airfields.length === 0 && <p className="muted small">{T("direct.needdata")}</p>}
+      {p.airfields.length > 0 && query.trim() !== "" && (
+        <>
+          <h3>{T("direct.airfields")}</h3>
+          {results.length === 0 && <p className="muted small">{T("direct.noresults")}</p>}
+          <div className="dirlist">{results.map((a) => row(a.id, afName(a), null, false, () => pick(a)))}</div>
+        </>
+      )}
+      {p.airfields.length > 0 && query.trim() === "" && (
+        <>
+          <h3>{T("direct.nearby")}</h3>
+          {!p.position && <p className="muted small">{T("direct.needgps")}</p>}
+          <div className="dirlist">{nearby.map((n) => row(n.airfield.id, afName(n.airfield), dist(n.distance), false, () => pick(n.airfield)))}</div>
+        </>
+      )}
+      {!hasRoute && p.airfields.length === 0 && <p className="muted">{T("direct.none")}</p>}
     </aside>
   );
 }

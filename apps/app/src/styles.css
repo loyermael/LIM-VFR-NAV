@@ -305,3 +305,10 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 /* Calage assisté */
 .assist { border: var(--rule-line); padding: var(--sp-3); margin: var(--sp-3) 0; background: var(--paper); display: grid; gap: var(--sp-2); }
 .assistnow { font-size: var(--fs-20); font-weight: 700; margin: 0; }
+
+/* Fiche « Direct vers… » : champ de recherche pleine largeur, lignes alignées (nom à gauche, distance à droite). */
+.directsheet .dirsearch { width: 100%; text-align: left; margin-top: var(--sp-2); }
+.directsheet .dirlist { display: grid; gap: var(--sp-2); }
+.directsheet .dirrow { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); width: 100%; min-width: 0; padding: 0 var(--sp-3); font-size: var(--fs-16); text-align: left; white-space: normal; line-height: 1.15; }
+.directsheet .dirside { flex: none; font-size: var(--fs-14); }
+.directsheet .dirrow[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--ink); }
