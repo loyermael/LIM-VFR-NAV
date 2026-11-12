@@ -72,11 +72,11 @@ export function LogSheet(p: {
         <button className="btn-inline" disabled={p.windsBusy} onClick={p.onLoadWinds}>{p.windsBusy ? "…" : "↻"}</button>
       </div>
       <div className="ls-table">
-        <div className="lt-head lt-z"><span>Z vol</span><span>Z min</span></div>
-        <div className="lt-head lt-c"><span>Cm</span><span>Rm</span></div>
-        <div className="lt-head lt-d"><span>DSD</span><span>DIST</span><span>DTA</span></div>
-        <div className="lt-head lt-t"><span>TAV</span><span>TSV</span><span>He / Hr</span></div>
-        <div className="lt-head lt-r"><span>Report</span><span className="sub">RNav / Info NAV / Com / Z</span></div>
+        <div className="lt-head lt-z" title={T("log.help.z")}><span>Z vol</span><span>Z min</span></div>
+        <div className="lt-head lt-c" title={T("log.help.c")}><span>Cm</span><span>Rm</span></div>
+        <div className="lt-head lt-d" title={T("log.help.d")}><span>DSD</span><span>DIST</span><span>DTA</span></div>
+        <div className="lt-head lt-t" title={T("log.help.t")}><span>TAV</span><span>TSV</span><span>He / Hr</span></div>
+        <div className="lt-head lt-r" title={T("log.help.r")}><span>Report</span><span className="sub">{T("log.infoShort")}</span></div>
         <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: "2" }}><b>{T("log.start")}</b><span className="mono">{m.departure}</span></div>
         <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: `${2 * m.legs.length + 3}` }}><b>{T("log.endShort")}</b><span className="mono">{m.legs[m.legs.length - 1]?.he ?? ""}</span></div>
         {m.legs.map((l, i) => {

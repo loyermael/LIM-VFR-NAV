@@ -156,6 +156,8 @@ export function NavScreen(p: NavProps) {
   const [view, setView] = useState<"list" | "detail">("list");
   const [cruiseM, setCruiseM] = useState(loadCruise);
   const [awMsg, setAwMsg] = useState<string | null>(null);
+  const [awRetry, setAwRetry] = useState(0);
+  useEffect(() => { const on = () => setAwRetry((n) => n + 1); window.addEventListener("online", on); return () => window.removeEventListener("online", on); }, []);
   const logForm = useLogForm(p.route?.id ?? "none");
   /** Vp modifié sur le log (m/s), par route ; null = vitesse de l'avion. */
   const [vpOver, setVpOver] = useState<number | null>(null);
@@ -250,13 +252,14 @@ export function NavScreen(p: NavProps) {
       void p.onAutoWind(cruiseM, Math.max(route.departureMs ?? Date.now(), Date.now())).then((msg) => { if (!cancelled) setAwMsg(msg ?? T("nav.aw.done")); });
     }, 900);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [canAuto, autoOn, route?.id, posKey, route?.departureMs, cruiseM, ac?.tasMps]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canAuto, autoOn, route?.id, posKey, route?.departureMs, cruiseM, ac?.tasMps, awRetry]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Décollage : date et heure à venir seulement (jamais dans le passé, ni au-delà de l'horizon des prévisions).
   const pad2 = (n: number) => String(n).padStart(2, "0");
   const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
   const nowMin = Math.floor(Date.now() / 60_000) * 60_000;
   const maxDep = nowMin + WIND_HORIZON_H * 3_600_000;
+  const awFailed = awMsg !== null && awMsg !== T("nav.aw.done");
   const depStale = !!route && route.departureMs !== null && route.departureMs < nowMin && !detected;
   const changeDeparture = (v: string) => {
     if (!route) return;
@@ -364,8 +367,9 @@ export function NavScreen(p: NavProps) {
                 </label>
               </div>
               {depStale && <p className="error" role="alert">{T("nav.dep.stale")}</p>}
-              <p className={awMsg !== null && awMsg !== T("nav.aw.done") ? "error small" : "muted small"} role="status">
+              <p className={awFailed ? "error small" : "muted small"} role="status">
                 {!autoOn ? T("nav.aw.manual") : !canAuto ? T("nav.aw.needAircraft") : p.autoWindBusy ? T("nav.aw.busy") : (awMsg ?? "")}
+                {awFailed && autoOn && canAuto && !p.autoWindBusy && <> <button className="btn-inline" onClick={() => setAwRetry((n) => n + 1)}>{T("nav.aw.retry")}</button></>}
               </p>
               <details className="windbox">
                 <summary>{T("nav.legwind")}</summary>
