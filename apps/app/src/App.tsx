@@ -711,10 +711,12 @@ export function App() {
     if (fresh && follow) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: fresh.corners }));
   }, [docCharts, follow]);
   const recorder = useRecorder(fix, fv?.altitudeMsl ?? null);
-  // Dès qu'un décollage est détecté, l'heure détectée remplace l'heure estimée.
+  // Au moment où un décollage est détecté (et seulement alors), l'heure détectée remplace l'heure estimée de la route ; ensuite l'heure reste librement modifiable
+  // (préparation d'un autre vol), et changer de route ne la réécrit pas.
   useEffect(() => {
-    if (recorder.takeoffMs !== null && route && route.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(route, recorder.takeoffMs, Date.now()));
-  }, [recorder.takeoffMs, route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (recorder.takeoffMs === null || Date.now() - recorder.takeoffMs > 12 * 3_600_000) return;
+    if (route && route.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(route, recorder.takeoffMs, Date.now()));
+  }, [recorder.takeoffMs]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
   const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
   const [cdFired, setCdFired] = useState(false);

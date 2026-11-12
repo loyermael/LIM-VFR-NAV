@@ -327,7 +327,6 @@ export function NavScreen(p: NavProps) {
                     type="datetime-local"
                     min={toLocalInput(nowMin)}
                     max={toLocalInput(maxDep)}
-                    disabled={detected}
                     value={route.departureMs === null ? "" : toLocalInput(route.departureMs)}
                     onChange={(e) => changeDeparture(e.target.value)}
                   />
