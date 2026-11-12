@@ -74,33 +74,41 @@ export function LogSheet(p: {
         <In k="atis" label={T("log.atis")} />
       </div>
 
-      <div className="ls-colhead">
-        <div className="lh-legs"><span>Rm<br />Cm</span><span>D</span><span>Tsv<br />Tav</span><span>He<br />Hr</span></div>
-        <div className="lh-reps"><span>REPORTS</span><span className="sub">RNav / Info NAV / Com / Z</span></div>
-      </div>
-
-      <div className="ls-body">
-        <div className="ls-legs">
-          {m.legs.map((l, i) => (
-            <div key={i} className={`ls-leg${p.activeLeg === i ? " active" : ""}${i % 2 ? " alt" : ""}`}>
-              <div className="lc"><i>{l.cm}</i><b>{l.rm}</b></div>
-              <div className="lc"><b>{l.d}</b></div>
-              <div className="lc"><i>{l.tav}</i><b>{l.tsv}</b></div>
-              <div className="lc"><b className="he">{l.he}</b><input className="hr" aria-label="Hr" placeholder="Hr" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></div>
+      <div className="ls-table">
+        <div className="lt-head lt-z"><span>Z vol</span><span>Z min</span></div>
+        <div className="lt-head lt-c"><span>Cm</span><span>Rm</span></div>
+        <div className="lt-head lt-d"><span>DSD</span><span>DIST</span><span>DTA</span></div>
+        <div className="lt-head lt-t"><span>TAV</span><span>TSV</span><span>He / Hr</span></div>
+        <div className="lt-head lt-r"><span>Report</span><span className="sub">RNav / Info NAV / Com / Z</span></div>
+        <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: "2" }}><b>{T("log.start")}</b><span className="mono">{m.departure}</span></div>
+        <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: `${2 * m.legs.length + 3}` }}><b>{T("log.endShort")}</b><span className="mono">{m.legs[m.legs.length - 1]?.he ?? ""}</span></div>
+        {m.legs.map((l, i) => {
+          const row = 2 * i + 3; // ligne de grille de départ (demi-lignes) : 1 = en-tête, les reports commencent à 2
+          const cls = `${i % 2 ? " alt" : ""}${p.activeLeg === i ? " active" : ""}`;
+          return [
+            <div key={`z${i}`} className={`lt-cell lt-z${cls}`} style={{ gridRow: `${row} / span 2` }}>
+              <span className="arrow">{l.trend === "climb" ? "↗" : l.trend === "descent" ? "↘" : "→"}</span>
+              <b>{l.z || "---"}</b>
+              <input className="zmin" aria-label="Z min" placeholder="Z min" inputMode="decimal" value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} />
+            </div>,
+            <div key={`c${i}`} className={`lt-cell lt-c${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.cm}</i><b>{l.rm}</b></div>,
+            <div key={`d${i}`} className={`lt-cell lt-d${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.dsd}</i><b>{l.d}</b><i>{l.dta}</i></div>,
+            <div key={`t${i}`} className={`lt-cell lt-t${cls}`} style={{ gridRow: `${row} / span 2` }}>
+              <i>{l.tav}</i><b>{l.tsv}</b>
+              <span className="he"><em>{l.he}</em><input aria-label="Hr" placeholder="Hr" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></span>
+            </div>,
+          ];
+        })}
+        {m.points.map((pt, j) => {
+          const def = [pt.freq, pt.alt].filter(Boolean).join(" · ");
+          const cls = `${(j + 1) % 2 ? " alt" : ""}${p.activeLeg !== null && p.activeLeg + 1 === j ? " active" : ""}`;
+          return (
+            <div key={`r${j}`} className={`lt-cell lt-r${cls}`} style={{ gridRow: `${2 * j + 2} / span 2` }}>
+              <b>{pt.name}</b>
+              <input aria-label="RNav / Info NAV / Com / Z" value={form[`note${j}`] ?? def} onChange={(e) => setField(`note${j}`, e.target.value)} />
             </div>
-          ))}
-        </div>
-        <div className="ls-reps">
-          {m.points.map((pt, i) => {
-            const def = [pt.freq, pt.alt].filter(Boolean).join(" · ");
-            return (
-              <div key={i} className={`ls-rep${p.activeLeg !== null && p.activeLeg + 1 === i ? " active" : ""}${i % 2 ? " alt" : ""}`}>
-                <b>{pt.name}</b>
-                <input aria-label="RNav / Info NAV / Com / Z" value={form[`note${i}`] ?? def} onChange={(e) => setField(`note${i}`, e.target.value)} />
-              </div>
-            );
-          })}
-        </div>
+          );
+        })}
       </div>
 
       <div className="ls-total">

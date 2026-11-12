@@ -12,6 +12,8 @@ import type { RouteRecord } from "./routeEdit";
 export interface LogPoint { readonly name: string; readonly freq: string; readonly alt: string }
 export interface LogLeg {
   readonly rm: string; readonly cm: string; readonly d: string; readonly tsv: string; readonly tav: string; readonly he: string;
+  /** Altitude du point d'arrivée de la branche, tendance (montée / palier / descente), distance depuis le départ (au début de la branche) et distance restante. */
+  readonly z: string; readonly trend: "climb" | "level" | "descent" | null; readonly dsd: string; readonly dta: string;
 }
 export interface LogModel {
   readonly route: string;
@@ -119,6 +121,10 @@ export function buildLogModel(i: LogModelInput): LogModel {
       tsv: minutesText(l.timeNoWind as number),
       tav: minutesText(l.timeWithWind as number | null),
       he: route.departureMs !== null && l.eta !== null ? hhmm(l.eta) : "",
+      z: alt(l.to.altitude as number | null),
+      trend: l.trend,
+      dsd: dist((l.distanceFromStart as number) - (l.distance as number)),
+      dta: dist(l.distanceRemaining as number),
     })),
     totals: {
       d: dist(log.totals.distance as number), dUnit: unitLabel("distance", prefs),

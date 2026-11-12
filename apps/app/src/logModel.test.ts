@@ -21,7 +21,7 @@ describe("log : facteur de base et durées", () => {
       route: "Test", aircraft: "F-TEST", vp: "130", vpUnit: "km/h", fb: "0.46", fbUnit: "min/km", conso: "12", consoUnit: "L/h",
       winds: { fl20: "270°/10", fl50: "---", fl100: "---" }, departure: "10:20",
       points: [{ name: "LFHV", freq: "118.255", alt: "1000" }, { name: "LFKL", freq: "", alt: "" }],
-      legs: [{ rm: "165", cm: "179", d: "24", tsv: "11'", tav: "11'", he: "10:31" }],
+      legs: [{ rm: "165", cm: "179", d: "24", tsv: "11'", tav: "11'", he: "10:31", z: "1000", trend: "level" as const, dsd: "0", dta: "24" }],
       totals: { d: "24", dUnit: "km", tsv: "11'", tav: "11'", fuel: "2.3" },
     };
     const bytes = await buildLogPdf({ model, form: { atis: "118.255 / QNH 1018", note0: "123.500 - 600" } });
