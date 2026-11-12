@@ -432,3 +432,16 @@ button.row { text-align: left; }
   .toolbar button.sep { margin-left: var(--sp-3); }
   .toolbar button.sep::before { left: calc(-1 * var(--sp-2) - 1px); }
 }
+
+/* Âge de la position quand elle est périmée : écrit en toutes lettres, en plus de l'atténuation des valeurs. */
+.datagrid { position: relative; }
+.staleage { position: absolute; z-index: 2; right: var(--sp-2); top: -22px; padding: 1px var(--sp-2); background: var(--field); border: var(--rule-line); color: var(--zone-warn); font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; }
+
+/* Tablette (900-1099 px) : Route, Log et NOTAM sur deux colonnes ; au-delà (≥ 1100 px) le panneau de route fait 600 px à côté de la carte et reste sur une colonne. */
+.cols { display: grid; gap: var(--sp-3); grid-template-columns: minmax(0, 1fr); }
+.cols > .col { display: grid; gap: var(--sp-3); align-content: start; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) and (max-width: 1099px) {
+  .navscreen { max-width: none; }
+  .cols { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+  .cols.log { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+}

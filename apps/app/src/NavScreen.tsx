@@ -305,7 +305,8 @@ export function NavScreen(p: NavProps) {
         <>
           {!route && <p className="muted">{T("nav.needRoute")}</p>}
           {route && (
-            <>
+            <div className="cols">
+              <div className="col">
               <label className="numfield">
                 <span>{T("nav.name")}</span>
                 <input
@@ -349,6 +350,8 @@ export function NavScreen(p: NavProps) {
                 </div>
               ))}
 
+              </div>
+              <div className="col">
               <h3>{T("nav.wind")}</h3>
               <div className="wd-grid">
                 <label className="wd-field">
@@ -403,7 +406,8 @@ export function NavScreen(p: NavProps) {
                 ))}
                 <button className="btn-inline brand" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
               </div>
-            </>
+              </div>
+            </div>
           )}
         </>
       )}
@@ -416,7 +420,8 @@ export function NavScreen(p: NavProps) {
       )}
 
       {p.tab === 1 && route && (
-        <div className="vfrlog">
+        <div className="vfrlog cols log">
+          <div className="col">
           <h3>{route.name}</h3>
           <div className="log-ac">
             <label className="numfield">
@@ -456,6 +461,8 @@ export function NavScreen(p: NavProps) {
             </>
           )}
 
+          </div>
+          <div className="col">
           <h3>{T("navasp.title")}</h3>
           {!p.hasAero && <p className="muted small">{T("navasp.needData")}</p>}
           {p.hasAero && route.points.length >= 2 && crossed.length === 0 && <p className="muted small">{T("navasp.none")}</p>}
@@ -476,6 +483,7 @@ export function NavScreen(p: NavProps) {
             </div>
           ))}
           {p.hasAero && crossed.length > 0 && <p className="muted small">{T("navasp.legend")}</p>}
+          </div>
         </div>
       )}
     </div>

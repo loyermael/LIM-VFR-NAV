@@ -112,6 +112,8 @@ export function NotamTab(p: {
   return (
     <div className="navscreen">
       <p className="error notam-warn" role="note">{T("notam.warning")}</p>
+      <div className="cols">
+      <div className="col">
 
       {p.set && (
         <p className="muted small">
@@ -169,6 +171,8 @@ export function NotamTab(p: {
           {showAll && others.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
         </>
       )}
+      </div>
+      <div className="col">
       <h3>{T("notam.import")}</h3>
       <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
       <div className="choices">
@@ -191,6 +195,8 @@ export function NotamTab(p: {
       </details>
       {msg && <p className={msg.ok ? "muted small" : "error"} role="status">{msg.text}</p>}
 
+      </div>
+      </div>
     </div>
   );
 }

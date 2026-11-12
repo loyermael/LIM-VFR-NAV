@@ -1667,6 +1667,7 @@ export function App() {
       </div>
 
       <footer className={stale ? "datagrid stale" : "datagrid"}>
+        {stale && fix && <div className="staleage" role="status">{T("gps.age")} {Math.max(0, Math.round((now - fix.timeMs) / 1000))} s</div>}
         {cells.map((c, i) => {
           const body = (
             <>
