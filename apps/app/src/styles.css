@@ -91,6 +91,18 @@ button.cell:active { background: var(--ink); color: var(--on-ink); }
 .drawer h3 { font-family: var(--font-mono); font-size: var(--fs-14); letter-spacing: 0.08em; text-transform: uppercase; border-top: var(--rule-line); padding-top: var(--sp-2); margin: var(--sp-4) 0 var(--sp-2); display: flex; justify-content: space-between; }
 .drawer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-2); }
 .drawer .row { width: 100%; text-align: left; }
+/* Menu Calques : en-tête, fonds en grille, interrupteurs en lignes alignées, types d'espaces en grille de deux colonnes. */
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.drawer-head h2 { margin: 0; }
+.drawer .seg { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
+.drawer .seg button { width: 100%; min-width: 0; padding: 0 var(--sp-2); font-size: var(--fs-16); }
+.drawer .tgls { display: grid; gap: var(--sp-2); }
+.drawer .tgl { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); width: 100%; min-width: 0; padding: 0 var(--sp-3); font-size: var(--fs-16); text-align: left; white-space: normal; }
+.drawer .tgl::after { content: ""; flex: none; width: 24px; height: 24px; border: 2px solid var(--ink); background: var(--field); display: grid; place-items: center; font-family: var(--font-mono); font-size: var(--fs-16); line-height: 1; }
+.drawer .tgl[aria-pressed='true'] { background: var(--field); color: var(--ink); box-shadow: none; border: var(--rule-line); }
+.drawer .tgl[aria-pressed='true']::after { content: "✓"; background: var(--brand); }
+.drawer .tgl:disabled { opacity: 0.45; }
+.drawer .small { margin-top: var(--sp-2); }
 .drawer input[type='range'] { width: 100%; height: var(--h-control); accent-color: var(--ink); }
 
 /* Écrans plein cadre (Nav, Docs, Réglages) avec onglets contextuels en bas */

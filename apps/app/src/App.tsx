@@ -1028,9 +1028,6 @@ export function App() {
                 {orientation === "north" ? "N" : "↑"}
               </button>
             </div>
-            <button className="fab" aria-label={T("layers.title")} aria-pressed={drawer} onClick={() => setDrawer(!drawer)}>
-              ≡
-            </button>
           </>
         )}
 
@@ -1112,61 +1109,61 @@ export function App() {
         )}
 
         {drawer && (
-          <aside className="drawer">
-            <h2>{T("layers.title")}</h2>
+          <aside className="drawer" aria-label={T("layers.title")}>
+            <header className="drawer-head">
+              <h2>{T("layers.title")}</h2>
+              <button className="btn-inline" aria-label={T("close")} onClick={() => setDrawer(false)}>✕</button>
+            </header>
+
             <h3>{T("lay.base")}</h3>
-            <div className="choices" role="group" aria-label={T("lay.base")}>
+            <div className="seg" role="group" aria-label={T("lay.base")}>
               {(["aero", "plan", "ortho", "none"] as const).map((b) => (
-                <button key={b} aria-pressed={basePrefs.base === b} onClick={() => setBasePrefs({ ...basePrefs, base: b })}>{T(`bm.${b}` as Key)}</button>
+                <button key={b} aria-pressed={basePrefs.base === b} onClick={() => setBasePrefs({ ...basePrefs, base: b })}>{T(`bm.${b}s` as Key)}</button>
               ))}
             </div>
-            {charts.length === 0 && <p className="muted small">{T("lay.noBase")}</p>}
             {charts.map((c) => (
-              <button className="row" key={c.id} aria-pressed={c.visible} onClick={() => updateChart(c.id, { visible: !c.visible })}>{c.name} — {c.visible ? T("chart.shown") : T("chart.hidden")}</button>
+              <button className="tgl" key={c.id} aria-pressed={c.visible} onClick={() => updateChart(c.id, { visible: !c.visible })}>{c.name}</button>
             ))}
-            <h3>{T("lay.aero")}</h3>
+
+            <h3>{T("lay.display")}</h3>
             {!aspSet && !aptSet && <p className="muted small">{T("lay.noAero")}</p>}
+            <div className="tgls">
+              {(aspSet || aptSet) && (
+                <>
+                  <button className="tgl" aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
+                  <button className="tgl" aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
+                  <button className="tgl" aria-pressed={showNav} disabled={!navSet} onClick={() => setShowNav(!showNav)}>{T("aero.nav")}</button>
+                </>
+              )}
+              <button className="tgl" aria-pressed={basePrefs.relief} onClick={() => setBasePrefs({ ...basePrefs, relief: !basePrefs.relief })}>{T("lay.relief")}</button>
+              <button className="tgl" aria-pressed={radar !== null} onClick={() => void toggleRadar()}>{T("lay.radar")}</button>
+            </div>
+            {radar && <p className="muted small">{T("wxr.info")} {new Date(radar.time).toISOString().slice(11, 16)}Z</p>}
+            {radarError && <p className="error" role="alert">{T("wxr.error")} — {radarError}</p>}
+
             {(aspSet || aptSet) && (
               <>
-                <div className="choices">
-                  <button aria-pressed={showAsp} onClick={() => setShowAsp(!showAsp)}>{T("aero.airspaces")}</button>
-                  <button aria-pressed={showApt} onClick={() => setShowApt(!showApt)}>{T("aero.airfields")}</button>
-                  <button aria-pressed={showNav} disabled={!navSet} onClick={() => setShowNav(!showNav)}>{T("aero.nav")}</button>
-                </div>
-                <div className="choices">
+                <h3>{T("lay.types")}</h3>
+                <div className="seg">
                   {(["controlled", "restricted", "radio", "activity", "glider", "other"] as const).map((g) => (
                     <button key={g} aria-pressed={visibleGroups.includes(g)} onClick={() => toggleGroup(g)}>
                       {T(`aero.group.${g}` as Key)}
                     </button>
                   ))}
                 </div>
+                <h3>
+                  {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
+                </h3>
+                <input
+                  type="range"
+                  min={CEILING_FILTER.minFL}
+                  max={CEILING_FILTER.maxFL}
+                  step={CEILING_FILTER.stepFL}
+                  value={ceiling}
+                  onChange={(e) => setCeiling(Number(e.target.value))}
+                />
               </>
             )}
-            <h3>
-              {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
-            </h3>
-            <input
-              type="range"
-              min={CEILING_FILTER.minFL}
-              max={CEILING_FILTER.maxFL}
-              step={CEILING_FILTER.stepFL}
-              value={ceiling}
-              onChange={(e) => setCeiling(Number(e.target.value))}
-            />
-            <h3>{T("lay.weather")}</h3>
-            <button className="row" aria-pressed={radar !== null} onClick={() => void toggleRadar()}>{radar ? T("wxr.off") : T("wx.radar")}</button>
-            {radar && (
-              <p className="muted small">
-                {T("wxr.info")} {new Date(radar.time).toISOString().slice(11, 16)}Z · {T("wxr.note")}
-              </p>
-            )}
-            {radarError && <p className="error" role="alert">{T("wxr.error")} — {radarError}</p>}
-            <h3>{T("lay.relief")}</h3>
-            <button className="row" aria-pressed={basePrefs.relief} onClick={() => setBasePrefs({ ...basePrefs, relief: !basePrefs.relief })}>{basePrefs.relief ? T("bm.reliefOn") : T("bm.reliefOff")}</button>
-            <h3>{T("lay.docs")}</h3>
-            <p className="muted small">{T("lay.docsHelp")}</p>
-            <button className="row" onClick={() => open("docs")}>{T("lay.docsOpen")}</button>
-            <button className="row" onClick={() => open("data")}>{T("lay.manage")}</button>
           </aside>
         )}
 
