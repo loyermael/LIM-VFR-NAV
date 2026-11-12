@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  // Sous-dossier d'hébergement (GitHub Pages : /LIM-VFR-NAV/) via VITE_BASE ; "/" par défaut.
+  base: process.env.VITE_BASE ?? "/",
   plugins: [
     react(),
     VitePWA({

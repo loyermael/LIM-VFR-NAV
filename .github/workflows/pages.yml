@@ -1,0 +1,40 @@
+# Publie la PWA sur GitHub Pages (HTTPS) pour l'ouvrir sur la tablette sans PC.
+# Prérequis (une fois) : Settings > Pages > Source = « GitHub Actions ».
+name: Publier la PWA
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ["apps/app/**", "packages/core/**", ".github/workflows/pages.yml"]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w @lim/app
+        env:
+          VITE_BASE: /LIM-VFR-NAV/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/app/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.d.outputs.page_url }}
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
