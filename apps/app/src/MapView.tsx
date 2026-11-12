@@ -940,7 +940,7 @@ export function MapView(props: MapViewProps) {
       const order = ["hamlet", "small", "mid", "big"];
       if (prevKind && order.indexOf(prevKind) >= order.indexOf(kind)) continue; // jamais de rétrogradation : certaines tuiles omettent la capitale
       if (kind === "small" || kind === "hamlet") {
-        agglo.current.set(key, { type: "Feature", properties: { kind }, geometry: { type: "Point", coordinates: [lon, lat] } });
+        agglo.current.set(key, { type: "Feature", properties: { kind, name: String(pr["name:fr"] ?? name) }, geometry: { type: "Point", coordinates: [lon, lat] } });
       } else {
         aggloPlaces.current.set(key, { lon, lat, kind });
         const r = (big ? 3000 : 1500) * (0.85 + 0.3 * ((hash32(name) % 100) / 100));
@@ -1069,9 +1069,15 @@ export function MapView(props: MapViewProps) {
       layout: { "text-field": ["to-string", ["coalesce", ["get", "ele_ft"], ""]], "text-font": font, "text-size": 10, "text-anchor": "left", "text-offset": [0.5, 0], "text-optional": true },
       paint: { "text-color": "#222222", ...halo },
     });
+    // Nom des petites agglomérations : gris clair à côté du point, comme sur la carte OACI.
+    add({
+      id: "aerob-agglo-name", type: "symbol", source: "aerob-agglo", minzoom: 9, filter: ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", ["small", "hamlet"]]]],
+      layout: { "text-field": ["get", "name"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9.5, 13, 12], "text-anchor": "left", "text-offset": [0.9, 0], "text-max-width": 7, "text-padding": 2 },
+      paint: { "text-color": "#8c8c8c", "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
+    });
     const placeSize = (c: number, t: number, v: number) => ["match", ["get", "class"], "city", c, "town", t, v];
     add({
-      id: "aerob-place", type: "symbol", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town", "village"]]],
+      id: "aerob-place", type: "symbol", source: "aerob-v", "source-layer": "place", minzoom: 5, filter: ["in", ["get", "class"], ["literal", ["city", "town"]]],
       layout: {
         "text-field": ["coalesce", ["get", "name:fr"], ["get", "name"]], "text-font": font, "text-size": placeSize(15, 12.5, 11), "text-max-width": 7, "text-allow-overlap": true, // les symboles aéro (placés en premier) ne doivent pas effacer les noms de villes
         "symbol-sort-key": ["match", ["get", "class"], "city", 1, "town", 2, 3],
