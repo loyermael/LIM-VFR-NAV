@@ -17,6 +17,7 @@ export * from "./formats";
 export * from "./airac";
 export * from "./openaip";
 export * from "./airspaceQuery";
+export * from "./airspaceAlert";
 export * from "./weather";
 export * from "./windsAloft";
 export * from "./briefing";

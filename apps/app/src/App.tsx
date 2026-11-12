@@ -14,7 +14,7 @@ import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, navToGeoJSON, air
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
-import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
+import { FormatError, airspaceAhead, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
 import { AdInfo, AdMenu } from "./AdMenu";
@@ -980,6 +980,11 @@ export function App() {
     setOverlays((prev) => prev.filter((o) => o.id !== id));
   };
 
+  /** Espace contrôlé / réglementé que le vecteur vitesse atteint dans les 5 minutes (au-dessus de ~40 kt, hors GPS perdu). */
+  const aspAhead = useMemo(
+    () => (fix && fv && status !== "lost" && (fv.groundSpeed ?? 0) >= 20 ? airspaceAhead(fix.position, fv.trackTrue, fv.groundSpeed as number, fv.altitudeMsl, visibleAirspaces) : null),
+    [fix, fv, status, visibleAirspaces],
+  );
   if (!accepted) {
     return (
       <main className="warning">
@@ -1084,6 +1089,15 @@ export function App() {
   if (gpsError && !fix) candidates.push({ text: T("gps.error"), sev: "caution" });
   if (status === "stale" || status === "poor") candidates.push({ text: T("gps.stale"), sev: "caution" });
   if (dataOld && dataAge) candidates.push({ text: `${T("data.oldBanner")} (${dataAge.ageDays} ${T("data.days")})`, sev: "caution", onClick: () => open("data") });
+  if (aspAhead) {
+    const sec = Math.round(aspAhead.seconds / 5) * 5;
+    const when = sec < 90 ? `${sec} s` : `${Math.round(sec / 60)} min`;
+    const f = aspAhead.airspace.frequencies.find((x) => x.primary) ?? aspAhead.airspace.frequencies[0];
+    candidates.push({
+      text: `${aspAhead.airspace.typeLabel} ${aspAhead.airspace.name} ${T("asp.in")} ${when}${f ? ` · ${f.mhz}` : ""}${aspAhead.vertical === "unknown" ? ` · ${T("asp.levelUnknown")}` : ""}`,
+      sev: aspAhead.seconds <= 120 ? "alert" : "caution",
+    });
+  }
   if (flightHint) candidates.push({ text: T("mode.flightHold"), sev: "caution" });
   if (status === "none") candidates.push({ text: T("gps.waiting"), sev: "info" });
   if (pack.baseUrl && !pack.installed.country) candidates.push({ text: T("dp.choose"), sev: "info", onClick: () => open("data") });

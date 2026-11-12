@@ -5,6 +5,8 @@ import { parseLimit, parseOpenAipAirfields, parseOpenAipAirspaces, groupOfType }
 import {
   airspacesAlongRoute, airspacesAt, limitMeters, nearestAirfields, pointInRings, searchAirfields, verticalStatus,
 } from "./airspaceQuery";
+import { airspaceAhead } from "./airspaceAlert";
+import type { TrueDeg } from "./angles";
 import { feet, feetToMeters, meters, type Meters } from "./units";
 import type { RoutePoint } from "./navlog";
 
@@ -148,6 +150,25 @@ describe("statut vertical", () => {
     expect(limitMeters({ reference: "FL", value: 100 }, null)).toBeCloseTo(3048, 6);
     expect(limitMeters({ reference: "AGL", value: 300 }, null)).toBeNull();
     expect(limitMeters({ reference: "AGL", value: 300 }, meters(100))).toBe(400);
+  });
+});
+
+describe("alerte d'espace devant", () => {
+  const A = parseOpenAipAirspaces([rawAsp({ _id: "A", name: "TMA A" })]).items[0]!; // ±0,2° autour de (46, 2), plein plan
+  const fast = 50; // m/s
+  it("annonce l'entrée à un délai cohérent (cap 0 depuis ~28 km au sud du bord)", () => {
+    // bord sud à 45,8° : depuis 45,55° il reste ~27,8 km ; à 50 m/s => ~556 s > 300 s : rien
+    expect(airspaceAhead({ lat: 45.55, lon: 2 }, 0 as TrueDeg, fast, meters(1000), [A])).toBeNull();
+    const r = airspaceAhead({ lat: 45.7, lon: 2 }, 0 as TrueDeg, fast, meters(1000), [A]); // ~11 km => ~222 s
+    expect(r?.airspace.id).toBe("A");
+    expect(r!.seconds).toBeGreaterThan(200);
+    expect(r!.seconds).toBeLessThan(240);
+  });
+  it("rien si déjà dedans, si on s'éloigne, ou sans vitesse / cap", () => {
+    expect(airspaceAhead({ lat: 46, lon: 2 }, 0 as TrueDeg, fast, meters(1000), [A])).toBeNull();
+    expect(airspaceAhead({ lat: 45.7, lon: 2 }, 180 as TrueDeg, fast, meters(1000), [A])).toBeNull();
+    expect(airspaceAhead({ lat: 45.7, lon: 2 }, null, fast, meters(1000), [A])).toBeNull();
+    expect(airspaceAhead({ lat: 45.7, lon: 2 }, 0 as TrueDeg, null, meters(1000), [A])).toBeNull();
   });
 });
 
