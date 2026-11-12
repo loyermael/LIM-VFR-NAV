@@ -8,7 +8,7 @@ import { LogSheet, useLogForm } from "./LogSheet";
 import { buildAutoFields, buildLogModel, vpKey } from "./logModel";
 import type { FuelPlanParams } from "./aircraftStore";
 import { buildLogPdf } from "./logPdf";
-import { windKey } from "./windClient";
+import { WIND_HORIZON_H, windKey } from "./windClient";
 import type { WindForecast } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import {
@@ -118,7 +118,7 @@ interface NavProps {
 const CRUISE_KEY = "lim.cruiseAltM";
 const loadCruise = (): number => {
   try { const v = Number(localStorage.getItem(CRUISE_KEY)); if (Number.isFinite(v) && v > 0) return v; } catch { /* stockage bloqué */ }
-  return 914; // 3000 ft
+  return 914.4; // 3000 ft
 };
 
 /** Écran Route : routes, points, vent (sous-page 0) et log de navigation (sous-page 1). */
@@ -194,15 +194,48 @@ export function NavScreen(p: NavProps) {
     apply({ directionDeg: (((dir ?? 0) % 360) + 360) % 360, speedMps: toSI("groundSpeed", prefs, speed ?? 0) });
   };
   const edit = (fn: (r: RouteRecord) => RouteRecord) => route && p.onRoute(fn(route));
-  const applyDefaultWind = (dir: number | null, speed: number | null) =>
+  const applyDefaultWind = (dir: number | null, speed: number | null) => {
+    setAutoOff();
     commitWind(dir, speed, (w) => edit((r) => setDefaultWind(r, w, now())));
+  };
+  const setAutoOff = () => setAuto(false);
   const detected = route !== null && p.takeoffMs !== null && route.departureMs === p.takeoffMs;
   const setCruise = (m: number) => { setCruiseM(m); try { localStorage.setItem(CRUISE_KEY, String(m)); } catch { /* stockage bloqué */ } };
-  const runAutoWind = async () => {
+  // Vent automatique : à chaque changement de route, d'heure de décollage, d'altitude ou d'avion, le vent de chaque branche est repris des prévisions.
+  // Toute saisie manuelle du vent coupe l'automatique pour cette route (réactivable dans « Vent par branche »).
+  const [autoOn, setAutoOn] = useState(true);
+  useEffect(() => {
+    if (!p.route) return;
+    try { setAutoOn(localStorage.getItem(`lim.autoWind.${p.route.id}`) !== "off"); } catch { setAutoOn(true); }
+  }, [p.route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setAuto = (on: boolean) => {
+    setAutoOn(on);
+    if (!p.route) return;
+    try { if (on) localStorage.removeItem(`lim.autoWind.${p.route.id}`); else localStorage.setItem(`lim.autoWind.${p.route.id}`, "off"); } catch { /* stockage bloqué */ }
+  };
+  const posKey = route ? route.points.map((pt) => `${pt.position.lat.toFixed(4)},${pt.position.lon.toFixed(4)}`).join("|") : "";
+  const canAuto = !!route && route.points.length >= 2 && ac?.tasMps != null;
+  useEffect(() => {
+    if (!canAuto || !autoOn || !route) return;
+    let cancelled = false;
     setAwMsg(null);
-    const dep = route?.departureMs ?? now();
-    const msg = await p.onAutoWind(cruiseM, dep);
-    setAwMsg(msg ?? T("nav.aw.done"));
+    const timer = setTimeout(() => {
+      void p.onAutoWind(cruiseM, Math.max(route.departureMs ?? Date.now(), Date.now())).then((msg) => { if (!cancelled) setAwMsg(msg ?? T("nav.aw.done")); });
+    }, 900);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [canAuto, autoOn, route?.id, posKey, route?.departureMs, cruiseM, ac?.tasMps]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Décollage : date et heure à venir seulement (jamais dans le passé, ni au-delà de l'horizon des prévisions).
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const toLocalInput = (ms: number) => { const d = new Date(ms); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+  const nowMin = Math.floor(Date.now() / 60_000) * 60_000;
+  const maxDep = nowMin + WIND_HORIZON_H * 3_600_000;
+  const depStale = !!route && route.departureMs !== null && route.departureMs < nowMin && !detected;
+  const changeDeparture = (v: string) => {
+    if (!route) return;
+    const ms = v === "" ? NaN : new Date(v).getTime();
+    if (Number.isNaN(ms)) return edit((r) => setDepartureMs(r, null, now()));
+    edit((r) => setDepartureMs(r, Math.min(maxDep, Math.max(nowMin, ms)), now()));
   };
 
   return (
@@ -291,15 +324,12 @@ export function NavScreen(p: NavProps) {
                   <span>{T("nav.dep")}{detected ? ` · ${T("nav.dep.detected")}` : ""}</span>
                   <input
                     className="field mono"
-                    type="time"
-                    value={route.departureMs === null ? "" : new Date(route.departureMs).toTimeString().slice(0, 5)}
-                    onChange={(e) => {
-                      const [h, m] = e.target.value.split(":").map(Number);
-                      if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) return edit((r) => setDepartureMs(r, null, now()));
-                      const d = new Date();
-                      d.setHours(h, m, 0, 0);
-                      edit((r) => setDepartureMs(r, d.getTime(), now()));
-                    }}
+                    type="datetime-local"
+                    min={toLocalInput(nowMin)}
+                    max={toLocalInput(maxDep)}
+                    disabled={detected}
+                    value={route.departureMs === null ? "" : toLocalInput(route.departureMs)}
+                    onChange={(e) => changeDeparture(e.target.value)}
                   />
                 </label>
                 <NumField
@@ -308,12 +338,13 @@ export function NavScreen(p: NavProps) {
                   onCommit={(v) => v !== null && v > 0 && setCruise(toSI("altitude", prefs, v))}
                 />
               </div>
-              <button className="brand" disabled={route.points.length < 2 || p.autoWindBusy} onClick={() => void runAutoWind()}>
-                {p.autoWindBusy ? T("nav.aw.busy") : T("nav.aw.run")}
-              </button>
-              {awMsg && <p className={awMsg === T("nav.aw.done") ? "muted small" : "error"} role="status">{awMsg}</p>}
+              {depStale && <p className="error" role="alert">{T("nav.dep.stale")}</p>}
+              <p className={awMsg !== null && awMsg !== T("nav.aw.done") ? "error" : "muted small"} role="status">
+                {!autoOn ? T("nav.aw.manual") : !canAuto ? T("nav.aw.needAircraft") : p.autoWindBusy ? T("nav.aw.busy") : (awMsg ?? "")}
+              </p>
               <details className="perfbox">
                 <summary>{T("nav.legwind")}</summary>
+                <button aria-pressed={autoOn} onClick={() => setAuto(!autoOn)}>{T("nav.aw.auto")}</button>
                 <div className="params">
                   <NumField label={T("nav.wind.dir")} value={route.windDefault?.directionDeg ?? null} suffix="°V" onCommit={(d) => applyDefaultWind(d, windSpeedShown(route.windDefault))} />
                   <NumField label={`${T("nav.wind.speed")} (${speedUnit})`} value={windSpeedShown(route.windDefault)} onCommit={(sp) => applyDefaultWind(route.windDefault?.directionDeg ?? null, sp)} />
@@ -324,8 +355,8 @@ export function NavScreen(p: NavProps) {
                   return (
                     <div className="point-row" key={pt.id}>
                       <b className="mono">{k + 1}</b>
-                      <NumField label="°V" value={w?.directionDeg ?? null} onCommit={(d) => commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now())))} />
-                      <NumField label={speedUnit} value={windSpeedShown(w)} onCommit={(sp) => commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now())))} />
+                      <NumField label="°V" value={w?.directionDeg ?? null} onCommit={(d) => { setAutoOff(); commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
+                      <NumField label={speedUnit} value={windSpeedShown(w)} onCommit={(sp) => { setAutoOff(); commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
                       <button disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>{T("nav.legwind.reset")}</button>
                     </div>
                   );

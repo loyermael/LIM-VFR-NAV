@@ -147,7 +147,7 @@ function placeNameAt(m: maplibregl.Map, pt: { x: number; y: number }): string | 
 }
 
 /** Route : vert vif (très visible sur le fond aéro) ; direct vers un point : magenta, pour ne pas les confondre. */
-const ROUTE_GREEN = "#16a34a";
+const ROUTE_GREEN = "#22d65f";
 const DIRECT_MAGENTA = "#c2188c";
 const OACI_PIXEL_RATIO = 4;
 const oaciIcons = new Map<string, ImageData>();
@@ -433,9 +433,9 @@ export function MapView(props: MapViewProps) {
     m.on("load", () => {
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      // Trace de route : large et légèrement transparente, avec un liseré clair sous le trait pour rester lisible sur le fond.
-      m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 11, "line-opacity": 0.45 } });
-      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ROUTE_GREEN, "line-width": 7, "line-opacity": 0.78 } });
+      // Trace de route : vert vif légèrement transparent sur un liseré vert très sombre (contraste sur tous les fonds).
+      m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#04331a", "line-width": 11, "line-opacity": 0.7 } });
+      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ROUTE_GREEN, "line-width": 6, "line-opacity": 0.9 } });
       m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });

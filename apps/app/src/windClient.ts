@@ -17,7 +17,8 @@ const saveWind = (f: WindForecast): Promise<IDBValidKey> =>
   tx("weather", "readwrite", (s) => s.put({ id: windKey(f.lat, f.lon), forecast: f } satisfies WindRecord));
 
 /** Télécharge la prévision de vent (réseau requis), la conserve et la rend. Lève une erreur au message lisible. */
-export async function fetchWinds(lat: number, lon: number, hours = 48): Promise<WindForecast> {
+export const WIND_HORIZON_H = 120; // 5 jours de prévision
+export async function fetchWinds(lat: number, lon: number, hours = WIND_HORIZON_H): Promise<WindForecast> {
   let res: Response;
   try {
     res = await fetch(openMeteoWindUrl(lat, lon, hours), { signal: AbortSignal.timeout(30_000) });
