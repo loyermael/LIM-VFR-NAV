@@ -1,161 +1,212 @@
-# Audit UI / UX — L!M VFR Nav
+# Audit UX « application de navigation VFR » — L!M VFR Nav
 
-Audit en lecture seule : aucun fichier de l'application n'a été modifié (seul ce rapport a été créé).
-Date : 12/11/2026. Version auditée : branche `master`, dernier commit au moment de l'audit.
+Audit en lecture seule : aucun fichier de l'application n'a été modifié. Le rapport de l'audit précédent (CSS, accessibilité générale, contrastes) est conservé dans `AUDIT_UI_UX_GENERAL.md` ; celui-ci le complète sans le répéter.
 
-## Contexte retenu
+Date : 12/11/2026. Référentiel : pratiques courantes de SkyDemon, SDVFR, Enroute Flight Navigation, Air Navigation Pro et XCSoar, **d'après mes connaissances de ces applications, sans les avoir rouvertes pour cet audit**. Quand je cite une application comme référence, c'est pour une fonction que je sais qu'elle propose ; vérifie-la si tu t'en sers comme cahier des charges.
 
-Le gabarit contenait des champs à remplir ; je les ai renseignés d'après notre travail commun. Corrige-moi si un point est faux.
+**Contexte retenu** (le champ « Stack » était vide) : React 19 + Vite 7, MapLibre GL 5, CSS maison (`src/ui/tokens.css`, `src/styles.css`, aucun kit), PWA + coque Capacitor Android, données OACI/SIA/openAIP hors-ligne. Utilisateur : pilote seul, tablette ou téléphone, une main, turbulences, plein soleil, gants.
 
-- **Application** : L!M VFR Nav, aide à la navigation VFR pour pilotes français (carte aéro type OACI, route, log, météo, NOTAM, avion, documents). PWA + coque Capacitor Android.
-- **Utilisateurs** : pilote seul, en préparation (bureau, tablette, téléphone) puis **en vol** (cockpit, turbulences, gants possibles, regard bref, soleil). Expert aéronautique, débutant sur l'application.
-- **Tâches principales** : (1) lire la position et les données de vol sur la carte, (2) préparer une route (points, vent, heure de décollage), (3) consulter le log de navigation en vol, (4) se briefer (météo, NOTAM, terrains), (5) gérer avion / documents / données hors-ligne.
-- **Stack** : React 19, Vite 7, MapLibre GL 5, CSS maison (`src/ui/tokens.css`, `src/styles.css`, 500 lignes), aucun kit de composants.
-- **Ce qui te gêne déjà** (d'après tes retours) : écrans trop chargés, alignements approximatifs, boutons en double, petits textes superflus, cases qui se touchent.
-
-**DA figée** : papier chaud + encre + un jaune de marque, filets noirs, rayon unique de 2 px, ombres « décalées », Archivo condensé / IBM Plex Sans / IBM Plex Mono, cibles cockpit de 56 px. Aucune proposition ci-dessous ne la change.
-
-**Méthode et limites.** Lecture du code (CSS, TSX), calculs de contraste sur les tokens, mesures dans le navigateur intégré à 375 × 812 (débordements, hauteur des cibles) et captures. **Non fait** : test avec lecteur d'écran réel, test sur téléphone ou tablette réels, profilage de performance, build Android. Les points « performance perçue » restent donc partiels.
+**Méthode et limites.** Lecture du code, relevés dans le navigateur intégré (375, 1000 px, thème nuit, simulation de perte GPS), calculs de contraste. **Non fait** : test sur tablette ou téléphone réels, test en vibration ou au soleil, test avec un vrai GPS, test lecteur d'écran. Les scénarios ci-dessous sont déroulés sur le code et sur le simulateur, pas en vol.
 
 ---
 
-## 1. Résumé
+## 1. Résumé : les 5 problèmes qui comptent le plus
 
-1. **Le Log, écran critique en vol, a des zones de saisie minuscules** : 24 cibles de moins de 44 px mesurées à 375 px, dont Hr (15 px) et Z min (16 px), à manipuler en turbulence.
-2. **Suppressions sans confirmation ni annulation** pour les points de route, les NOTAM, les cartes importées et les surcouches, alors que le reste de l'app utilise une confirmation en deux temps. Aucun « annuler » nulle part.
-3. **Débordement horizontal à 375 px** sur Docs et Avion (éléments de 430 px dans 375 px), et un débordement signalé sur Réglages non localisé.
-4. **Barre du haut : 10 boutons de même poids, 6 débordent à droite sur téléphone** (un coupé, cinq masqués) sans indice de défilement ; et un onglet « Profil » grisé en permanence.
-5. **La DA est solide mais contournée** : échelle typographique (96 usages) contredite par 14 `clamp()` ad hoc, 5 hauteurs de contrôle, 5 points de rupture, 3 motifs différents pour un même interrupteur, ~35 classes CSS mortes.
+1. **Aucun mode Vol.** La route reste modifiable en vol : le crayon ✎ est à côté du bouton N, un appui sur la carte ajoute un point, les points se déplacent au doigt (`App.tsx:1189`, `MapView.tsx:474, 674`). En turbulence, un appui parasite modifie la route active. Les dix boutons de préparation restent visibles en vol.
+2. **Aucune alerte d'espace aérien en vol** (ni d'obstacle ni de NOTAM). L'appli affiche les espaces mais ne prévient pas d'une entrée prochaine, alors qu'elle connaît déjà la position, la vitesse et un vecteur à 1, 2 et 5 minutes.
+3. **Le mode nuit n'assombrit pas la carte.** L'interface passe en sombre, mais la carte aéro reste en pleine luminosité (capture faite) : éblouissement au crépuscule, perte de la vision nocturne.
+4. **Les messages de la bannière ne sont pas hiérarchisés par gravité** : un message d'information (VAC, `vacMsg`) passe avant l'alerte « GPS perdu » (`App.tsx:1030-1041`) ; et les données aéro périmées ne sont signalées nulle part sur la carte (`App.tsx:1470`, écran Données seulement).
+5. **Le bandeau de données manque l'essentiel de la nav** : pas d'ETA, pas de destination finale (distance, ETE, ETA), non personnalisable (`App.tsx:1003`). Et retrouver la fréquence du prochain espace passe par un double appui précis (350 ms, 32 px, `MapView.tsx:368`) ou par la lecture des étiquettes de la carte.
 
-**Ce qui fonctionne bien** : tokens centralisés (226 usages d'espacement tokenisé contre 23 en dur), contrastes de texte très bons (≥ 6:1 partout), anneau de focus global de 3 px, cibles principales de 56 px, onglets de 72 px, gestion des encoches (`safe-area`), polices embarquées hors-ligne, `lang` mis à jour au changement de langue, thème nuit mesuré, états vides soignés (Log sans avion, NOTAM, Route).
+**Ce qui marche bien** : recentrage ◎ et bascule N/↑ en un appui avec état visible, vecteur vitesse à 1/2/5 min, bandeau de chiffres lisible (13:1), valeurs remplacées par des tirets sans position, fiche terrain qui va à l'essentiel d'abord, toutes les suppressions confirmées ou annulables, perte GPS signalée sans bloquer l'usage.
 
 ---
 
-## 2. La DA extraite (tokens) et ses incohérences
+## 2. DA extraite, incohérences et conflits avec la sémantique aéro
 
 ### Tokens (source : `src/ui/tokens.css`)
 
 | Famille | Valeurs |
 |---|---|
-| Couleurs jour | `--paper #f3f1ea`, `--paper-2 #eae7dd`, `--field #fbfaf6`, `--ink #15191d`, `--ink-muted #42484d`, `--hair #b8b3a4`, `--brand #ffd700` (texte `--on-brand #15191d`), `--signal #c8321e`, `--zone-good #2f6b3a`, `--zone-warn #7a5200`, `--zone-bad #9a3b2b`, `--data-figure #0a2a66` |
-| Couleurs nuit | `--paper #15191d`, `--paper-2 #1e2429`, `--field #101417`, `--ink #f3f1ea`, `--ink-muted #a9afb3`, `--hair #3a4147`, `--signal #ee6a53`, `--zone-good #8cbf7b`, `--zone-warn #e0b24a`, `--zone-bad #e58c79`, `--data-figure #c7dcff` |
-| Typographie | Titres Archivo variable condensé (`--stretch-display 68 %`), texte IBM Plex Sans 400/500/600, valeurs IBM Plex Mono 500/600. Échelle `--fs-12/14/16/20/24/28/32/40/64` |
+| Couleurs jour | `--paper #f3f1ea`, `--paper-2 #eae7dd`, `--field #fbfaf6`, `--ink #15191d`, `--ink-muted #42484d`, `--hair #b8b3a4`, `--brand #ffd700`, `--signal #c8321e`, `--zone-good #2f6b3a`, `--zone-warn #7a5200`, `--zone-bad #9a3b2b`, `--data-figure #0a2a66`, `--route #22d65f`, `--route-casing #04331a`, `--direct #c2188c` |
+| Couleurs nuit | `--paper #15191d`, `--field #101417`, `--ink #f3f1ea`, `--signal #ee6a53`, `--zone-good #8cbf7b`, `--zone-warn #e0b24a`, `--zone-bad #e58c79`, `--data-figure #c7dcff` (route / direct inchangés) |
+| Typographie | Archivo condensé (titres, boutons), IBM Plex Sans (texte), IBM Plex Mono (valeurs) ; `--fs-12/14/16/20/24/28/32/40/64` + 4 tailles fluides |
 | Espacement | `--sp-1…6` = 4, 8, 12, 16, 24, 32 px |
-| Rayon / filets | `--r 2px` (9 usages), `--rule-heavy 3px`, `--rule-line 1px`, `--rule-hair 1px` |
-| Ombre | `--shadow-pop` (contour + décalage 4 px, plein) |
-| Tailles de cible | `--h-control 56px`, `--h-strip 72px`, `--focus-ring 3px solid ink` |
-| Animation | Aucune (`transition` / `animation` : 0 occurrence dans le CSS) |
-| Points de rupture | `max 480`, `max 600`, `max 700`, `min 900`, `min 1100` (non tokenisés) |
+| Rayon, filets, ombre | `--r 2px`, filets 3 px / 1 px, `--shadow-pop` (décalage plein) |
+| Hauteurs | `--h-control 56`, `--h-touch 44`, `--h-compact 40`, `--h-strip 72` |
+| Mouvement | aucune transition CSS ; caméra de la carte 250-900 ms (0 si mouvement réduit) |
 
-### Contrastes mesurés (WCAG AA : 4,5:1 texte, 3:1 composants)
+Incohérences : voir `AUDIT_UI_UX_GENERAL.md` §2 (corrigées pour la plupart). Reste : couleurs de la carte OACI (orange `#f8a000`, jaune `#fff200`, bleu, rouge) définies dans le code de la carte, hors tokens, par fidélité à la légende.
 
-| Paire | Jour | Nuit |
+### Conflits avec la sémantique aéro (signalés, non corrigés)
+
+- **Magenta = route active** est la convention des applis de nav. Ici la route est **verte** (`--route`) et le **magenta** est le « direct vers » (`--direct`). Choix assumé de ta part pour la lisibilité ; à garder en tête pour un pilote habitué à SkyDemon ou Garmin.
+- **Rouge** : `--signal` sert à la fois à l'avion (`styles.css:44`, `.plane svg`) et aux alertes, alors que la carte OACI emploie du rouge pour les zones réglementées. L'avion rouge se confond avec les hachures rouges d'une zone R/D.
+- **Jaune de marque** (`--brand`) porte trois sens à la fois : bouton sélectionné (`button[aria-pressed]`), action principale (`.brand`) et bandeau d'information « prudence » (`.banner:not(.alert)`). Dans la sémantique aéro, jaune/orange = prudence.
+- **Vert** : `--zone-good` (OK) et la route (`--route`) sont deux verts différents pour deux sens ; la route verte sur zone rouge hachurée est le cas le plus fragile pour un deutéranope (atténué par le liseré sombre).
+- **Orange** : absent de l'interface (la carte l'utilise pour les villes). Aucun niveau « prudence » distinct entre le jaune de marque et le rouge d'alerte.
+
+---
+
+## 3. Grille de conformité (A à J)
+
+Statuts : **conforme** / **partiel** / **absent** / *non vérifié*.
+
+### A. La carte d'abord
+
+| Point | Statut | Constat et emplacement |
 |---|---|---|
-| ink / field | 16,9 | 16,4 |
-| ink-muted / field | 8,9 | 8,4 |
-| ink-muted / paper-2 (lignes alternées) | 7,5 | 7,1 |
-| on-brand / brand | 12,6 | 12,6 |
-| on-signal / signal | 4,7 | 5,7 |
-| zone-good / warn / bad sur field | 6,1 / 6,6 / 6,6 | 8,7 / 9,4 / 7,4 |
-| data-figure / field | 13,1 | 13,3 |
-| **hair / field** (filets d'entrée de champ) | **2,0** | **1,8** |
-| **valeur « périmée » (opacité .45)** | **2,7** | — |
-| contrôle désactivé (opacité .45) | 2,9 | — |
+| Carte visible en permanence | **partiel** | ≥ 1100 px : panneau de 600 px à côté de la carte (`styles.css` ~l.174). En dessous (téléphone, tablette portrait), chaque écran est **plein cadre** (`.screen {inset: 0}`, `styles.css:108`), avec « ← Retour » en un appui. Les fiches couvrent jusqu'à 70 % de la hauteur (`.sheet`, `styles.css:62`). |
+| Rien ne masque l'avion | **partiel** | Un appui sur un terrain coupe le suivi (`App.tsx:451`) ; une fiche à 70 % peut cacher la position. |
+| Overlays ordonnés alertes > prudence > info | **partiel** | Une seule bannière à la fois, avec une chaîne de priorité (`App.tsx:1030-1041`), mais mal ordonnée : un message VAC (info) précède « GPS perdu » (alerte). |
+| Recentrage clair | **conforme** | Bouton ◎ en bas à gauche, jaune quand le suivi est actif ; un déplacement à la main coupe le suivi (`onUserMove`, `App.tsx:1074`) ; un appui recentre. |
+| Nord / route en haut | **conforme** | Bouton N ↔ ↑ à côté (`App.tsx:1190`). |
+| Vecteur vitesse avec repères de temps | **conforme** | Points à 1, 2 et 5 minutes (`SPEED_VECTOR_MINUTES`, `config.ts:19`). |
 
-### Incohérences relevées
+### B. Séparation prépa / vol
 
-- **Deux verts, deux jaunes** : la trace de route `#22d65f` et le « direct » `#c2188c` sont en dur dans `MapView.tsx:150-151`, hors tokens ; `--zone-good` (#2f6b3a) est un autre vert. Le jaune de marque `#ffd700` côtoie le jaune OACI des agglomérations `#fff200` : une ligne active du Log (jaune marque) peut se confondre visuellement avec la carte.
-- **Cinq hauteurs de contrôle** : 56 (`--h-control`), 48 (`.pt-actions`, `.pt-del` en largeur), 44 (`input.mini`, `styles.css:487`), 40 (`.btn-inline`, `:61`, `.wg-reset`), et des champs sans hauteur (voir UX-01).
-- **Échelle typographique contournée** : 96 tailles via `--fs-*`, mais 14 `clamp()` dans le Log et les NOTAM (`styles.css` ~l.420-480) et 3 valeurs en `px`.
-- **Cinq points de rupture** différents, aucun pour la tablette (768-1024 px).
-- **Trois visuels pour « activer / désactiver »** : lignes à case cochée (`.tgl`, menu Calques), pastilles jaunes `aria-pressed` (Types d'espaces, Réglages), case native (vent automatique, `NavScreen.tsx`).
-- **Quatre façons de fermer ou revenir** : « Fermer » (fiche des détails), ✕ (Calques, Direct), « ← Retour » (écrans), et « ← Mes routes » empilé sous « ← Retour » dans le détail d'une route.
-- **CSS mort** : ~35 classes jamais utilisées (`.paperlog`, `.pl-*`, `.legtable`, `.lg-*`, `.vfrtable`, `.ls-leg`, `.ls-rep`, `.c-*`, `.fab`, `.log-*`…), restes des anciennes versions du Log, soit ~120 lignes.
-
----
-
-## 3. Problèmes
-
-Gravité : **bloquant** / fort / moyen / faible. Effort : faible (< 1 h) / moyen (demi-journée) / fort.
-
-| ID | Écran / composant | Problème constaté (emplacement) | Impact utilisateur | Gravité | Effort | Solution proposée (dans la DA) |
-|---|---|---|---|---|---|---|
-| UX-01 | **Log** (`LogSheet.tsx`, `styles.css:458-461`) | Les champs **Z min** et **Hr** sont des `<input>` de 15-16 px de haut avec un simple filet pointillé ; le champ des notes est à 14 px. 24 cibles < 44 px mesurées à 375 px. | En vol (turbulence, gants) : saisies ratées sur le seul écran qu'on consulte pendant le vol. Le filet pointillé n'est pas non plus perçu comme un champ (voir UX-05). | **Fort** | Moyen | Faire de la cellule entière la zone tactile (hauteur ≥ 44 px) : Hr en bas de la cellule T sur toute sa largeur, Z min idem ; filet plein `--ink-muted`. Garder la police mono bleue actuelle. |
-| UX-02 | **corrigé** | Confirmation en deux temps pour NOTAM, cartes importées, surcouches et données aéro (même bouton que le reste). Suppression d'un point de route : exécutée tout de suite, avec un bandeau « Point supprimé · Annuler » pendant 6 s qui restaure la route. |
-| UX-03 | **Docs** (`DocsScreen.tsx`) et **Avion** (`AircraftScreens.tsx`) | À 375 px, `LABEL.filebtn`, `.choices` et les lignes de document mesurent **430 px** dans un écran de 375 px ; dans Avion, le libellé « — à compléter (3) » dépasse. Réglages signale aussi `scrollWidth > clientWidth` (élément non isolé). | Éléments coupés, défilement horizontal parasite ; sur Docs la liste est en partie hors écran. | **Fort** | Faible | `min-width: 0` sur les enfants de grille/flex, `flex-wrap` sur `.choices`, `overflow-wrap: anywhere` sur les noms ; `white-space: normal` sur `.filebtn`. Retester les trois écrans à 320 et 375 px. |
-| UX-04 | **corrigé** | Sur téléphone (≤ 600 px), un bouton « Plus » regroupe Avion, Météo, Vol, Docs, Données et Réglages ; la barre ne garde que Direct, Calques, Route et Plus, et tient dans 375 px sans défilement. **Écart par rapport à ta validation** : j'y ai aussi mis Avion, Météo et Vol, car avec seulement Docs / Données / Réglages la barre débordait encore (706 px) et « Plus » restait hors écran. L'onglet actif de la barre reste visible. |
-| UX-05 | **Champs à filet pointillé** (`styles.css:422, 458, 461`, `.zmin`, `.he input`) | Les champs n'ont pour bordure que `--hair` : **2,0:1** (jour) / **1,8:1** (nuit), sous le seuil de 3:1 pour les limites de composants (WCAG 1.4.11). | Le champ n'apparaît pas comme saisissable, surtout au soleil. | Moyen | Faible | Remplacer `--hair` par `--ink-muted` (8:1) sur les filets de champs. Garder `--hair` pour les séparateurs décoratifs. |
-| UX-06 | **corrigé** | Valeur périmée à 65 % d'opacité (4,6:1 jour, 6,2:1 nuit) et mention « Position vieille de N s » au-dessus de la bande de données quand la position est périmée. |
-| UX-07 | **corrigé** | Onglet « Profil » retiré (Route, Log, NOTAM). |
-| UX-08 | **Vent automatique** (`NavScreen.tsx:248-250, 366-370`) | Depuis la suppression du bouton, un échec réseau affiche un message rouge **sans action** : seul un changement de route / d'heure / d'altitude relance la requête. | Utilisateur bloqué sur un message d'erreur, sans moyen évident de réessayer. | Moyen | Faible | Bouton « Réessayer » en ligne dans le message d'erreur, et relance automatique au retour du réseau (`online`). |
-| UX-09 | **Interrupteurs** (`styles.css:100-104`, `NavScreen.tsx`, Réglages) | Même action (activer/désactiver) = 3 visuels : ligne à case cochée (Calques), pastille jaune (Types d'espaces, Réglages), case native (vent automatique). | Il faut réapprendre la lecture de l'état à chaque écran. | Moyen | Moyen | Un seul composant `Toggle` (le motif ligne + case de Calques) pour oui/non ; la pastille jaune réservée aux choix exclusifs (fonds, unités). |
-| UX-10 | **Route, détail** (`NavScreen.tsx`) | Chaque point occupe une carte de 3 lignes (~140 px) ; avec 8 points il faut ~1100 px de défilement avant « Vent et décollage » et l'export. Pas d'action primaire nette (« Tracer sur la carte » n'est qu'un bouton parmi trois). | Parcours long pour la tâche la plus fréquente de préparation (régler l'heure et le vent) ; hiérarchie plate. | Moyen | Moyen | Ligne de point compacte (n° + nom + altitude sur une ligne, déplacements dans un menu), « Vent et décollage » placé avant la liste de points ; « Tracer sur la carte » en bouton marque. |
-| UX-11 | **Navigation retour** (Route détail, fiches) | Deux flèches de retour empilées (« ← Retour » de l'écran et « ← Mes routes ») ; fiches : « Fermer » (texte) ou ✕ selon l'écran. | Doute sur l'effet de chaque bouton ; bruit visuel (déjà relevé par toi). | Moyen | Faible | Écrans : une seule flèche (le retour de la route mène à la liste) ; fiches/feuilles : toujours ✕ à droite de 44 px. |
-| UX-12 | **Log, en-têtes** (`styles.css:446`) | L'en-tête « RNav / Info NAV / Com / Z » est coupé (3 lignes dans 44 px) à 375 px ; mêmes sigles (Cm, DSD, TAV…) non traduits en anglais. | Libellé tronqué ; sigles sans aide pour un débutant. | Faible | Faible | Libellé court « Info · Com · Z » ; `title`/info-bulle de définition sur chaque sigle. |
-| UX-13 | **Confirmation en deux temps** (`NavScreen.tsx:280`, `AircraftScreens.tsx:254`, `DocsScreen.tsx:282`…) | Le bouton « Confirmer » apparaît **à la place exacte** du bouton ✕ ; l'état armé ne retombe jamais (ni délai, ni clic ailleurs). | Double-appui = suppression ; confirmation oubliée active plus tard. | Moyen | Faible | Retomber à l'état normal après 4 s ou au premier autre appui ; décaler le bouton « Confirmer » (largeur pleine sous la ligne). |
-| UX-14 | **Typographie** (`styles.css` l.420-480, 14 `clamp()`) | Tailles fluides ad hoc (ex. `clamp(22px, 5.6vw, 32px)`, `clamp(13px, 3.4vw, 18px)`) en dehors de l'échelle `--fs-*`. | Incohérence visuelle entre écrans, difficile à ajuster d'un coup. | Faible | Faible | Ajouter 4 jetons fluides dans `tokens.css` (`--fs-fluid-s/m/l/xl`) et les utiliser. |
-| UX-15 | **corrigé** | Points de rupture ramenés à 600 / 900 / 1100 ; Route (détail), Log et NOTAM passent sur deux colonnes entre 900 et 1099 px (au-delà, le panneau de route de 600 px à côté de la carte reste en une colonne). |
-| UX-16 | **Accessibilité des noms** (`App.tsx:1137-1138`, `:1009`) | `aria-label="zoom +"`, `"zoom −"` et `aria-label="outils"` en minuscules/anglais dans une UI française ; marqueurs de la carte (`MapView.tsx:654-660`, `div.wp`) cliquables mais non focalisables. | Lecture d'écran incohérente ; points de route inaccessibles au clavier (atténué par la liste de points de l'écran Route). | Faible | Faible | Libellés issus du dictionnaire i18n ; `role="button"` + `tabindex="0"` + `aria-label="Point 2 : LFLM"` sur les marqueurs. |
-| UX-17 | **Mouvement** (`MapView.tsx:641, 689, 695, 1190, 1254`) | Caméra animée (250-900 ms) sans test de `prefers-reduced-motion` ; en revanche **aucune** animation d'interface (retour visuel = inversion `:active` seule). | Gêne vestibulaire pour une minorité ; interface sans transition de confirmation. | Faible | Faible | Durée 0 si `prefers-reduced-motion: reduce` ; ajouter 120 ms de transition de fond sur les interrupteurs (supprimée si mouvement réduit). |
-| UX-18 | **corrigé** | 111 règles CSS mortes retirées (519 → 421 lignes), après vérification des classes construites dynamiquement (`adpos`, `cat-`, `gps-`, `lvl`). |
-| UX-19 | **Couleurs hors tokens** (`MapView.tsx:150-151`) | Vert de route et magenta du « direct » en dur ; aucun jeton, aucune variante nuit. | Dérive de couleur au prochain réglage ; pas de contrôle de contraste. | Faible | Faible | Jetons `--route` et `--direct` dans `tokens.css` lus par `tokens()`. |
-
-### Points vérifiés sans problème
-- **Hiérarchie de l'écran carte** : la carte occupe l'espace, le bandeau de données est stable, un seul bouton de centrage ; l'action primaire (position + route) se voit.
-- **États** : vide / partiel / erreur gérés sur Log (sans avion), NOTAM (structure toujours affichée), Données (« choisis ton pays »), GPS (attente, périmé, perdu).
-- **Cibles principales** : boutons ≥ 56 px, onglets 72 px, commandes de carte 56 px.
-- **Écran d'avertissement à chaque lancement** : un appui de plus, volontaire (sécurité), bouton primaire bien visible : à conserver.
-
----
-
-## 4. Ordre de traitement recommandé (impact / effort)
-
-1. **UX-05, UX-06, UX-07, UX-12** (1 h au total) : contrastes, onglet mort, libellé tronqué.
-2. **UX-03** : débordements Docs/Avion/Réglages (rapide et visible).
-3. **UX-02 et UX-13** : cohérence des suppressions, confirmations plus sûres, annulation des points.
-4. **UX-08** : bouton « Réessayer » pour le vent automatique (régression récente).
-5. **UX-11, UX-16, UX-19** : retours, noms accessibles, jetons de couleur.
-6. **UX-01** : agrandir les saisies du Log (le plus important en vol, un peu plus de travail de mise en page).
-7. **UX-04, UX-09, UX-10** : barre du haut, composant d'interrupteur, ligne de point compacte.
-8. **UX-14, UX-15, UX-17, UX-18** : échelle fluide, paliers de rupture, mouvement réduit, nettoyage du CSS.
-
-*Si tu ne devais en faire que trois : UX-01 (saisies du Log), UX-02 (suppressions) et UX-03 (débordements).*
-
----
-
-## 5. Suivi des corrections (12/11/2026)
-
-Statuts : **corrigé**, **partiel**, **reporté** (avec la raison). Règles suivies : DA inchangée, jetons uniquement, pas de nouvelle fonction, de suppression ni de décoration sans ton accord. Vérifications faites après chaque lot : rendu à 320, 360 et 375 px, contrôle des débordements et des cibles, 205 tests, `tsc` propre. Non fait : test clavier complet de chaque écran, test sur appareil réel.
-
-| ID | Statut | Ce qui a été fait / pourquoi le reste attend |
+| Point | Statut | Constat et emplacement |
 |---|---|---|
-| UX-01 | **corrigé** | Z min, Hr et le champ d'info des reports font 44 px de haut avec un cadre visible (`--ink-muted`) ; lignes du Log portées de 96 à 128 px pour les loger. Mesuré à 360 px : plus aucune cible < 40 px dans le tableau. |
-| UX-02 | **partiel** | Confirmation ajoutée pour NOTAM, cartes importées, surcouches et données aéro (même bouton que le reste). **Reporté** : points de route (suppression fréquente) : la bonne solution est une annulation de 5 s, donc un nouveau composant « toast » : à valider. |
-| UX-03 | **corrigé** | Cause : colonnes de grille et boutons à `nowrap` qui s'élargissaient. Docs, Avion, Route, Réglages (barre d'onglets) mesurés sans débordement à 320 px. |
-| UX-04 | **partiel** | L'onglet actif de la barre reste toujours visible. **Reporté** : bouton « Plus » (nouvelle fonction) et indicateur de défilement (dégradé exclu par tes règles) : à valider. |
-| UX-05 | **corrigé** | Filets de saisie du Log en `--ink-muted` (8:1) au lieu de `--hair` (2:1). |
-| UX-06 | **partiel** | Valeur périmée à 65 % d'opacité (4,6:1 jour, 6,2:1 nuit). **Reporté** : afficher l'âge de la donnée (nouvelle information). |
-| UX-07 | **reporté** | Supprimer l'onglet « Profil » est une suppression : à valider. |
-| UX-08 | **corrigé** | Bouton « Réessayer » dans le message d'erreur du vent, et relance automatique au retour du réseau. |
-| UX-09 | **partiel** | Le vent automatique utilise maintenant le même interrupteur que Calques (`.tgl`, désormais commun). **Reporté** : pastilles multi-choix (Types d'espaces) et Réglages, gardées car ce sont des filtres et des choix exclusifs : à valider. |
-| UX-10 | **partiel** | Lignes de point compactes (≈ 100 px au lieu de 140) et « Tracer sur la carte » en bouton primaire. **Reporté** : placer « Vent et décollage » avant les points, car tu avais demandé les points en premier. |
-| UX-11 | **corrigé** | « Retour » remonte d'un niveau (détail de route → liste → carte) et la deuxième flèche est supprimée ; toutes les fiches se ferment par ✕. |
-| UX-12 | **corrigé** | Libellé court « Info · Com · Z » et info-bulle (`title`) de définition sur chaque en-tête du Log. Réserve : une info-bulle ne s'affiche pas au tactile. |
-| UX-13 | **corrigé** | Composant `ConfirmButton` unique (7 écrans) : retombe après 4 s ou à l'appui ailleurs, double appui ignoré 0,35 s. |
-| UX-14 | **corrigé** | 4 jetons fluides `--fs-fluid-xs/s/m/l`, plus aucun `clamp()` en dur. |
-| UX-15 | **partiel** | Points de rupture ramenés à 600 / 900 / 1100 (480 et 700 supprimés au profit de 600). **Reporté** : mise en page à deux colonnes sur tablette (nouvelle mise en page). |
-| UX-16 | **partiel** | Libellés des commandes de zoom et de la barre traduits ; points de route atteignables au clavier (`role`, `tabindex`, libellé, Entrée/Espace). **Non traité** : repères de trafic. |
-| UX-17 | **partiel** | La caméra de la carte n'est plus animée si le système demande moins de mouvement. Aucune transition ajoutée (pas d'animation gratuite). |
-| UX-18 | **reporté** | Suppression d'environ 35 classes CSS mortes : à valider (suppression). |
-| UX-19 | **corrigé** | Jetons `--route`, `--route-casing`, `--direct` dans `tokens.css`, lus par la carte. |
+| Deux modes distincts, on sait lequel on est | **absent** | Aucun état « mode » (recherche `flightMode`, `inFlight` : rien). Le décollage est détecté (`recorder.takeoffMs`) mais ne change pas l'interface. |
+| Route protégée en vol | **absent** | `editMode` activable à tout moment ; en mode tracé un appui ajoute un point (`MapView.tsx:474`) et les points deviennent déplaçables (`MapView.tsx:674`). |
+| Seules les commandes de vol visibles | **absent** | Barre de 10 boutons toujours affichée (`App.tsx:1018`) : sur téléphone, Direct, Calques, Route + Plus (Avion, Météo, Vol, Docs, Données, Réglages). |
 
-### Décisions prises (12/11/2026)
+### C. Création de nav (prépa)
 
-Tu as validé les cinq points : suppression de l'onglet « Profil » et du CSS mort, annulation des suppressions de points, bouton « Plus » sur téléphone, âge des données périmées, deux colonnes sur tablette. Tous sont faits (voir ci-dessus).
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Taper des points, glisser un point | **conforme** | `MapView.tsx:474, 674`, avec aimantation sur terrains, balises, reports et noms de villes. |
+| Glisser un segment pour insérer un point | **absent** | Aucune insertion par segment (recherche : rien dans `MapView.tsx` / `routeEdit.ts`). Pour insérer, il faut ajouter à la fin puis monter avec ↑ / ↓. |
+| Saisie clavier (OACI, VRP, nom) | **absent** | Pas de champ pour ajouter un point à la route. La recherche par nom ou OACI n'existe que dans la fiche « Direct » (`NavScreen.tsx` ~l.555) ; le menu rond d'un terrain propose « Route ». |
+| Log synchronisé avec la carte | **conforme** | Calculé à partir de la route active (`LogSheet`, `computeNavLog`). |
+| Inverser, multi-étapes | **conforme** | « Inverser » dans le détail de la route ; points illimités. |
+| Simulation de la nav avant le vol | **absent** | Seul le simulateur de développement `?sim`, non exposé. |
+| Profil vertical (terrain, espaces, altitude au doigt) | **absent** | L'onglet « Profil » a été retiré faute de fonction ; les altitudes se saisissent à la main par point. |
+| Alertes de prépa regroupées et cliquables | **partiel** | NOTAM dans un onglet, espaces traversés dans le Log (`NavScreen.tsx`), obstacles absents ; deux endroits, aucun élément cliquable vers la carte. |
 
-### Reste ouvert
+### D. Bandeau de données en vol
 
-- **UX-09** (partiel) : les pastilles multi-choix (Types d'espaces) et Réglages gardent leur forme de pastille jaune.
-- **UX-10** (partiel) : « Vent et décollage » n'a pas été placé avant les points.
-- **UX-16** (partiel) : repères de trafic non atteignables au clavier.
-- **UX-17** (partiel) : aucune transition d'interface ajoutée, volontairement.
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Prochain point : nom, cap, distance, ETE | **conforme** | `App.tsx:1003` : GS, route, point, altitude, relèvement, distance + ETE. |
+| ETA du prochain point, destination (dist, ETE, ETA) | **absent** | Aucune cellule. |
+| Lisible en 1 s | **conforme** | Chiffres à `--fs-32` mono, unités discrètes en étiquette, contraste 13:1 (jour). |
+| Invalide = tirets, jamais figé | **conforme** | Sans position : `---`. Périmé (> 5 s) : atténué à 65 % avec « Position vieille de N s » ; au-delà de 15 s, état « perdu » (`config.ts:7-10`). |
+| Précision cohérente avec la réelle | *non vérifié* | Vitesse et altitude affichées entières ; je n'ai pas comparé à la précision du GPS. |
+| Champs personnalisables par appui long | **absent** | Un appui sur une cellule ouvre le choix d'unité (`openCell`), pas le choix de la donnée. |
+
+### E. Interrogation de la carte
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Appui long listant tout ce qui est dessous | **absent** | Le geste est un **double appui** (350 ms, 32 px, `MapView.tsx:368`) ; il liste espaces et terrains seulement (`App.tsx:463-475`), sans NOTAM ni obstacles ; titres de couche « Espace aérien » / « Terrain » écrits en français dans le code, hors traduction. |
+| Fiche terrain : l'essentiel d'abord | **conforme** | Altitude, pistes, fréquences, puis météo, NOTAM, VAC (`AdMenu.tsx`). |
+
+### F. Sécurité et situations dégradées
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Terrains les plus proches en un appui, utilisables en direct | **partiel** | « Direct » (1 appui) liste 6 terrains publics par distance (`NavScreen.tsx:559`), un appui = direct. Mais **ni relèvement, ni piste, ni fréquence, ni météo** dans la liste. |
+| Alertes espaces / NOTAM / obstacles en vol | **absent** | Recherche d'alertes de proximité : rien. |
+| Perte GPS | **conforme** | Pastille « GPS FAIBLE / PERDU » + bannière + tirets (`App.tsx:1030`). |
+| Absence de réseau | **absent** | Aucun indicateur « hors ligne » ; l'usage hors-ligne fonctionne mais n'est jamais dit. |
+| Données périmées (cycle AIRAC) | **partiel** | Avertissement dans l'écran Données seulement (`App.tsx:1470`), pas dans la bannière de la carte. |
+| Filtre d'altitude des espaces, rappel visible | **absent** | Curseur FL dans le menu Calques (`App.tsx:1335`) ; rien sur la carte quand il est actif : des espaces plus hauts disparaissent sans que ce soit dit. |
+
+### G. Couleurs et lisibilité
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Une couleur = un sens, partout | **partiel** | Voir §2 : jaune à trois sens, route verte et magenta pour le « direct », rouge pour l'avion. |
+| Saturation réservée à l'important | **partiel** | Carte OACI très saturée par fidélité à la légende ; l'interface, sobre. |
+| Texte monochrome | **partiel** | Chiffres de vol en bleu marine (`--data-figure`), avec réglage « En noir » dans Réglages. |
+| Plein soleil | **conforme / partiel** | Interface ≥ 8:1 ; sur la carte, les noms de villages en gris clair (`#8c8c8c` sur blanc, ≈ 3,4:1, fidèle à l'OACI) restent faibles. |
+| Mode nuit qui préserve la vision | **partiel** | Interface sombre, **carte inchangée** (capture : pleine luminosité). Bascule manuelle (Réglages > Affichage), pas de mode automatique. |
+| Information jamais portée par la couleur seule | **partiel** | Pastille GPS et catégories météo ont un texte ; route verte sur zones rouges : risque pour le deutéranope, atténué par le liseré. |
+
+### H. Interaction en cockpit
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Cibles ≥ 48 px | **partiel** | 56 px pour la barre, les commandes de carte, les onglets ; **40 px** pour la fermeture ✕ des fiches, « Annuler » du bandeau et les boutons de point (`.btn-inline`, `styles.css:60`). |
+| Actions fréquentes à une main, en bas | **partiel** | Commandes de carte et données en bas ; barre d'actions (Direct, Calques) **en haut** ; menu « Plus » en haut. |
+| Pas de geste fin ou caché pour une action critique | **partiel** | Interrogation de la carte au double appui ; déplacement de point au glisser (en mode tracé). |
+| Pas d'action destructive sans annulation | **conforme** | Confirmation en deux temps, annulation de 6 s pour les points. |
+| Zoom et pan sans réajustement constant | **partiel** | Suivi + bascule N/↑ ; zoom automatique non évalué. |
+| Rien qui oblige à fixer l'écran | **conforme** | Aucune animation d'interface, aucun texte qui défile. |
+
+### I. Simplicité
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| Réglages minimaux, pas de doublons | **conforme** | 4 onglets, ~24 libellés `set.*`. Fonds de carte à deux endroits (Calques, Données) mais pour deux usages. |
+| Première nav en moins de 5 min | **partiel** | Prérequis non guidés : choisir le pays (bannière), créer un avion (le Log le dit), et le crayon ✎ n'a pas de libellé visible. |
+| Une action principale par écran | **partiel** | Oui sur Route (« Tracer sur la carte »), Log, NOTAM ; non sur Calques, Données. |
+
+### J. Bases d'une bonne UI
+
+| Point | Statut | Constat et emplacement |
+|---|---|---|
+| États vide / chargement / erreur | **conforme / partiel** | Vides et erreurs soignés (Log sans avion, NOTAM, Données) ; chargement de la carte sans indicateur. |
+| Feedback immédiat | **partiel** | Inversion `:active` seulement ; pas de transition (choix assumé). |
+| Cohérence des composants | **partiel** | Voir `AUDIT_UI_UX_GENERAL.md` UX-09 (interrupteurs). |
+| Responsive | **conforme** | Vérifié à 320, 360, 375 et 1000 px ; trois paliers (600, 900, 1100). |
+
+---
+
+## 4. Scénarios
+
+| # | Scénario | Ce qui se passe | Où ça coince |
+|---|---|---|---|
+| 1 | Préparer une nav de 3 branches à la maison | Route → « Nouvelle route » → « Tracer sur la carte » → 4 appuis sur la carte (aimantation sur les terrains, nom automatique) → retour → Log → choisir un avion → heure et vent se règlent. **≈ 10 appuis** si l'avion existe. | Sans avion : détour par l'écran Avion (≈ 6 appuis + 2 saisies) que rien n'annonce avant le Log. Le crayon ✎ n'a pas de texte. Pas de champ ICAO pour ajouter un point, pas d'insertion par segment. |
+| 2 | Au parking : vérifier la nav, passer en mode vol | Route, Log, NOTAM pour vérifier (plein écran, retour en un appui). « Passer en mode vol » : **n'existe pas**. | Aucune bascule, aucun verrou de la route : rien ne distingue le sol du vol. Aucune alerte de prépa unifiée (espaces traversés dans le Log, NOTAM dans un autre onglet). |
+| 3 | Croisière, turbulence, une main : fréquence du prochain espace | Les étiquettes des TMA/CTR portent nom, limites et fréquence sur la carte (lisible si l'échelle convient). Sinon : double appui précis (350 ms, 32 px) → fiche à 70 % → lire « Fréquences ». | Aucune liste « espaces devant moi » avec distance, ETE et fréquence ; le double appui en turbulence est le geste le moins fiable. La fiche masque la carte et la position. |
+| 4 | Pané et zoomé : revenir sur la position | ◎ en bas à gauche, **1 appui**, état jaune quand actif. | Bien. À noter : une fiche de terrain ouverte coupe aussi le suivi (`App.tsx:451`) sans le dire. |
+| 5 | Météo qui se dégrade : se dérouter | « Direct » (1 appui) → liste de 6 terrains par distance → appui = direct. **2 appuis.** | La liste n'indique ni le relèvement, ni la piste, ni la fréquence, ni la météo du terrain ; herbe et dur mélangés ; pas de lien direct vers la météo du terrain avant de choisir. « Direct » est en haut de l'écran. |
+| 6 | Le GPS décroche 30 s | À 5 s : chiffres atténués (65 %), « Position vieille de N s », pastille jaune « GPS FAIBLE » ; à 15 s : « GPS perdu » en alerte, chiffres remplacés par des tirets (testé en simulation). | Si un message VAC ou un compte à rebours est en cours, il masque l'alerte « GPS perdu » (priorité de `App.tsx:1030`). Pas d'indicateur de réseau. |
+| 7 | Fin de journée : soleil de face, puis crépuscule | Interface lisible (≥ 8:1). Réglages > Nuit : **2 appuis** sur tablette, **3** sur téléphone (derrière « Plus »), bascule manuelle. | Au crépuscule la carte reste en pleine luminosité (capture) : éblouissement et perte de la vision nocturne. Pas de bascule automatique ni de réglage de luminosité de la carte. |
+
+---
+
+## 5. Problèmes
+
+Gravité : **sécurité** (peut induire en erreur ou distraire dangereusement), **fort**, **moyen**, **faible**. Effort : faible (< 1 h), moyen (demi-journée), fort (plusieurs jours).
+
+| ID | Écran | Constat factuel | Impact pour le pilote | Gravité | Effort | Solution compatible avec la DA | Référence |
+|---|---|---|---|---|---|---|---|
+| EFB-01 | Carte, barre d'outils | Pas de mode Vol : crayon ✎ à côté de N (`App.tsx:1189`), appui carte ajoute un point (`MapView.tsx:474`), points déplaçables (`:674`), 10 boutons toujours affichés (`App.tsx:1018`). | Modification accidentelle de la route active en turbulence ; encombrement en vol. | **sécurité** | moyen | Mode Vol armé au décollage détecté ou à la main (pastille « VOL » / « PRÉPA » visible) : verrouille l'édition, masque ✎ et les écrans de prépa, garde Direct, Calques, ◎, N. Déverrouillage par appui long. | SkyDemon (vues Plan / Fly) |
+| EFB-02 | Carte | Aucune alerte de proximité d'espace, d'obstacle ou de NOTAM en vol (recherche dans `App.tsx`, `MapView.tsx` : rien). | Pénétration d'un espace non vu ; l'appli connaît déjà position, route et vecteur 1/2/5 min. | **sécurité** | fort | Bannière « TMA LYON dans 2 min · 135.200 » dans la chaîne existante, calculée avec `airspacesAt` sur le vecteur ; niveaux info / prudence / alerte. | SkyDemon, SDVFR |
+| EFB-03 | Carte, mode nuit | Le thème nuit change l'interface ; la carte aéro garde ses couleurs (`MapView.tsx:1216` ne règle que l'avion ; capture en nuit). | Éblouissement au crépuscule, perte de la vision nocturne. | **fort** | faible à moyen | Variante nuit de la carte : atténuation de luminosité du canevas (filtre sur `.map`) + bascule automatique proposée au coucher du soleil (calcul du coucher à reprendre : il existait dans une ancienne version du Log, supprimée). | SkyDemon (mode nuit) |
+| EFB-04 | Bannière | Chaîne de priorité unique où l'info précède l'alerte : `cdFired > vacMsg > trafficAlert > GPS perdu > …` (`App.tsx:1030-1041`). | Un message d'information masque « GPS perdu » ; une seule ligne, pas de pile. | **sécurité** | faible | Trier par gravité (alerte > prudence > info) et n'afficher le moins grave qu'en l'absence de plus grave ; compteur « +2 » pour le reste. | — |
+| EFB-05 | Carte, Données | Fraîcheur des données (cycle AIRAC) visible seulement dans l'écran Données (`App.tsx:1470`) ; absente de la bannière et de la carte. | Voler avec des espaces périmés sans le savoir. | **sécurité** | faible | Entrée « Données aéro périmées (cycle xx) » dans la bannière (niveau prudence) et pastille discrète sur la carte. | SkyDemon, Enroute |
+| EFB-06 | Bandeau de données | Six cellules : GS, route, point, altitude, relèvement, distance + ETE (`App.tsx:1003`) ; pas d'ETA, pas de destination ; un appui ouvre l'unité. | Il faut calculer l'heure d'arrivée et la durée jusqu'à la destination de tête. | fort | moyen | Ajouter ETA du point et bloc destination (distance, ETE, ETA) ; appui long sur une cellule = choisir la donnée affichée (sans doublon). | XCSoar (champs d'info), SkyDemon |
+| EFB-07 | Carte | Interrogation par double appui (350 ms, 32 px, `MapView.tsx:368`) ; liste espaces et terrains seulement, titres de couche écrits en dur (`App.tsx:470`). | Geste peu fiable en turbulence ; pas de NOTAM ni d'obstacle ; libellés non traduits. | fort | moyen | Appui long ouvrant une liste « Ici » triée par pertinence (plancher/plafond, fréquence, terrain), titres traduits. | SkyDemon (« What's here ») |
+| EFB-08 | Carte | Pas de liste « espaces devant » avec distance, ETE et fréquence ; la fréquence se lit sur les étiquettes de la carte ou via la fiche. | Retrouver une fréquence demande de viser et de lire en vol. | fort | fort | Liste des 3 prochains espaces sur la route ou le cap (nom, distance, ETE, fréquence à contacter) dans une feuille basse de 45 % qui rend la main à la carte. | SkyDemon, SDVFR |
+| EFB-09 | Fiche « Direct » | 6 terrains par distance, nom + distance seulement (`NavScreen.tsx:559`). | Pour un déroutement : pas de relèvement, de piste, de fréquence ni de météo avant de choisir. | fort | moyen | Ajouter relèvement (flèche), plus longue piste + revêtement, fréquence principale, point de catégorie météo ; filtre dur/herbe ; garder « un appui = direct ». | Enroute (« Nearby »), SkyDemon (« Nearest ») |
+| EFB-10 | Menu Calques | Le filtre d'altitude (`App.tsx:1335-1345`) n'a aucun rappel sur la carte quand il est actif. | Des espaces plus hauts disparaissent sans que le pilote le sache. | fort | faible | Pastille « FL ≤ 115 » à côté de la pastille GPS tant que le filtre n'est pas au maximum. | SkyDemon |
+| EFB-11 | Fiches, bandeau d'annulation | `.btn-inline` à 40 px (`styles.css:60`) pour ✕ de fermeture des fiches, « Annuler » et boutons de point. | Cible sous 48 px en vibration ou avec gants. | moyen | faible | `--h-control` (56) pour tout ce qui reste atteignable en vol ; 40 px réservé à la prépa. | — |
+| EFB-12 | Fiches, écrans | Fiches à 70 % de la hauteur (`styles.css:62`), écrans plein cadre sous 1100 px (`:108`), fiche de terrain qui coupe le suivi (`App.tsx:451`). | La position disparaît sous la fiche ; le suivi ne reprend pas tout seul. | moyen | moyen | En vol : fiches limitées à 45 %, reprise du suivi à la fermeture, minuterie de fermeture auto pour les fiches de lecture. | SkyDemon |
+| EFB-13 | Route | Pas d'insertion de point par glissement d'un segment ; pas de champ pour ajouter un point par OACI, VRP ou nom (recherche seulement dans « Direct »). | Prépa plus longue : ajouter à la fin puis réordonner ; aucune saisie clavier. | fort | moyen | Glisser un segment pour insérer ; champ « Ajouter un point » (OACI, nom, VRP) réutilisant `searchAirfields`. | SkyDemon, SDVFR |
+| EFB-14 | Route | Plus de profil vertical (onglet retiré), pas de simulation de la nav, alertes de prépa dispersées (Log, NOTAM) et non cliquables. | Pas de vérification verticale terrain/espaces, pas de rejouer la nav, pas de synthèse « problèmes de ma route ». | moyen | fort | Liste « Alertes de la route » (espaces traversés, NOTAM du couloir, obstacles) avec appui = zoom carte ; profil et simulation ensuite. | SkyDemon, Air Navigation Pro |
+| EFB-15 | Carte, DA | Rouge = avion (`styles.css:44`) = alertes = zones OACI ; jaune = sélection = principal = prudence ; magenta = « direct » (route verte) ; voir §2. | Lecture ambiguë du sens des couleurs ; avion rouge peu distinct sur zone rouge. | moyen | faible | Avion en couleur propre (encre avec liseré clair) ou contour renforcé ; décider d'un niveau « prudence » distinct du jaune de sélection. **Signalé seulement, à arbitrer.** | Garmin / SkyDemon (route magenta) |
+| EFB-16 | Carte | Aucun indicateur de réseau (hors ligne). | Le pilote ne sait pas si le vent, les NOTAM, la météo sont à jour ou en cache. | moyen | faible | Pastille « HORS LIGNE » discrète et âge des données météo à côté de chaque donnée. | Enroute |
+| EFB-17 | Première utilisation | Prérequis non guidés (pays, avion), crayon ✎ sans libellé (`App.tsx:1189`). | Première nav lente ; fonction centrale peu découvrable. | moyen | moyen | Liste de démarrage en trois étapes (pays, avion, tracer) et libellé « Tracer » sous l'icône. | SkyDemon |
+| EFB-18 | Carte, jour | Noms de villages en gris clair `#8c8c8c` sur blanc, ≈ 3,4:1 (`MapView.tsx`, couche `aerob-agglo-name`). | Peu lisibles au plein soleil ; fidèle à l'OACI. | faible | faible | Option « texte renforcé » (gris plus foncé) dans Calques. | — |
+
+---
+
+## 6. Ordre de traitement recommandé
+
+**Sécurité d'abord**
+1. **EFB-04** (bannière hiérarchisée) et **EFB-05** (AIRAC dans la bannière) : effort faible, gain de sécurité immédiat.
+2. **EFB-01** (mode Vol) : la protection de la route et l'allègement de l'écran conditionnent presque tout le reste.
+3. **EFB-02** (alertes d'espace en vol) : le plus gros chantier, mais la matière existe déjà (vecteur, `airspacesAt`, bannière).
+
+**Puis meilleur rapport impact/effort**
+4. **EFB-10** (rappel du filtre d'altitude), **EFB-11** (cibles 56 px), **EFB-16** (indicateur hors ligne) : chacun moins d'une heure.
+5. **EFB-03** (carte de nuit) : effet très visible pour un effort réduit.
+6. **EFB-09** (liste « Direct » enrichie) et **EFB-06** (ETA et destination dans le bandeau).
+7. **EFB-07 / EFB-08** (appui long, espaces devant), **EFB-12** (fiches plus discrètes en vol).
+8. **EFB-13, EFB-14, EFB-17** (prépa : insertion, saisie, alertes de route, démarrage), puis **EFB-15** (arbitrage des couleurs) et **EFB-18**.
+
+*Si tu ne devais en faire que trois : EFB-01 (mode Vol), EFB-04 (bannière par gravité) et EFB-03 (carte de nuit).*
