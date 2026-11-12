@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatAngle, formatDuration, formatQuantity, unitLabel, type Aircraft, type NavLog, type UnitPrefs } from "@lim/core";
+import { airspacesAt, formatAngle, formatDuration, formatQuantity, nearestAirfields, unitLabel, type Aircraft, type Airfield, type Airspace, type NavLog, type UnitPrefs } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import type { RouteRecord } from "./routeEdit";
 
@@ -199,6 +199,99 @@ export function PaperLog(p: {
         </div>
       </div>
       <p className="pl-caption">Chrono - Cap - Altitude - Estime - Radio - Radio-nav - Moteur - carburant</p>
+    </div>
+  );
+}
+
+/** Fréquence à afficher pour un point de la route : celle du terrain voisin (moins de 2 km), sinon celle du SIV / de l'information de vol qui couvre le point. */
+export function pointFrequency(
+  pt: { position: { lat: number; lon: number }; altitude: number | null },
+  airfields: readonly Airfield[],
+  airspaces: readonly Airspace[],
+): string {
+  const near = nearestAirfields(pt.position as never, airfields, 1)[0];
+  if (near && (near.distance as number) <= 2000) {
+    const f = near.airfield.frequencies.find((x) => x.primary) ?? near.airfield.frequencies[0];
+    if (f) return `${f.mhz} ${near.airfield.icao ?? ""}`.trim();
+  }
+  const here = airspacesAt(pt.position as never, pt.altitude === null ? null : (pt.altitude as never), airspaces);
+  for (const h of here) {
+    if (!/SIV|INFO/i.test(h.airspace.name)) continue;
+    const f = h.airspace.frequencies.find((x) => x.primary) ?? h.airspace.frequencies[0];
+    if (f) return `${f.mhz} ${h.airspace.name.replace(/^SIV\s*/i, "SIV ")}`.trim();
+  }
+  return "";
+}
+
+/**
+ * Tableau des branches en cartes colorées, lisible en vol : altitude (Z), cap/route, distances (DSD, DIST, DTA), temps (TAV, TSV, heure)
+ * et point de report avec sa fréquence. La branche en cours (point visé) est surlignée.
+ */
+export function LegTable(p: {
+  lang: Lang;
+  prefs: UnitPrefs;
+  route: RouteRecord;
+  log: NavLog;
+  airfields: readonly Airfield[];
+  airspaces: readonly Airspace[];
+  activeLeg: number | null;
+}) {
+  const key = `lim.legExtras.${p.route.id}`;
+  const [m, setM] = useState<Record<string, string>>(() => loadExtras(key));
+  useEffect(() => setM(loadExtras(key)), [key]);
+  const set = (k: string, v: string) => setM((prev) => {
+    const n = { ...prev, [k]: v };
+    try { localStorage.setItem(key, JSON.stringify(n)); } catch { /* stockage bloqué */ }
+    return n;
+  });
+  const { log, prefs, route } = p;
+  const showTrue = prefs.track === "true";
+  const dist = (v: number) => formatQuantity("distance", prefs, v as never);
+  const alt = (v: number | null) => (v === null ? "---" : formatQuantity("altitude", prefs, v as never));
+  const arrow = (tr: string | null) => (tr === "climb" ? "↗" : tr === "descent" ? "↘" : "→");
+  const first = log.legs[0];
+  return (
+    <div className="legtable" role="table">
+      <div className="lg-row lg-head" role="row">
+        <div className="lc z"><span>Z vol</span><span>Z min</span></div>
+        <div className="lc cm"><span>{showTrue ? "Cv" : "Cm"}</span><span>{showTrue ? "Rv" : "Rm"}</span></div>
+        <div className="lc dist"><span>DSD</span><span>DIST</span><span>DTA</span></div>
+        <div className="lc t"><span>TAV</span><span>TSV</span><span>{route.departureMs === null ? "" : "ETA"}</span></div>
+        <div className="lc rep"><span>Report</span></div>
+      </div>
+      {first && (
+        <div className="lg-row lg-start" role="row">
+          <div className="lc z"></div>
+          <div className="lc cm"></div>
+          <div className="lc dist"></div>
+          <div className="lc t"><b>{route.departureMs === null ? "" : HHMM(route.departureMs)}</b></div>
+          <div className="lc rep"><b>{first.from.name}</b><i>{pointFrequency(first.from, p.airfields, p.airspaces)}</i></div>
+        </div>
+      )}
+      {log.legs.map((l, n) => (
+        <div className={`lg-row${p.activeLeg === l.index ? " active" : ""}${n % 2 ? " alt" : ""}${l.error ? " bad" : ""}`} role="row" key={l.index}>
+          <div className="lc z">
+            <span className="arrow">{arrow(l.trend)}</span>
+            <b>{alt(l.to.altitude)}</b>
+            <input className="zmin" aria-label="Z min" inputMode="decimal" placeholder="Z min" value={m[`z${l.index}`] ?? ""} onChange={(e) => set(`z${l.index}`, e.target.value)} />
+          </div>
+          <div className="lc cm">
+            <i>{formatAngle(l.trueHeading === null ? null : showTrue ? l.trueHeading : l.magneticHeading)}</i>
+            <b>{formatAngle(showTrue ? l.trueCourse : l.magneticCourse)}</b>
+          </div>
+          <div className="lc dist">
+            <i>{dist((l.distanceFromStart as number) - (l.distance as number))}</i>
+            <b>{dist(l.distance as number)}</b>
+            <i>{dist(l.distanceRemaining as number)}</i>
+          </div>
+          <div className="lc t">
+            <i>{formatDuration(l.timeWithWind)}</i>
+            <b>{formatDuration(l.timeNoWind)}</b>
+            <i>{route.departureMs !== null && l.eta !== null ? HHMM(l.eta) : ""}</i>
+          </div>
+          <div className="lc rep"><b>{l.to.name}</b><i>{pointFrequency(l.to, p.airfields, p.airspaces)}</i></div>
+        </div>
+      ))}
     </div>
   );
 }

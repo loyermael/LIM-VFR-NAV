@@ -1454,6 +1454,8 @@ export function App() {
                 onDirect={(i) => { pickRoutePoint(i); if (!wide) open("map"); }}
                 airspaces={visibleAirspaces}
                 hasAero={aspSet !== null}
+                airfields={aptSet?.items ?? []}
+                targetIndex={adhoc ? null : targetIndex}
                 onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
                 onDossier={() => void makeDossier()}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}

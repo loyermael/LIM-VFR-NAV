@@ -4,7 +4,7 @@ import {
   exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
-import { PaperLog } from "./NavLogSheet";
+import { LegTable, PaperLog } from "./NavLogSheet";
 import { t, type Key, type Lang } from "./i18n";
 import {
   removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
@@ -88,6 +88,9 @@ interface NavProps {
   /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
   airspaces: readonly Airspace[];
   hasAero: boolean;
+  /** Terrains (fréquences affichées sous chaque report) et point visé (branche en cours surlignée). */
+  airfields: readonly Airfield[];
+  targetIndex: number | null;
   /** Avions déjà créés dans l'écran Avion, et celui qui est choisi. */
   aircraftList: readonly Aircraft[];
   aircraft: Aircraft | null;
@@ -325,7 +328,18 @@ export function NavScreen(p: NavProps) {
               {log.warnings.map((w, i) => (
                 <p className="error" role="alert" key={i}>{w.kind === "wind-too-strong" ? `${T("warn.wind")} ${w.leg + 1}` : T("warn.mag")}</p>
               ))}
-              {ac && tas !== null && <PaperLog lang={p.lang} prefs={prefs} route={route} log={log} aircraft={ac} tas={tas} flow={flow} now={p.date} />}
+              <div className="log-sum">
+                <div><span>Vp</span><b className="mono">{spd(tas)} {speedUnit}</b></div>
+                <div><span>{T("log.fuelflow")}</span><b className="mono">{flow === null ? "---" : `${formatQuantity("fuel", prefs, flow)} ${fuelUnit}/h`}</b></div>
+                <div><span>{T("log.dist")}</span><b className="mono">{dist(log.totals.distance)} {distUnit}</b></div>
+                <div><span>{T("log.time")}</span><b className="mono">{formatDuration(log.totals.timeWithWind)}</b></div>
+                <div><span>{T("log.fuelTrip")}</span><b className="mono">{fuelTxt(log.totals.fuel)} {flow === null ? "" : fuelUnit}</b></div>
+              </div>
+              <LegTable lang={p.lang} prefs={prefs} route={route} log={log} airfields={p.airfields} airspaces={p.airspaces} activeLeg={p.targetIndex !== null && p.targetIndex >= 1 ? p.targetIndex - 1 : null} />
+              <details className="perfbox">
+                <summary>{T("log.paper")}</summary>
+                {ac && tas !== null && <PaperLog lang={p.lang} prefs={prefs} route={route} log={log} aircraft={ac} tas={tas} flow={flow} now={p.date} />}
+              </details>
             </>
           )}
 
