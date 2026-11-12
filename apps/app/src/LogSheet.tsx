@@ -24,6 +24,8 @@ export function LogSheet(p: {
   routeId: string;
   model: LogModel;
   form: Record<string, string>;
+  /** Valeurs préremplies (carburant, arrivée, perfo) : affichées tant que l'utilisateur n'a rien saisi. */
+  defaults: Record<string, string>;
   setField: (k: string, v: string) => void;
   /** Vp saisi (unité d'affichage) ; null = valeur de l'avion. */
   vpEdited: boolean;
@@ -44,7 +46,7 @@ export function LogSheet(p: {
   const In = (props: { k: string; label?: string; def?: string; className?: string; placeholder?: string }) => (
     <label className={`ls-in ${props.className ?? ""}`}>
       {props.label && <span>{props.label}</span>}
-      <input value={form[props.k] ?? props.def ?? ""} placeholder={props.placeholder} onChange={(e) => setField(props.k, e.target.value)} />
+      <input value={form[props.k] ?? p.defaults[props.k] ?? props.def ?? ""} placeholder={props.placeholder} onChange={(e) => setField(props.k, e.target.value)} />
     </label>
   );
   const last = m.points[m.points.length - 1];
@@ -129,7 +131,7 @@ export function LogSheet(p: {
         <section className="ls-arr">
           <h4>{T("log.arrival")}</h4>
           <b className="ls-arr-name">{last?.name ?? ""}</b>
-          <textarea aria-label={T("log.arrival")} rows={4} value={form["arrival"] ?? ""} onChange={(e) => setField("arrival", e.target.value)} />
+          <textarea aria-label={T("log.arrival")} rows={4} value={form["arrival"] ?? p.defaults["arrival"] ?? ""} onChange={(e) => setField("arrival", e.target.value)} />
         </section>
         <section className="ls-perf">
           <h4>{T("log.perf")}</h4>

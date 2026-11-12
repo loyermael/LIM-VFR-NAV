@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
-  exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
+  exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type Loads, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
 import { LogSheet, useLogForm } from "./LogSheet";
-import { buildLogModel, vpKey } from "./logModel";
+import { buildAutoFields, buildLogModel, vpKey } from "./logModel";
+import type { FuelPlanParams } from "./aircraftStore";
 import { buildLogPdf } from "./logPdf";
 import { windKey } from "./windClient";
 import type { WindForecast } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import {
-  removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
+  addPoint, removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
   toWindPlan, type RouteRecord, type StoredWind,
 } from "./routeEdit";
 import type { StoredPerf } from "./prefs";
@@ -98,6 +99,9 @@ interface NavProps {
   /** Avions déjà créés dans l'écran Avion, et celui qui est choisi. */
   aircraftList: readonly Aircraft[];
   aircraft: Aircraft | null;
+  /** Charges et réglages carburant de l'écran Avion (carburant embarqué, roulage, réserves). */
+  loads: Loads;
+  fuelPlan: FuelPlanParams;
   onSelectAircraft: (id: string) => void;
   onGoAircraft: () => void;
   /** Vent de chaque branche d'après la météo : altitude de croisière (m) et heure de décollage (ms) ; rend un message d'erreur ou null. */
@@ -159,9 +163,13 @@ export function NavScreen(p: NavProps) {
     if (!route || !log || tas === null || log.legs.length === 0) return null;
     return buildLogModel({ prefs, route, log, aircraftName: ac ? `${ac.registration ? ac.registration + " " : ""}${ac.name}`.trim() : "", tasMps: tas, fuelFlowLph: flow, airfields: p.airfields, airspaces: p.airspaces, departureForecast: depForecast, nowMs: p.date.getTime() });
   }, [route, log, tas, flow, prefs, ac, p.airfields, p.airspaces, depForecast, p.date]);
+  const autoFields = useMemo(
+    () => (route && log && log.legs.length > 0 ? buildAutoFields({ prefs, route, log, aircraft: ac, loads: p.loads, plan: p.fuelPlan, flow, airfields: p.airfields }) : {}),
+    [route, log, prefs, ac, p.loads, p.fuelPlan, flow, p.airfields],
+  );
   const makeLogPdf = async () => {
     if (!logModel || !route) return;
-    const bytes = await buildLogPdf({ model: logModel, form: logForm.form });
+    const bytes = await buildLogPdf({ model: logModel, form: { ...autoFields, ...logForm.form } });
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
     const a = document.createElement("a");
     a.href = url;
@@ -371,6 +379,7 @@ export function NavScreen(p: NavProps) {
                   routeId={route.id}
                   model={logModel}
                   form={logForm.form}
+                  defaults={autoFields}
                   setField={logForm.set}
                   vpEdited={vpOver !== null}
                   onVp={(v) => setVp(v === null ? null : toSI("groundSpeed", prefs, v))}
@@ -441,6 +450,17 @@ export function PointSheet(p: {
       <p className="muted small mono">{pt.position.lat.toFixed(5)}, {pt.position.lon.toFixed(5)}</p>
       <div className="choices">
         <button className="brand" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</button>
+        <button
+          disabled={p.index === p.route.points.length - 1}
+          onClick={() => {
+            const pt = p.route.points[p.index];
+            if (!pt) return;
+            const n = Date.now();
+            const withCopy = addPoint(p.route, pt.position.lat, pt.position.lon, `${pt.id}-arr-${n}`, n);
+            p.onRoute(renamePoint(withCopy, withCopy.points.length - 1, pt.name, n));
+            p.onClose();
+          }}
+        >{T("nav.point.arrival")}</button>
         <button onClick={() => { p.onRoute(removePoint(p.route, p.index, now)); p.onClose(); }}>{T("nav.delete")}</button>
       </div>
     </aside>

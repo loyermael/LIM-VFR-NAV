@@ -9,8 +9,10 @@ describe("aimantation du tracé", () => {
     expect(snapTap({ lat: 43.9152, lon: 2.1169 }, 500, [AD])?.name).toBe("LFCI");
     expect(snapTap({ lat: 44.5, lon: 2.1169 }, 500, [AD])).toBeNull();
   });
-  it("un point déjà dans la route l'emporte sur un terrain voisin", () => {
+  it("un point déjà dans la route l'emporte sur un terrain voisin, même si le terrain est plus proche de l'appui", () => {
     expect(snapTap({ lat: 43.91505, lon: 2.11675 }, 500, [AD, RP])?.kind).toBe("point");
+    expect(snapTap({ lat: 43.915, lon: 2.1167 }, 500, [AD, RP])?.kind).toBe("point");
+    expect(snapTap({ lat: 43.915, lon: 2.1167 }, 500, [AD])?.kind).toBe("airfield");
   });
   it("mètres par pixel : diminue avec le zoom", () => {
     expect(metersPerPixel(45, 10)).toBeGreaterThan(metersPerPixel(45, 11));

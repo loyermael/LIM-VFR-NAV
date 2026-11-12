@@ -1,7 +1,8 @@
 import {
-  airspacesAt, formatAngle, formatQuantity, nearestAirfields, unitLabel, windAt,
-  type Airfield, type Airspace, type NavLog, type UnitPrefs, type WindForecast,
+  airspacesAt, formatAngle, formatDuration, formatQuantity, nearestAirfields, planFuel, unitLabel, windAt,
+  type Aircraft, type Airfield, type Airspace, type Loads, type NavLog, type UnitPrefs, type WindForecast,
 } from "@lim/core";
+import type { FuelPlanParams } from "./aircraftStore";
 import type { RouteRecord } from "./routeEdit";
 
 /**
@@ -147,3 +148,76 @@ export const saveLogForm = (routeId: string, form: Record<string, string>) => {
 };
 /** Vp modifié sur le log (unité d'affichage), par route. */
 export const vpKey = (routeId: string) => `lim.logVp.${routeId}`;
+
+const nearAirfield = (pos: { lat: number; lon: number }, airfields: readonly Airfield[]): Airfield | null => {
+  const n = nearestAirfields(pos as never, airfields, 1)[0];
+  return n && (n.distance as number) <= 2000 ? n.airfield : null;
+};
+const longestRunway = (a: Airfield | null): string => {
+  const len = Math.max(0, ...(a?.runways ?? []).map((r) => r.lengthM ?? 0));
+  return len > 0 ? `~${Math.round(len)} m` : "";
+};
+
+export interface AutoFieldsInput {
+  readonly prefs: UnitPrefs;
+  readonly route: RouteRecord;
+  readonly log: NavLog;
+  readonly aircraft: Aircraft | null;
+  readonly loads: Loads;
+  readonly plan: FuelPlanParams;
+  readonly flow: number | null;
+  readonly airfields: readonly Airfield[];
+}
+
+/**
+ * Valeurs préremplies de la feuille (carburant, aérodrome d'arrivée, perfo du jour), toutes tirées des données de l'app :
+ * carburant embarqué et réglages de l'écran Avion, terrains (pistes, fréquences, altitude) et log. L'utilisateur peut tout corriger.
+ * TODA / LDA : la base de données ne donne que la longueur de piste, d'où le « ~ » (distances déclarées à vérifier).
+ */
+export function buildAutoFields(i: AutoFieldsInput): Record<string, string> {
+  const out: Record<string, string> = {};
+  const { prefs, log, route } = i;
+  const fuelU = unitLabel("fuel", prefs);
+  const fl = (v: number) => `${formatQuantity("fuel", prefs, v)} ${fuelU}`;
+  const fuelStation = i.aircraft?.stations.find((s) => s.kind === "fuel");
+  const onboard = i.aircraft && fuelStation ? (i.loads[fuelStation.id] ?? 0) : 0;
+  const trip = i.flow === null ? null : (log.totals.fuel as number);
+  const plan = i.aircraft
+    ? planFuel({
+        tripLiters: trip, taxiLiters: i.plan.taxiLiters, contingencyPercent: i.plan.contingencyPercent, alternateMinutes: i.plan.alternateMinutes,
+        reserveMinutes: i.plan.reserveMinutes, fuelFlowLph: i.flow, onboardLiters: onboard, usableCapacityLiters: Math.max(0, i.aircraft.fuel.capacity - i.aircraft.fuel.unusable),
+      })
+    : null;
+  if (plan) {
+    if (onboard > 0) {
+      out["fStart"] = fl(onboard);
+      if (plan.endurance !== null) out["fAuto"] = formatDuration(plan.endurance * 3600);
+      if (trip !== null) out["fStop"] = fl(Math.max(0, onboard - plan.taxi - trip));
+    } else if (plan.required !== null) {
+      out["fStart"] = `mini ${fl(plan.required)}`;
+    }
+  }
+  const dep = log.legs[0]?.from;
+  const arr = log.legs[log.legs.length - 1]?.to;
+  const depAd = dep ? nearAirfield(dep.position, i.airfields) : null;
+  const arrAd = arr ? nearAirfield(arr.position, i.airfields) : null;
+  if (arrAd) {
+    const lines: string[] = [];
+    const elev = arrAd.elevation === null ? null : `${formatQuantity("altitude", prefs, arrAd.elevation as number)} ${unitLabel("altitude", prefs)}`;
+    lines.push([arrAd.icao, elev ? `alt. ${elev}` : ""].filter(Boolean).join(" - "));
+    if (arrAd.runways.length > 0) lines.push(`Pistes : ${arrAd.runways.map((r) => `${r.designator}${r.lengthM ? ` ${Math.round(r.lengthM)} m` : ""}${r.paved === true ? " dur" : r.paved === false ? " non revetu" : ""}`).join(" / ")}`);
+    if (arrAd.frequencies.length > 0) lines.push(`VHF : ${arrAd.frequencies.slice(0, 4).map((f) => `${f.mhz}${f.name ? ` (${f.name})` : ""}`).join(", ")}`);
+    out["arrival"] = lines.filter(Boolean).join("\n");
+  }
+  if (route.departureMs !== null) {
+    out["deco"] = hhmm(route.departureMs);
+    const tav = log.totals.timeWithWind as number | null;
+    if (tav !== null) out["att"] = hhmm(route.departureMs + tav * 1000);
+  }
+  if (dep) out["dep"] = depAd?.icao ?? dep.name;
+  if (arr) out["arr"] = arrAd?.icao ?? arr.name;
+  const t1 = longestRunway(depAd), t2 = longestRunway(arrAd);
+  if (t1) { out["toda1"] = t1; out["lda1"] = t1; }
+  if (t2) { out["toda2"] = t2; out["lda2"] = t2; }
+  return out;
+}

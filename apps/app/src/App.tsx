@@ -1433,6 +1433,8 @@ export function App() {
                 onGoRoutes={() => setTab(0)}
                 aircraftList={ac.list}
                 aircraft={ac.active}
+                loads={ac.loads}
+                fuelPlan={ac.plan}
                 onSelectAircraft={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
                 onGoAircraft={() => open("aircraft")}
                 onAutoWind={autoWinds}
