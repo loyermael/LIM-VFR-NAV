@@ -4,6 +4,7 @@ import {
   exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
+import { PaperLog } from "./NavLogSheet";
 import { t, type Key, type Lang } from "./i18n";
 import {
   removePoint, renamePoint, reverseRoute, setDefaultWind, setLegWind, setPointAltitude, setDepartureMs, swapPoints, toRouteFile,
@@ -321,71 +322,10 @@ export function NavScreen(p: NavProps) {
 
           {log && log.legs.length > 0 && (
             <>
-              <div className="log-head">
-                <div><span>{T("log.vp")}</span><b className="mono">{spd(tas)} {speedUnit}</b></div>
-                <div><span>{T("log.fuelflow")}</span><b className="mono">{flow === null ? "---" : `${formatQuantity("fuel", prefs, flow)} ${fuelUnit}/h`}</b></div>
-                <div><span>{T("log.wind")}</span><b className="mono">{route.windDefault ? `${Math.round(route.windDefault.directionDeg)}° / ${spd(route.windDefault.speedMps)}` : Object.keys(route.windByLeg).length > 0 ? T("log.windLegs") : "---"}</b></div>
-                <div><span>{T("log.dep")}</span><b className="mono">{route.departureMs === null ? "---" : hhmm(route.departureMs)}</b></div>
-              </div>
               {log.warnings.map((w, i) => (
                 <p className="error" role="alert" key={i}>{w.kind === "wind-too-strong" ? `${T("warn.wind")} ${w.leg + 1}` : T("warn.mag")}</p>
               ))}
-              <div className="tablewrap">
-                <table className="vfrtable">
-                  <thead>
-                    <tr>
-                      <th>{showTrue ? "Rv" : "Rm"}</th>
-                      <th>X</th>
-                      <th>{showTrue ? T("col.th") : T("col.mh")}</th>
-                      <th>{T("col.dist")}</th>
-                      <th>T<small> {T("log.noWind")}</small></th>
-                      <th>T<small> {T("log.withWind")}</small></th>
-                      <th>{T("log.times")}</th>
-                      <th className="repcol">{T("log.reports")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="startrow">
-                      <td colSpan={6}>{T("log.start")}</td>
-                      <td className="mono">{route.departureMs === null ? "" : hhmm(route.departureMs)}</td>
-                      <td className="repcol">{log.legs[0]?.from.name}</td>
-                    </tr>
-                    {log.legs.map((l) => (
-                      <tr key={l.index} className={l.error ? "bad" : undefined}>
-                        <td className="mono">{formatAngle(showTrue ? l.trueCourse : l.magneticCourse)}</td>
-                        <td className="mono">{wcaTxt(l)}</td>
-                        <td className="mono">{formatAngle(l.trueHeading === null ? null : showTrue ? l.trueHeading : l.magneticHeading)}</td>
-                        <td className="mono">{dist(l.distance)}</td>
-                        <td className="mono">{formatDuration(l.timeNoWind)}</td>
-                        <td className="mono">{formatDuration(l.timeWithWind)}</td>
-                        <td className="mono etr"><span>{route.departureMs !== null && l.eta !== null ? hhmm(l.eta) : " "}</span><span className="rline">&nbsp;</span></td>
-                        <td className="repcol"><b>{l.to.name}</b></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={3}>{T("navlog.total")}</td>
-                      <td className="mono">{dist(log.totals.distance)}</td>
-                      <td className="mono">{formatDuration(log.totals.timeNoWind)}</td>
-                      <td className="mono">{formatDuration(log.totals.timeWithWind)}</td>
-                      <td colSpan={2}></td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className="muted small">{distUnit} · {T("log.legend")}</p>
-
-              <div className="log-foot">
-                <div className="log-arr">
-                  <span>{T("log.arrival")}</span>
-                  <b>{log.legs[log.legs.length - 1]?.to.name}</b>
-                </div>
-                <div className="log-fuel">
-                  <div><span>{T("log.fuelTrip")}</span><b className="mono">{fuelTxt(log.totals.fuel)} {flow === null ? "" : fuelUnit}</b></div>
-                  <div><span>{T("log.endurance")}</span><b className="mono">{flow !== null && flow > 0 && ac ? formatDuration(((ac.fuel.capacity - ac.fuel.unusable) / flow) * 3600) : "---"}</b></div>
-                </div>
-              </div>
+              {ac && tas !== null && <PaperLog lang={p.lang} prefs={prefs} route={route} log={log} aircraft={ac} tas={tas} flow={flow} now={p.date} />}
             </>
           )}
 
