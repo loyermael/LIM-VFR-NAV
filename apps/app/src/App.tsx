@@ -255,7 +255,7 @@ export function App() {
   }, [aptSet, navSet]);
   /** Appui sur un lieu déjà dans la route : on demande s'il est aussi le point d'arrivée (retour au point de départ, tour de piste…). */
   const [dupPrompt, setDupPrompt] = useState<{ name: string; lat: number; lon: number } | null>(null);
-  const onMapTap = (lat: number, lon: number, mpp: number) => {
+  const onMapTap = (lat: number, lon: number, mpp: number, placeName: string | null) => {
     const r = route ?? createRoute();
     const here = { lat, lon };
     const radius = SNAP_PIXELS * mpp;
@@ -267,18 +267,20 @@ export function App() {
       return;
     }
     let next = addPoint(r, la, lo, uid(), Date.now());
-    if (snap) next = renamePoint(next, next.points.length - 1, snap.name, Date.now());
+    const label = snap?.name ?? placeName; // terrain, balise ou report accroché, sinon nom de la ville ou du village sous le doigt
+    if (label) next = renamePoint(next, next.points.length - 1, label, Date.now());
     putRoute(next);
     if (targetIndex === null) setTargetIndex(0);
   };
   /** Fin du déplacement d'un point : aimantation sur un terrain, une balise, un report ou un autre point de la route ; un nom automatique (WPTnn) devient celui du lieu. */
-  const onPointMove = (i: number, lat: number, lon: number, mpp: number) => {
+  const onPointMove = (i: number, lat: number, lon: number, mpp: number, placeName: string | null) => {
     if (!route) return;
     const others: SnapCandidate[] = route.points.flatMap((pt, k) => (k === i ? [] : [{ name: pt.name, lat: pt.position.lat, lon: pt.position.lon, kind: "point" as const }]));
     const snap = snapTap({ lat, lon }, SNAP_PIXELS * mpp, [...others, ...snapCandidates]);
     const now = Date.now();
     let next = movePoint(route, i, snap?.lat ?? lat, snap?.lon ?? lon, now);
-    if (snap && snap.kind !== "point" && /^WPT\d+$/i.test(route.points[i]?.name ?? "")) next = renamePoint(next, i, snap.name, now);
+    const label = snap && snap.kind !== "point" ? snap.name : snap ? null : placeName;
+    if (label && /^WPT\d+$/i.test(route.points[i]?.name ?? "")) next = renamePoint(next, i, label, now);
     putRoute(next);
   };
   const confirmDup = () => {

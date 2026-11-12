@@ -65,10 +65,10 @@ export interface MapViewProps {
   /** Demande de cadrage sur la route ; `force` ignore la présence d'un GPS (action de l'utilisateur). */
   fitRequest: { nonce: number; force: boolean };
   /** Appui en mode tracé : position et mètres par pixel d'écran (rayon d'aimantation). */
-  onMapTap: (lat: number, lon: number, metersPerPixel: number) => void;
+  onMapTap: (lat: number, lon: number, metersPerPixel: number, placeName: string | null) => void;
   onPointTap: (index: number) => void;
   /** Fin du déplacement d'un point : nouvelle position et mètres par pixel d'écran (rayon d'aimantation). */
-  onPointMove: (index: number, lat: number, lon: number, metersPerPixel: number) => void;
+  onPointMove: (index: number, lat: number, lon: number, metersPerPixel: number, placeName: string | null) => void;
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
   /** Appui simple sur un terrain (id + position écran), ou null si l'appui est ailleurs (ferme le menu). */
@@ -129,6 +129,26 @@ const OACI_BLUE = "#1b3f9a", OACI_RED = "#e8412a";
  * Symboles OACI extraits du PDF de la légende (tools/extract-oaci-symbols.py → public/oaci/*.png, 4 pixels par point : taille d'origine avec un pixelRatio de 4).
  * Ils remplacent les symboles dessinés à la main de même nom ; ceux qui manquent (voltige…) gardent le dessin de repli.
  */
+/** Nom du lieu (ville, bourg, village) sous un point de l'écran, d'après les étiquettes de la carte aéro ; null s'il n'y en a pas à moins de 24 px. */
+function placeNameAt(m: maplibregl.Map, pt: { x: number; y: number }): string | null {
+  const layers = ["aerob-place", "aerob-agglo-name", "aerob-agglo-dot-small"].filter((id) => m.getLayer(id));
+  if (layers.length === 0) return null;
+  const R = 24;
+  let best: { name: string; d: number } | null = null;
+  for (const f of m.queryRenderedFeatures([[pt.x - R, pt.y - R], [pt.x + R, pt.y + R]], { layers })) {
+    if (f.geometry.type !== "Point") continue;
+    const name = String(f.properties?.["name:fr"] ?? f.properties?.["name"] ?? "").trim();
+    if (!name) continue;
+    const q = m.project(f.geometry.coordinates as [number, number]);
+    const d = Math.hypot(q.x - pt.x, q.y - pt.y);
+    if (d <= R && (!best || d < best.d)) best = { name, d };
+  }
+  return best?.name ?? null;
+}
+
+/** Route : vert vif (très visible sur le fond aéro) ; direct vers un point : magenta, pour ne pas les confondre. */
+const ROUTE_GREEN = "#16a34a";
+const DIRECT_MAGENTA = "#c2188c";
 const OACI_PIXEL_RATIO = 4;
 const oaciIcons = new Map<string, ImageData>();
 const oaciReady: Promise<void> = (async () => {
@@ -415,11 +435,11 @@ export function MapView(props: MapViewProps) {
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       // Trace de route : large et légèrement transparente, avec un liseré clair sous le trait pour rester lisible sur le fond.
       m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 11, "line-opacity": 0.45 } });
-      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 7, "line-opacity": 0.72 } });
+      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": ROUTE_GREEN, "line-width": 7, "line-opacity": 0.78 } });
       m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.good, "line-width": 4 } });
+      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": DIRECT_MAGENTA, "line-width": 4 } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       // les symboles OACI (images PNG de la légende) sont chargés avant le premier dessin des couches
       void oaciReady.then(() => {
@@ -451,7 +471,7 @@ export function MapView(props: MapViewProps) {
     // Double-tap = deux appuis rapprochés dans le temps et l'espace (souris et tactile).
     m.on("click", (e) => {
       if (latest.current.editMode) {
-        latest.current.onMapTap(e.lngLat.lat, e.lngLat.lng, metersPerPixel(e.lngLat.lat, m.getZoom()));
+        latest.current.onMapTap(e.lngLat.lat, e.lngLat.lng, metersPerPixel(e.lngLat.lat, m.getZoom()), placeNameAt(m, e.point));
         return;
       }
       const now = Date.now();
@@ -643,7 +663,7 @@ export function MapView(props: MapViewProps) {
         .addTo(m);
       mk.on("dragend", () => {
         const ll = mk.getLngLat();
-        latest.current.onPointMove(i, ll.lat, ll.lng, metersPerPixel(ll.lat, m.getZoom()));
+        latest.current.onPointMove(i, ll.lat, ll.lng, metersPerPixel(ll.lat, m.getZoom()), placeNameAt(m, m.project(ll)));
       });
       wpMarkers.current.push(mk);
     });
@@ -1171,8 +1191,8 @@ export function MapView(props: MapViewProps) {
     const tk = tokens();
     m.setPaintProperty("background", "background-color", tk.paper);
     m.setPaintProperty("vector-line", "line-color", tk.signal);
-    m.setPaintProperty("route-line", "line-color", tk.ink);
-    m.setPaintProperty("direct-line", "line-color", tk.good);
+    m.setPaintProperty("route-line", "line-color", ROUTE_GREEN);
+    m.setPaintProperty("direct-line", "line-color", DIRECT_MAGENTA);
     for (const id of addedOverlays.current.keys()) {
       m.setPaintProperty(`ov-${id}-fill`, "fill-color", tk.ink);
       m.setPaintProperty(`ov-${id}-line`, "line-color", tk.ink);
