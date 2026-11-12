@@ -217,5 +217,5 @@ Gravité : **sécurité** (peut induire en erreur ou distraire dangereusement), 
 |---|---|---|
 | EFB-04 | **corrigé** | Bannière triée par gravité (alerte > prudence > info), compteur « +N », style `.banner.info` neutre ; aucun nouveau jeton. Vérifié au simulateur (`?sim=loss` : prudence jaune puis alerte rouge « GPS perdu »). |
 | EFB-05 | **partiel** | Bannière de prudence « Données aéro périmées (N j) » (clic → Données). Pastille sur la carte : reportée (éviter d'ajouter un élément à la carte tant que le mode Vol n'existe pas). |
-| EFB-01 | à faire | |
+| EFB-01 | **corrigé** | Pastille PRÉPA / VOL en tête de barre ; VOL = ✎ masqué, édition désactivée, écrans de prépa masqués (reste Direct, Calques, ◎, N, +/−) ; armé au décollage détecté ou d'un appui ; déverrouillage par appui long 0,8 s (un appui court affiche l'indication). Vérifié à 375 px. **À tester en vrai** : appui long avec gants/turbulence ; accès clavier au déverrouillage non géré. |
 | EFB-02 | à faire | |
