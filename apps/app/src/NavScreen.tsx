@@ -314,12 +314,12 @@ export function NavScreen(p: NavProps) {
                 />
               </label>
               <div className="choices">
-                <button onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
+                <button className="brand" onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
                 <button disabled={route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
                 <button onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</button>
               </div>
 
-              <h3>{T("nav.points")}</h3>
+              <h3>{T("nav.points")} <span className="muted small">· {T("nav.point.alt")} ({altUnit})</span></h3>
               {route.points.length === 0 && <p className="muted small">{T("nav.pointsNone")}</p>}
               {route.points.map((pt, i) => (
                 <div className="pt-row" key={pt.id}>
@@ -331,18 +331,18 @@ export function NavScreen(p: NavProps) {
                     aria-label={T("nav.name")}
                     onBlur={(e) => edit((r) => renamePoint(r, i, e.target.value, now()))}
                   />
-                  <button className="pt-del" aria-label={T("nav.delete")} onClick={() => edit((r) => removePoint(r, i, now()))}>✕</button>
-                  <div className="pt-sub">
-                    <NumField
+                  <div className="pt-alt">
+                    <MiniNum
                       label={`${T("nav.point.alt")} (${altUnit})`}
                       value={pt.altitude === null ? null : fromSI("altitude", prefs, pt.altitude)}
                       onCommit={(v) => edit((r) => setPointAltitude(r, i, v === null ? null : meters(toSI("altitude", prefs, v)), now()))}
                     />
-                    <div className="pt-actions">
-                      <button aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
-                      <button aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
-                      <button onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
-                    </div>
+                  </div>
+                  <div className="pt-actions">
+                    <button className="btn-inline" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
+                    <button className="btn-inline" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
+                    <button className="btn-inline" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
+                    <button className="btn-inline" aria-label={T("nav.delete")} onClick={() => edit((r) => removePoint(r, i, now()))}>✕</button>
                   </div>
                 </div>
               ))}
@@ -372,10 +372,7 @@ export function NavScreen(p: NavProps) {
               </p>
               <details className="windbox">
                 <summary>{T("nav.legwind")}</summary>
-                <label className="wd-auto">
-                  <input type="checkbox" checked={autoOn} onChange={(e) => setAuto(e.target.checked)} />
-                  <span>{T("nav.aw.auto")}</span>
-                </label>
+                <button className="tgl" aria-pressed={autoOn} onClick={() => setAuto(!autoOn)}>{T("nav.aw.auto")}</button>
                 <div className="wind-grid">
                   <span /><span className="wg-h">{T("nav.wind.dirShort")}</span><span className="wg-h">{T("nav.wind.speedShort")} ({speedUnit})</span><span />
                   <span className="wg-n">{T("nav.wind.default")}</span>

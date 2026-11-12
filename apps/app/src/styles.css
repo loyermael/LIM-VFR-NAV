@@ -97,11 +97,11 @@ button.cell:active { background: var(--ink); color: var(--on-ink); }
 .drawer .seg { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); }
 .drawer .seg button { width: 100%; min-width: 0; padding: 0 var(--sp-2); font-size: var(--fs-16); }
 .drawer .tgls { display: grid; gap: var(--sp-2); }
-.drawer .tgl { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); width: 100%; min-width: 0; padding: 0 var(--sp-3); font-size: var(--fs-16); text-align: left; white-space: normal; }
-.drawer .tgl::after { content: ""; flex: none; width: 24px; height: 24px; border: 2px solid var(--ink); background: var(--field); display: grid; place-items: center; font-family: var(--font-mono); font-size: var(--fs-16); line-height: 1; }
-.drawer .tgl[aria-pressed='true'] { background: var(--field); color: var(--ink); box-shadow: none; border: var(--rule-line); }
-.drawer .tgl[aria-pressed='true']::after { content: "✓"; background: var(--brand); }
-.drawer .tgl:disabled { opacity: 0.45; }
+.tgl { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); width: 100%; min-width: 0; padding: 0 var(--sp-3); font-size: var(--fs-16); text-align: left; white-space: normal; }
+.tgl::after { content: ""; flex: none; width: 24px; height: 24px; border: 2px solid var(--ink); background: var(--field); display: grid; place-items: center; font-family: var(--font-mono); font-size: var(--fs-16); line-height: 1; }
+.tgl[aria-pressed='true'] { background: var(--field); color: var(--ink); box-shadow: none; border: var(--rule-line); }
+.tgl[aria-pressed='true']::after { content: "✓"; background: var(--brand); }
+.tgl:disabled { opacity: 0.45; }
 .drawer .small { margin-top: var(--sp-2); }
 .drawer input[type='range'] { width: 100%; height: var(--h-control); accent-color: var(--ink); }
 
@@ -345,14 +345,12 @@ table.vfrtable tfoot td:first-child { text-align: left; }
 .dupsheet h2 { margin: 0; }
 
 /* Points de la route : une carte par point (numéro, nom, suppression ; puis altitude et déplacements). */
-.pt-row { display: grid; grid-template-columns: 32px 1fr auto; gap: var(--sp-2) var(--sp-3); align-items: center; border: var(--rule-line); background: var(--field); padding: var(--sp-3); margin-bottom: var(--sp-2); }
-.pt-num { font-size: var(--fs-20); text-align: center; }
-.pt-name { text-align: left; font-size: var(--fs-20); min-width: 0; width: 100%; }
-.pt-del { min-width: 48px; padding: 0 var(--sp-3); }
-.pt-sub { grid-column: 2 / -1; display: flex; gap: var(--sp-3); align-items: end; flex-wrap: wrap; }
-.pt-sub .numfield { flex: 1; min-width: 120px; }
-.pt-actions { display: flex; gap: var(--sp-2); }
-.pt-actions button { min-width: 48px; padding: 0 var(--sp-3); font-size: var(--fs-16); }
+.pt-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 96px; grid-template-areas: "n name alt" ". actions actions"; gap: var(--sp-2); align-items: center; border: var(--rule-line); background: var(--field); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
+.pt-num { grid-area: n; font-size: var(--fs-20); text-align: center; }
+.pt-name { grid-area: name; text-align: left; font-size: var(--fs-16); min-width: 0; width: 100%; height: var(--h-touch); }
+.pt-alt { grid-area: alt; }
+.pt-actions { grid-area: actions; display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.pt-actions button { min-width: var(--h-compact); padding: 0 var(--sp-3); }
 
 .route-head { display: flex; align-items: center; gap: var(--sp-3); }
 
@@ -511,3 +509,11 @@ button.row { text-align: left; }
 }
 .numfield .field, .nf-row { min-width: 0; width: 100%; box-sizing: border-box; }
 .pt-sub .numfield { min-width: 0; }
+
+/* Log : champs de saisie en vol (Z min, Hr, info) à hauteur de cible tactile, avec un cadre visible. */
+.ls-table { --H: 128px; }
+.lt-z input.zmin, .lt-t .he input, .lt-r input { height: var(--h-touch); border: 1px solid var(--ink-muted); border-radius: var(--r); background: var(--field); color: var(--data-figure); font-size: var(--fs-fluid-s); box-sizing: border-box; padding: 0 var(--sp-1); }
+.lt-z input.zmin { width: 100%; font-style: normal; }
+.lt-t .he { grid-template-columns: minmax(0, 1fr); gap: 2px; justify-items: stretch; }
+.lt-t .he em { text-align: center; }
+.lt-r input { margin-top: 2px; }
