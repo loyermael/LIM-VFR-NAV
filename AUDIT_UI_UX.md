@@ -210,3 +210,12 @@ Gravité : **sécurité** (peut induire en erreur ou distraire dangereusement), 
 8. **EFB-13, EFB-14, EFB-17** (prépa : insertion, saisie, alertes de route, démarrage), puis **EFB-15** (arbitrage des couleurs) et **EFB-18**.
 
 *Si tu ne devais en faire que trois : EFB-01 (mode Vol), EFB-04 (bannière par gravité) et EFB-03 (carte de nuit).*
+
+## 7. Suivi des corrections « sécurité d'abord »
+
+| Id | Statut | Note |
+|---|---|---|
+| EFB-04 | **corrigé** | Bannière triée par gravité (alerte > prudence > info), compteur « +N », style `.banner.info` neutre ; aucun nouveau jeton. Vérifié au simulateur (`?sim=loss` : prudence jaune puis alerte rouge « GPS perdu »). |
+| EFB-05 | **partiel** | Bannière de prudence « Données aéro périmées (N j) » (clic → Données). Pastille sur la carte : reportée (éviter d'ajouter un élément à la carte tant que le mode Vol n'existe pas). |
+| EFB-01 | à faire | |
+| EFB-02 | à faire | |

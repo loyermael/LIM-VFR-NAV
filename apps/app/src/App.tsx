@@ -1027,18 +1027,28 @@ export function App() {
     { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true },
   ];
 
-  const banner: { text: string; alert: boolean; onClick?: () => void } | null =
-    cdFired ? { text: T("tm.done"), alert: true }
-    : vacMsg ? { ...vacMsg, onClick: () => setBanner(null) }
-    : trafficAlert ? { text: trafficText(trafficAlert, fv?.trackTrue ?? null, prefs, T("lk.trafficAlert")), alert: true }
-    : status === "lost" ? { text: T("gps.lost"), alert: true }
-    : link.config.enabled && link.decoder.messages > 0 && linkStream === "lost" ? { text: T("lk.lostBanner"), alert: true }
-    : gpsError && !fix ? { text: T("gps.error"), alert: false }
-    : status === "stale" || status === "poor" ? { text: T("gps.stale"), alert: false }
-    : status === "none" ? { text: T("gps.waiting"), alert: false }
-    : pack.baseUrl && !pack.installed.country ? { text: T("dp.choose"), alert: false, onClick: () => open("data") }
-    : fv?.variationOutOfRange ? { text: T("mag.expired"), alert: true }
-    : null;
+  /**
+   * Bandeau d'état : tous les messages candidats sont classés par gravité (alerte > prudence > information, à gravité égale l'ordre de la liste) et seul
+   * le plus grave s'affiche, avec le nombre de messages en attente derrière lui.
+   */
+  type Sev = "alert" | "caution" | "info";
+  const dataAge = aspSet ? datasetFreshness(new Date(aspSet.meta.exportedAtMs), new Date(now)) : null;
+  const dataOld = dataAge !== null && (dataAge.stale || dataAge.beforeCurrentCycle);
+  const candidates: { text: string; sev: Sev; onClick?: () => void }[] = [];
+  if (cdFired) candidates.push({ text: T("tm.done"), sev: "alert" });
+  if (trafficAlert) candidates.push({ text: trafficText(trafficAlert, fv?.trackTrue ?? null, prefs, T("lk.trafficAlert")), sev: "alert" });
+  if (status === "lost") candidates.push({ text: T("gps.lost"), sev: "alert" });
+  if (link.config.enabled && link.decoder.messages > 0 && linkStream === "lost") candidates.push({ text: T("lk.lostBanner"), sev: "alert" });
+  if (fv?.variationOutOfRange) candidates.push({ text: T("mag.expired"), sev: "alert" });
+  if (vacMsg) candidates.push({ text: vacMsg.text, sev: vacMsg.alert ? "alert" : "info", onClick: () => setBanner(null) });
+  if (gpsError && !fix) candidates.push({ text: T("gps.error"), sev: "caution" });
+  if (status === "stale" || status === "poor") candidates.push({ text: T("gps.stale"), sev: "caution" });
+  if (dataOld && dataAge) candidates.push({ text: `${T("data.oldBanner")} (${dataAge.ageDays} ${T("data.days")})`, sev: "caution", onClick: () => open("data") });
+  if (status === "none") candidates.push({ text: T("gps.waiting"), sev: "info" });
+  if (pack.baseUrl && !pack.installed.country) candidates.push({ text: T("dp.choose"), sev: "info", onClick: () => open("data") });
+  const rank: Record<Sev, number> = { alert: 0, caution: 1, info: 2 };
+  const ordered = candidates.map((c, i) => ({ c, i })).sort((x, y) => rank[x.c.sev] - rank[y.c.sev] || x.i - y.i).map((x) => x.c);
+  const banner = ordered[0] ? { ...ordered[0], alert: ordered[0].sev === "alert", more: ordered.length - 1 } : null;
 
   return (
     <div className="app">
@@ -1175,8 +1185,9 @@ export function App() {
           </div>
         )}
         {banner && (
-          <div className={banner.alert ? "banner alert" : "banner"} role={banner.onClick ? "button" : banner.alert ? "alert" : "status"} tabIndex={banner.onClick ? 0 : undefined} onClick={banner.onClick} onKeyDown={(e) => e.key === "Enter" && banner.onClick?.()} style={banner.onClick ? { cursor: "pointer" } : undefined}>
+          <div className={`banner ${banner.sev}`} role={banner.onClick ? "button" : banner.alert ? "alert" : "status"} tabIndex={banner.onClick ? 0 : undefined} onClick={banner.onClick} onKeyDown={(e) => e.key === "Enter" && banner.onClick?.()} style={banner.onClick ? { cursor: "pointer" } : undefined}>
             {banner.text}
+            {banner.more > 0 && <span className="banner-more">+{banner.more}</span>}
           </div>
         )}
 

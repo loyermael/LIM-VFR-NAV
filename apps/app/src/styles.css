@@ -44,7 +44,9 @@ button.brand { background: var(--brand); color: var(--on-brand); border-color: v
 .plane svg { display: block; fill: var(--signal); stroke: var(--paper); stroke-width: 2; stroke-linejoin: round; }
 .bubble { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--signal); background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-14); border-radius: 50%; pointer-events: none; }
 .banner { position: absolute; left: 50%; top: calc(var(--sp-3) + 44px); transform: translateX(-50%); z-index: 3; max-width: calc(100% - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-4); background: var(--field); color: var(--ink); border: var(--rule-line); border-radius: var(--r); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-16); text-align: center; box-shadow: var(--shadow-pop); }
-.banner:not(.alert) { background: var(--brand); color: var(--on-brand); border-color: var(--ink); }
+.banner.caution { background: var(--brand); color: var(--on-brand); border-color: var(--ink); }
+.banner.info { background: var(--field); color: var(--ink); border-color: var(--ink); }
+.banner-more { margin-left: var(--sp-3); padding: 0 var(--sp-2); border: var(--rule-line); font-size: var(--fs-12); }
 .banner.alert { background: var(--signal); color: var(--on-signal); border-color: var(--ink); font-size: var(--fs-20); letter-spacing: 0.04em; }
 .mapctl { position: absolute; left: calc(var(--sp-3) + env(safe-area-inset-left)); bottom: var(--sp-3); z-index: 2; display: flex; flex-direction: column; gap: var(--sp-2); }
 .mapctl button { width: var(--h-control); font-size: var(--fs-28); padding: 0; box-shadow: var(--shadow-pop); }
