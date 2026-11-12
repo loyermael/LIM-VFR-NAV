@@ -703,7 +703,7 @@ export function MapView(props: MapViewProps) {
         id: "asp-ctl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["all", ["has", "ctllbl"], ["!=", ["get", "ctllbl"], ""]] as never,
         layout: {
           "text-field": ["format", ["image", ["get", "cls"]], {}, "\n", {}, ["get", "ctllbl"], { "text-color": OACI_BLUE }],
-          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 10.5, 12, 14], "text-justify": "center", "text-align": "center", "text-padding": 6, "text-optional": false, "text-line-height": 1.15,
+          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 10.5, 12, 14], "text-justify": "center", "text-padding": 6, "text-optional": false, "text-line-height": 1.15,
           "icon-image": "ctl-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 3, 2, 3],
         } as never,
         paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2.2 },
