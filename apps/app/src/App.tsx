@@ -12,9 +12,9 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, navToGeoJSON, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
-import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
+import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
-import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
+import { FormatError, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
 import { AdInfo, AdMenu } from "./AdMenu";
@@ -42,8 +42,9 @@ import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
-import { DeviceGpsSource, SimulatedSource, type PositionSource } from "./positionSource";
+import { DeviceGpsSource, RouteFlightSource, SimulatedSource, type PositionSource } from "./positionSource";
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
+import { SAME_PLACE_M, SNAP_PIXELS, isInRoute, snapTap, type SnapCandidate } from "./routeSnap";
 import { WindsTab } from "./WxScreen";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
@@ -53,7 +54,7 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.tabPoints", "nav.log", "nav.profile"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "nav.profile"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
 /** Onglets annoncés mais pas encore construits : affichés grisés. */
@@ -116,6 +117,11 @@ export function App() {
   const [screen, setScreen] = useState<Screen>("map");
   const [soonTitle, setSoonTitle] = useState<Key>("soon");
   const [tab, setTab] = useState(0);
+  // Mode simulation : jamais mémorisé (comme l'avertissement), pour ne pas rester actif lors d'un vrai vol.
+  const [sim, setSim] = useState<null | "sim" | "loss">(simMode);
+  const [simSpeed, setSimSpeed] = useState(1);
+  const simSpeedRef = useRef(1);
+  simSpeedRef.current = simSpeed;
   const [drawer, setDrawer] = useState(false);
   const [ceiling, setCeiling] = useState<number>(CEILING_FILTER.defaultFL);
   const [prefs, setPrefs] = useState<UnitPrefs>(loadUnitPrefs);
@@ -239,11 +245,38 @@ export function App() {
     selectRoute(r.id);
     return r;
   };
-  const onMapTap = (lat: number, lon: number) => {
+  /** Points auxquels le tracé s'accroche : points déjà dans la route, terrains, balises, points de report. */
+  const snapCandidates = useMemo<SnapCandidate[]>(() => {
+    const out: SnapCandidate[] = [];
+    for (const a of aptSet?.items ?? []) out.push({ name: a.icao ?? a.name, lat: a.position.lat, lon: a.position.lon, kind: "airfield" });
+    for (const v of navSet?.navaids ?? []) out.push({ name: v.ident || v.name, lat: v.lat, lon: v.lon, kind: "navaid" });
+    for (const r of navSet?.reporting ?? []) out.push({ name: r.name, lat: r.lat, lon: r.lon, kind: "report" });
+    return out;
+  }, [aptSet, navSet]);
+  /** Appui sur un lieu déjà dans la route : on demande s'il est aussi le point d'arrivée (retour au point de départ, tour de piste…). */
+  const [dupPrompt, setDupPrompt] = useState<{ name: string; lat: number; lon: number } | null>(null);
+  const onMapTap = (lat: number, lon: number, mpp: number) => {
     const r = route ?? createRoute();
-    const next = addPoint(r, lat, lon, uid(), Date.now());
+    const here = { lat, lon };
+    const radius = SNAP_PIXELS * mpp;
+    const own: SnapCandidate[] = r.points.map((pt) => ({ name: pt.name, lat: pt.position.lat, lon: pt.position.lon, kind: "point" }));
+    const snap = snapTap(here, radius, [...own, ...snapCandidates]);
+    const la = snap?.lat ?? lat, lo = snap?.lon ?? lon;
+    if (snap && (snap.kind === "point" || isInRoute(la, lo, r.points))) {
+      setDupPrompt({ name: snap.name, lat: la, lon: lo });
+      return;
+    }
+    let next = addPoint(r, la, lo, uid(), Date.now());
+    if (snap) next = renamePoint(next, next.points.length - 1, snap.name, Date.now());
     putRoute(next);
     if (targetIndex === null) setTargetIndex(0);
+  };
+  const confirmDup = () => {
+    if (!dupPrompt || !route) return setDupPrompt(null);
+    let next = addPoint(route, dupPrompt.lat, dupPrompt.lon, uid(), Date.now());
+    next = renamePoint(next, next.points.length - 1, dupPrompt.name, Date.now());
+    putRoute(next);
+    setDupPrompt(null);
   };
   const importRouteFile = async (file: File) => {
     setRouteImportError(null);
@@ -314,6 +347,30 @@ export function App() {
       if (e.wind) next = setLegWind(next, e.leg, { directionDeg: e.wind.direction, speedMps: e.wind.speed }, Date.now());
     }
     putRoute(next);
+  };
+  /** Vent de chaque branche d'après les prévisions météo (réseau requis) à l'altitude de croisière et à l'heure de décollage estimée. Rend un message d'erreur ou null. */
+  const [autoWindBusy, setAutoWindBusy] = useState(false);
+  const autoWinds = async (altM: number, departureMs: number): Promise<string | null> => {
+    if (!route || route.points.length < 2) return t(lang, "nav.aw.needPoints");
+    const tas = ac.active?.tasMps ?? perf.tasMps;
+    if (tas === null || tas === undefined) return t(lang, "nav.aw.needTas");
+    setAutoWindBusy(true);
+    try {
+      const fcs = await Promise.all(route.points.map((pt) => fetchWinds(pt.position.lat, pt.position.lon)));
+      setWindForecasts((prev) => {
+        const next = new Map(prev);
+        for (const f of fcs) next.set(windKey(f.lat, f.lon), f);
+        return next;
+      });
+      const pts = route.points.map((pt) => (pt.altitude === null ? { ...pt, altitude: meters(altM) } : pt));
+      const est = legWindsFromForecasts(pts, fcs, departureMs, tas as never);
+      applyRouteWinds(est);
+      return est.some((e) => !e.wind) ? t(lang, "nav.aw.partial") : null;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
+    } finally {
+      setAutoWindBusy(false);
+    }
   };
   const pickRoutePoint = (i: number) => {
     setAdhoc(null);
@@ -491,12 +548,12 @@ export function App() {
     let cancelled = false;
     let source: PressureSource | null = null;
     void (async () => {
-      const sim = simMode() !== null;
-      const available = sim || (await DeviceBarometer.isAvailable());
+      const simOn = sim !== null;
+      const available = simOn || (await DeviceBarometer.isAvailable());
       if (cancelled) return;
       setBaroAvailable(available);
       if (!available) return;
-      source = sim ? new SimulatedBarometer() : new DeviceBarometer();
+      source = simOn ? new SimulatedBarometer() : new DeviceBarometer();
       await source.start(
         (s) => void baroFilter.current.update(s.pressure, s.timeMs),
         () => setBaroAvailable(false),
@@ -508,16 +565,24 @@ export function App() {
       clearInterval(tick);
       void source?.stop();
     };
-  }, [accepted]);
+  }, [accepted, sim]);
+
+  // Mode simulation : la route active, sous forme de chaîne stable, pour que le vol simulé la suive (et ne redémarre que si elle change).
+  const simRouteKey = useMemo(() => (sim !== null && route && route.points.length >= 2 ? JSON.stringify(route.points.map((p) => p.position)) : ""), [sim, route]);
 
   // Source de position + écran toujours allumé + horloge pour détecter la perte de signal.
   useEffect(() => {
     if (!accepted) return;
-    const mode = simMode();
+    const mode = sim;
     // Position externe (récepteur, simulateur) : le GPS de l'appareil n'est pas lancé.
+    const routePts = simRouteKey ? (JSON.parse(simRouteKey) as LatLon[]) : [];
     const source: PositionSource | null = extOwn
       ? null
-      : mode === null ? new DeviceGpsSource(gpsAltRef) : new SimulatedSource(undefined, mode === "loss");
+      : mode === null
+        ? new DeviceGpsSource(gpsAltRef)
+        : routePts.length >= 2
+          ? new RouteFlightSource(routePts, () => simSpeedRef.current, mode === "loss")
+          : new SimulatedSource(undefined, mode === "loss");
     source?.start(
       (f) => {
         setFix(f);
@@ -539,7 +604,7 @@ export function App() {
       document.removeEventListener("visibilitychange", onVisible);
       void lock?.release();
     };
-  }, [accepted, gpsAltRef, extOwn]);
+  }, [accepted, gpsAltRef, extOwn, sim, simRouteKey]);
 
   const status = gpsStatus(fix, now);
   const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
@@ -634,6 +699,10 @@ export function App() {
     if (fresh && follow) setDocFocus((f) => ({ nonce: (f?.nonce ?? 0) + 1, corners: fresh.corners }));
   }, [docCharts, follow]);
   const recorder = useRecorder(fix, fv?.altitudeMsl ?? null);
+  // Dès qu'un décollage est détecté, l'heure détectée remplace l'heure estimée.
+  useEffect(() => {
+    if (recorder.takeoffMs !== null && route && route.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(route, recorder.takeoffMs, Date.now()));
+  }, [recorder.takeoffMs, route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
   const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
   const [cdFired, setCdFired] = useState(false);
@@ -1075,6 +1144,16 @@ export function App() {
             onClose={() => setSelectedPoint(null)}
           />
         )}
+        {dupPrompt && mapActive && (
+          <aside className="sheet dupsheet" role="alertdialog" aria-label={T("route.dup.title")}>
+            <h2>{dupPrompt.name}</h2>
+            <p>{T("route.dup.ask")}</p>
+            <div className="choices">
+              <button className="brand" onClick={confirmDup}>{T("route.dup.yes")}</button>
+              <button onClick={() => setDupPrompt(null)}>{T("route.dup.no")}</button>
+            </div>
+          </aside>
+        )}
         {directOpen && mapActive && (
           <DirectSheet
             lang={lang}
@@ -1348,10 +1427,17 @@ export function App() {
                 onLoad={(pts) => void loadWinds(pts)}
                 onApply={applyRouteWinds}
               />
-            ) : screen === "nav" && tab <= 2 ? (
+            ) : screen === "nav" && tab <= 1 ? (
               <NavScreen
                 tab={tab}
                 onGoRoutes={() => setTab(0)}
+                aircraftList={ac.list}
+                aircraft={ac.active}
+                onSelectAircraft={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
+                onGoAircraft={() => open("aircraft")}
+                onAutoWind={autoWinds}
+                autoWindBusy={autoWindBusy}
+                takeoffMs={recorder.takeoffMs}
                 lang={lang}
                 prefs={prefs}
                 route={route}

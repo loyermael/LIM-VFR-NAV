@@ -1,3 +1,4 @@
+import { metersPerPixel } from "./routeSnap";
 import { useEffect, useRef } from "react";
 import maplibregl, { type StyleSpecification } from "maplibre-gl";
 import type { Feature, FeatureCollection } from "geojson";
@@ -63,7 +64,8 @@ export interface MapViewProps {
   editMode: boolean;
   /** Demande de cadrage sur la route ; `force` ignore la présence d'un GPS (action de l'utilisateur). */
   fitRequest: { nonce: number; force: boolean };
-  onMapTap: (lat: number, lon: number) => void;
+  /** Appui en mode tracé : position et mètres par pixel d'écran (rayon d'aimantation). */
+  onMapTap: (lat: number, lon: number, metersPerPixel: number) => void;
   onPointTap: (index: number) => void;
   onPointMove: (index: number, lat: number, lon: number) => void;
   ceilingFL: number;
@@ -446,7 +448,7 @@ export function MapView(props: MapViewProps) {
     // Double-tap = deux appuis rapprochés dans le temps et l'espace (souris et tactile).
     m.on("click", (e) => {
       if (latest.current.editMode) {
-        latest.current.onMapTap(e.lngLat.lat, e.lngLat.lng);
+        latest.current.onMapTap(e.lngLat.lat, e.lngLat.lng, metersPerPixel(e.lngLat.lat, m.getZoom()));
         return;
       }
       const now = Date.now();

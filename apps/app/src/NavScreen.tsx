@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
-  exportRoute, nearestAirfields, searchAirfields, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
+  exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
 import { t, type Key, type Lang } from "./i18n";
@@ -80,36 +80,52 @@ interface NavProps {
   onShowRoute: () => void;
   /** Génère et télécharge le dossier de vol PDF. */
   onDossier: () => void;
-  /** Sous-page affichée : 0 = routes, 1 = points et vents, 2 = log. */
+  /** Sous-page affichée : 0 = route (points, vent), 1 = log. */
   tab: number;
   /** Retour à la liste des routes. */
   onGoRoutes: () => void;
   /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
   airspaces: readonly Airspace[];
   hasAero: boolean;
+  /** Avions déjà créés dans l'écran Avion, et celui qui est choisi. */
+  aircraftList: readonly Aircraft[];
+  aircraft: Aircraft | null;
+  onSelectAircraft: (id: string) => void;
+  onGoAircraft: () => void;
+  /** Vent de chaque branche d'après la météo : altitude de croisière (m) et heure de décollage (ms) ; rend un message d'erreur ou null. */
+  onAutoWind: (altitudeM: number, departureMs: number) => Promise<string | null>;
+  autoWindBusy: boolean;
+  /** Heure de décollage détectée (ms), sinon null. */
+  takeoffMs: number | null;
 }
 
-/** Onglet « Log » : routes, paramètres de vol, points, vents et tableau du log de navigation. */
+const CRUISE_KEY = "lim.cruiseAltM";
+const loadCruise = (): number => {
+  try { const v = Number(localStorage.getItem(CRUISE_KEY)); if (Number.isFinite(v) && v > 0) return v; } catch { /* stockage bloqué */ }
+  return 914; // 3000 ft
+};
+
+/** Écran Route : routes, points, vent (sous-page 0) et log de navigation (sous-page 1). */
 export function NavScreen(p: NavProps) {
   const T = (k: Key) => t(p.lang, k);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [cruiseM, setCruiseM] = useState(loadCruise);
+  const [awMsg, setAwMsg] = useState<string | null>(null);
   const { prefs, route } = p;
   const now = () => Date.now();
   const speedUnit = unitLabel("groundSpeed", prefs);
   const fuelUnit = unitLabel("fuel", prefs);
   const altUnit = unitLabel("altitude", prefs);
+  const distUnit = unitLabel("distance", prefs);
 
-  const perf = p.perf;
+  // Les performances viennent de l'avion choisi dans l'écran Avion.
+  const ac = p.aircraft;
+  const tas = ac?.tasMps ?? null;
+  const flow = ac?.fuelFlowLph ?? null;
   const log = useMemo(() => {
-    if (!route || perf.tasMps === null) return null;
-    return computeNavLog(
-      route,
-      { tas: perf.tasMps as never, fuelFlow: litersPerHour(perf.fuelFlowLph ?? 0) },
-      toWindPlan(route),
-      p.date,
-      route.departureMs,
-    );
-  }, [route, perf.tasMps, perf.fuelFlowLph, p.date]);
+    if (!route || tas === null) return null;
+    return computeNavLog(route, { tas: tas as never, fuelFlow: litersPerHour(flow ?? 0) }, toWindPlan(route), p.date, route.departureMs);
+  }, [route, tas, flow, p.date]);
 
   const crossed = useMemo(
     () => (route && route.points.length >= 2 && p.airspaces.length > 0 ? airspacesAlongRoute(route, p.airspaces) : []),
@@ -118,7 +134,7 @@ export function NavScreen(p: NavProps) {
   const showTrue = prefs.track === "true";
   const dist = (v: number) => formatQuantity("distance", prefs, v);
   const spd = (v: number | null) => (v === null ? "---" : formatQuantity("groundSpeed", prefs, v));
-  const fuelTxt = (v: number | null) => (v === null || perf.fuelFlowLph === null ? "---" : formatQuantity("fuel", prefs, v));
+  const fuelTxt = (v: number | null) => (v === null || flow === null ? "---" : formatQuantity("fuel", prefs, v));
   const wcaTxt = (l: NavLogLeg) => (l.wca === null ? "---" : `${l.wca > 0.5 ? "+" : l.wca < -0.5 ? "−" : ""}${Math.abs(Math.round(l.wca))}`);
 
   const windSpeedShown = (w: StoredWind | null) => (w === null ? null : fromSI("groundSpeed", prefs, w.speedMps));
@@ -126,47 +142,44 @@ export function NavScreen(p: NavProps) {
     if (dir === null && speed === null) return apply(null);
     apply({ directionDeg: (((dir ?? 0) % 360) + 360) % 360, speedMps: toSI("groundSpeed", prefs, speed ?? 0) });
   };
-
   const edit = (fn: (r: RouteRecord) => RouteRecord) => route && p.onRoute(fn(route));
   const applyDefaultWind = (dir: number | null, speed: number | null) =>
     commitWind(dir, speed, (w) => edit((r) => setDefaultWind(r, w, now())));
+  const detected = route !== null && p.takeoffMs !== null && route.departureMs === p.takeoffMs;
+  const setCruise = (m: number) => { setCruiseM(m); try { localStorage.setItem(CRUISE_KEY, String(m)); } catch { /* stockage bloqué */ } };
+  const runAutoWind = async () => {
+    setAwMsg(null);
+    const dep = route?.departureMs ?? now();
+    const msg = await p.onAutoWind(cruiseM, dep);
+    setAwMsg(msg ?? T("nav.aw.done"));
+  };
 
   return (
     <div className="navscreen">
       {p.tab === 0 && (
         <>
-      <h3>{T("nav.routes")}</h3>
-      <div className="route-list">
-          {p.routes.map((r) => (
-            <div key={r.id} className="route-item">
-              <button className="row" aria-pressed={route?.id === r.id} onClick={() => p.onSelectRoute(r.id)}>
-                {r.name} · {r.points.length}
-              </button>
-              {confirmDel === r.id
-              ? <button className="brand" onClick={() => { p.onDeleteRoute(r.id); setConfirmDel(null); }}>{T("tr.confirmDelete")}</button>
-              : <button aria-label={T("nav.delete")} onClick={() => setConfirmDel(r.id)}>✕</button>}
-            </div>
-          ))}
-          {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}
-      </div>
-
+          <h3>{T("nav.routes")}</h3>
+          <div className="route-list">
+            {p.routes.map((r) => (
+              <div key={r.id} className="route-item">
+                <button className="row" aria-pressed={route?.id === r.id} onClick={() => p.onSelectRoute(r.id)}>
+                  {r.name} · {r.points.length}
+                </button>
+                {confirmDel === r.id
+                  ? <button className="brand" onClick={() => { p.onDeleteRoute(r.id); setConfirmDel(null); }}>{T("tr.confirmDelete")}</button>
+                  : <button aria-label={T("nav.delete")} onClick={() => setConfirmDel(r.id)}>✕</button>}
+              </div>
+            ))}
+            {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}
+          </div>
           <div className="choices">
             <button onClick={p.onNewRoute}>{T("nav.new")}</button>
             <label className="filebtn">
               {T("nav.import")}
-              <input
-                type="file"
-                hidden
-                accept=".gpx,.kml,.fpl,.pln"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) p.onImportFile(f);
-                  e.target.value = "";
-                }}
-              />
+              <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
             </label>
           </div>
-      {p.importError && <p className="error" role="alert">{T("nav.import.error")} — {p.importError}</p>}
+          {p.importError && <p className="error" role="alert">{T("nav.import.error")} — {p.importError}</p>}
 
           {route && (
             <>
@@ -185,16 +198,86 @@ export function NavScreen(p: NavProps) {
                 <button disabled={route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
                 <button onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</button>
               </div>
+
+              <h3>{T("nav.points")}</h3>
+              {route.points.length === 0 && <p className="muted small">{T("nav.pointsNone")}</p>}
+              {route.points.map((pt, i) => (
+                <div className="pt-row" key={pt.id}>
+                  <b className="pt-num mono">{i + 1}</b>
+                  <input
+                    className="field pt-name"
+                    defaultValue={pt.name}
+                    key={`${pt.id}-${pt.name}`}
+                    aria-label={T("nav.name")}
+                    onBlur={(e) => edit((r) => renamePoint(r, i, e.target.value, now()))}
+                  />
+                  <button className="pt-del" aria-label={T("nav.delete")} onClick={() => edit((r) => removePoint(r, i, now()))}>✕</button>
+                  <div className="pt-sub">
+                    <NumField
+                      label={`${T("nav.point.alt")} (${altUnit})`}
+                      value={pt.altitude === null ? null : fromSI("altitude", prefs, pt.altitude)}
+                      onCommit={(v) => edit((r) => setPointAltitude(r, i, v === null ? null : meters(toSI("altitude", prefs, v)), now()))}
+                    />
+                    <div className="pt-actions">
+                      <button aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
+                      <button aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
+                      <button onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              <h3>{T("nav.wind")}</h3>
+              <div className="params">
+                <label className="numfield">
+                  <span>{T("nav.dep")}{detected ? ` · ${T("nav.dep.detected")}` : ""}</span>
+                  <input
+                    className="field mono"
+                    type="time"
+                    value={route.departureMs === null ? "" : new Date(route.departureMs).toTimeString().slice(0, 5)}
+                    onChange={(e) => {
+                      const [h, m] = e.target.value.split(":").map(Number);
+                      if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) return edit((r) => setDepartureMs(r, null, now()));
+                      const d = new Date();
+                      d.setHours(h, m, 0, 0);
+                      edit((r) => setDepartureMs(r, d.getTime(), now()));
+                    }}
+                  />
+                </label>
+                <NumField
+                  label={`${T("nav.aw.alt")} (${altUnit})`}
+                  value={fromSI("altitude", prefs, cruiseM)}
+                  onCommit={(v) => v !== null && v > 0 && setCruise(toSI("altitude", prefs, v))}
+                />
+              </div>
+              <button className="brand" disabled={route.points.length < 2 || p.autoWindBusy} onClick={() => void runAutoWind()}>
+                {p.autoWindBusy ? T("nav.aw.busy") : T("nav.aw.run")}
+              </button>
+              {awMsg && <p className={awMsg === T("nav.aw.done") ? "muted small" : "error"} role="status">{awMsg}</p>}
+              <details className="perfbox">
+                <summary>{T("nav.legwind")}</summary>
+                <div className="params">
+                  <NumField label={T("nav.wind.dir")} value={route.windDefault?.directionDeg ?? null} suffix="°V" onCommit={(d) => applyDefaultWind(d, windSpeedShown(route.windDefault))} />
+                  <NumField label={`${T("nav.wind.speed")} (${speedUnit})`} value={windSpeedShown(route.windDefault)} onCommit={(sp) => applyDefaultWind(route.windDefault?.directionDeg ?? null, sp)} />
+                </div>
+                {route.points.slice(1).map((pt, k) => {
+                  const own = k in route.windByLeg;
+                  const w = own ? (route.windByLeg[k] ?? null) : route.windDefault;
+                  return (
+                    <div className="point-row" key={pt.id}>
+                      <b className="mono">{k + 1}</b>
+                      <NumField label="°V" value={w?.directionDeg ?? null} onCommit={(d) => commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now())))} />
+                      <NumField label={speedUnit} value={windSpeedShown(w)} onCommit={(sp) => commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now())))} />
+                      <button disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>{T("nav.legwind.reset")}</button>
+                    </div>
+                  );
+                })}
+              </details>
+
               <h3>{T("nav.exportTitle")}</h3>
               <div className="choices">
                 {(["gpx", "kml", "fpl", "pln"] as RouteFormat[]).map((f) => (
-                  <button
-                    key={f}
-                    disabled={route.points.length === 0}
-                    onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}
-                  >
-                    {f.toUpperCase()}
-                  </button>
+                  <button key={f} disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</button>
                 ))}
                 <button className="brand" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
               </div>
@@ -203,7 +286,7 @@ export function NavScreen(p: NavProps) {
         </>
       )}
 
-      {p.tab !== 0 && !route && (
+      {p.tab === 1 && !route && (
         <>
           <p className="muted">{T("nav.needRoute")}</p>
           <div className="choices"><button className="brand" onClick={p.onGoRoutes}>{T("nav.goRoutes")}</button></div>
@@ -211,174 +294,90 @@ export function NavScreen(p: NavProps) {
       )}
 
       {p.tab === 1 && route && (
-        <>
-          <p className="muted small">{route.name}</p>
-          <h3>{T("nav.flightSettings")}</h3>
-          <div className="params">
-            <NumField
-              label={T("nav.wind.dir")}
-              value={route.windDefault?.directionDeg ?? null}
-              suffix="°V"
-              onCommit={(d) => applyDefaultWind(d, windSpeedShown(route.windDefault))}
-            />
-            <NumField
-              label={`${T("nav.wind.speed")} (${speedUnit})`}
-              value={windSpeedShown(route.windDefault)}
-              onCommit={(sp) => applyDefaultWind(route.windDefault?.directionDeg ?? null, sp)}
-            />
+        <div className="vfrlog">
+          <h3>{route.name}</h3>
+          <div className="log-ac">
             <label className="numfield">
-              <span>{T("nav.dep")}</span>
-              <input
-                className="field mono"
-                type="time"
-                value={route.departureMs === null ? "" : new Date(route.departureMs).toTimeString().slice(0, 5)}
-                onChange={(e) => {
-                  const [h, m] = e.target.value.split(":").map(Number);
-                  if (h === undefined || m === undefined || Number.isNaN(h) || Number.isNaN(m)) return edit((r) => setDepartureMs(r, null, now()));
-                  const d = new Date();
-                  d.setHours(h, m, 0, 0);
-                  edit((r) => setDepartureMs(r, d.getTime(), now()));
-                }}
-              />
+              <span>{T("log.aircraft")}</span>
+              <select className="field" value={ac?.id ?? ""} onChange={(e) => e.target.value && p.onSelectAircraft(e.target.value)}>
+                {!ac && <option value="">{T("log.choose")}</option>}
+                {p.aircraftList.map((a) => <option key={a.id} value={a.id}>{a.registration ? `${a.registration} · ` : ""}{a.name}</option>)}
+              </select>
             </label>
-                    </div>
-          <h3>{T("nav.points")}</h3>
-          {route.points.length === 0 && <p className="muted small">{T("nav.none")}</p>}
-          {route.points.map((pt, i) => (
-            <div className="point-row" key={pt.id}>
-              <b className="mono">{i + 1}</b>
-              <input
-                className="field"
-                defaultValue={pt.name}
-                key={`${pt.id}-${pt.name}`}
-                aria-label={T("nav.name")}
-                onBlur={(e) => edit((r) => renamePoint(r, i, e.target.value, now()))}
-              />
-              <NumField
-                label={`${T("nav.point.alt")} (${altUnit})`}
-                value={pt.altitude === null ? null : fromSI("altitude", prefs, pt.altitude)}
-                onCommit={(v) => edit((r) => setPointAltitude(r, i, v === null ? null : meters(toSI("altitude", prefs, v)), now()))}
-              />
-              <div className="point-actions">
-                <button aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
-                <button aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
-                <button onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
-                <button aria-label={T("nav.delete")} onClick={() => edit((r) => removePoint(r, i, now()))}>✕</button>
-              </div>
-            </div>
-          ))}
-
+            <button onClick={p.onGoAircraft}>{p.aircraftList.length === 0 ? T("log.createAircraft") : T("log.editAircraft")}</button>
+          </div>
+          {!ac && <p className="muted">{p.aircraftList.length === 0 ? T("log.noAircraft") : T("log.pickAircraft")}</p>}
+          {ac && tas === null && <p className="muted">{T("log.needTas")}</p>}
+          {ac && tas !== null && route.points.length < 2 && <p className="muted">{T("navlog.needPoints")}</p>}
 
           {log && log.legs.length > 0 && (
             <>
-              <h3>{T("nav.legwind")}</h3>
-              {log.legs.map((l) => {
-                const own = l.index in route.windByLeg;
-                const w = own ? (route.windByLeg[l.index] ?? null) : route.windDefault;
-                return (
-                  <div className="point-row" key={l.index}>
-                    <b className="mono">{l.index + 1}</b>
-                    <NumField
-                      label="°V"
-                      value={w?.directionDeg ?? null}
-                      onCommit={(d) => commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, l.index, x, now())))}
-                    />
-                    <NumField
-                      label={speedUnit}
-                      value={windSpeedShown(w)}
-                      onCommit={(s) => commitWind(w?.directionDeg ?? null, s, (x) => edit((r) => setLegWind(r, l.index, x, now())))}
-                    />
-                    <button disabled={!own} onClick={() => edit((r) => setLegWind(r, l.index, undefined, now()))}>{T("nav.legwind.reset")}</button>
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </>
-      )}
-
-      {p.tab === 2 && route && (
-        <>
-          <p className="muted small">{route.name}</p>
-          <details className="perfbox">
-            <summary>{T("nav.perfTitle")} : {perf.tasMps === null ? "---" : `${formatQuantity("groundSpeed", prefs, perf.tasMps)} ${speedUnit}`} · {perf.fuelFlowLph === null ? "---" : `${formatQuantity("fuel", prefs, perf.fuelFlowLph)} ${fuelUnit}/h`}</summary>
-            <p className="muted small">{T("nav.perfHelp")}</p>
-            <div className="params">
-            <NumField
-              label={`${T("nav.tas")} (${speedUnit})`}
-              value={perf.tasMps === null ? null : fromSI("groundSpeed", prefs, perf.tasMps)}
-              onCommit={(v) => p.onPerf({ ...perf, tasMps: v !== null && v > 0 ? toSI("groundSpeed", prefs, v) : null })}
-            />
-            <NumField
-              label={`${T("nav.fuelflow")} (${fuelUnit}/h)`}
-              decimals={1}
-              value={perf.fuelFlowLph === null ? null : fromSI("fuel", prefs, perf.fuelFlowLph)}
-              onCommit={(v) => p.onPerf({ ...perf, fuelFlowLph: v !== null && v > 0 ? toSI("fuel", prefs, v) : null })}
-            />
-            </div>
-          </details>
-          <h3>{T("navlog.title")}</h3>
-          {perf.tasMps === null && <p className="muted">{T("navlog.needTas")}</p>}
-          {log && route.points.length < 2 && <p className="muted small">{T("navlog.needPoints")}</p>}
-          {log && log.warnings.map((w, i) => (
-            <p className="error" role="alert" key={i}>
-              {w.kind === "wind-too-strong" ? `${T("warn.wind")} ${w.leg + 1}` : T("warn.mag")}
-            </p>
-          ))}
-          {log && log.legs.length > 0 && (
-            <div className="tablewrap">
-              <table className="navlog">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>{T("col.leg")}</th>
-                    <th>{showTrue ? T("col.tc") : T("col.mc")}</th>
-                    <th>{T("col.wca")}</th>
-                    <th>{showTrue ? T("col.th") : T("col.mh")}</th>
-                    <th>GS</th>
-                    <th>{T("col.dist")}</th>
-                    <th>TSV</th>
-                    <th>TAV</th>
-                    <th>{T("col.fuel")}</th>
-                    <th>DSD</th>
-                    <th>DTA</th>
-                    {route.departureMs !== null && <th>{T("col.eta")}</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {log.legs.map((l) => (
-                    <tr key={l.index} className={l.error ? "bad" : undefined}>
-                      <td>{l.index + 1}</td>
-                      <td className="legname">{l.from.name} → {l.to.name}</td>
-                      <td>{formatAngle(showTrue ? l.trueCourse : l.magneticCourse)}</td>
-                      <td>{wcaTxt(l)}</td>
-                      <td>{formatAngle(l.trueHeading === null ? null : showTrue ? l.trueHeading : l.magneticHeading)}</td>
-                      <td>{spd(l.groundSpeed)}</td>
-                      <td>{dist(l.distance)}</td>
-                      <td>{formatDuration(l.timeNoWind)}</td>
-                      <td>{formatDuration(l.timeWithWind)}</td>
-                      <td>{fuelTxt(l.fuel)}</td>
-                      <td>{dist(l.distanceFromStart)}</td>
-                      <td>{dist(l.distanceRemaining)}</td>
-                      {route.departureMs !== null && <td>{l.eta === null ? "---" : hhmm(l.eta)}</td>}
+              <div className="log-head">
+                <div><span>{T("log.vp")}</span><b className="mono">{spd(tas)} {speedUnit}</b></div>
+                <div><span>{T("log.fuelflow")}</span><b className="mono">{flow === null ? "---" : `${formatQuantity("fuel", prefs, flow)} ${fuelUnit}/h`}</b></div>
+                <div><span>{T("log.wind")}</span><b className="mono">{route.windDefault ? `${Math.round(route.windDefault.directionDeg)}° / ${spd(route.windDefault.speedMps)}` : Object.keys(route.windByLeg).length > 0 ? T("log.windLegs") : "---"}</b></div>
+                <div><span>{T("log.dep")}</span><b className="mono">{route.departureMs === null ? "---" : hhmm(route.departureMs)}</b></div>
+              </div>
+              {log.warnings.map((w, i) => (
+                <p className="error" role="alert" key={i}>{w.kind === "wind-too-strong" ? `${T("warn.wind")} ${w.leg + 1}` : T("warn.mag")}</p>
+              ))}
+              <div className="tablewrap">
+                <table className="vfrtable">
+                  <thead>
+                    <tr>
+                      <th>{showTrue ? "Rv" : "Rm"}</th>
+                      <th>X</th>
+                      <th>{showTrue ? T("col.th") : T("col.mh")}</th>
+                      <th>{T("col.dist")}</th>
+                      <th>T<small> {T("log.noWind")}</small></th>
+                      <th>T<small> {T("log.withWind")}</small></th>
+                      <th>{T("log.times")}</th>
+                      <th className="repcol">{T("log.reports")}</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <td colSpan={6}>{T("navlog.total")}</td>
-                    <td>{dist(log.totals.distance)}</td>
-                    <td>{formatDuration(log.totals.timeNoWind)}</td>
-                    <td>{formatDuration(log.totals.timeWithWind)}</td>
-                    <td>{fuelTxt(log.totals.fuel)}</td>
-                    <td colSpan={route.departureMs !== null ? 3 : 2}></td>
-                  </tr>
-                </tfoot>
-              </table>
-              <p className="muted small">
-                {unitLabel("distance", prefs)} · {speedUnit} · {fuelUnit} · {T("navlog.legend")}
-              </p>
-            </div>
+                  </thead>
+                  <tbody>
+                    <tr className="startrow">
+                      <td colSpan={6}>{T("log.start")}</td>
+                      <td className="mono">{route.departureMs === null ? "" : hhmm(route.departureMs)}</td>
+                      <td className="repcol">{log.legs[0]?.from.name}</td>
+                    </tr>
+                    {log.legs.map((l) => (
+                      <tr key={l.index} className={l.error ? "bad" : undefined}>
+                        <td className="mono">{formatAngle(showTrue ? l.trueCourse : l.magneticCourse)}</td>
+                        <td className="mono">{wcaTxt(l)}</td>
+                        <td className="mono">{formatAngle(l.trueHeading === null ? null : showTrue ? l.trueHeading : l.magneticHeading)}</td>
+                        <td className="mono">{dist(l.distance)}</td>
+                        <td className="mono">{formatDuration(l.timeNoWind)}</td>
+                        <td className="mono">{formatDuration(l.timeWithWind)}</td>
+                        <td className="mono etr"><span>{route.departureMs !== null && l.eta !== null ? hhmm(l.eta) : " "}</span><span className="rline">&nbsp;</span></td>
+                        <td className="repcol"><b>{l.to.name}</b></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3}>{T("navlog.total")}</td>
+                      <td className="mono">{dist(log.totals.distance)}</td>
+                      <td className="mono">{formatDuration(log.totals.timeNoWind)}</td>
+                      <td className="mono">{formatDuration(log.totals.timeWithWind)}</td>
+                      <td colSpan={2}></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+              <p className="muted small">{distUnit} · {T("log.legend")}</p>
+
+              <div className="log-foot">
+                <div className="log-arr">
+                  <span>{T("log.arrival")}</span>
+                  <b>{log.legs[log.legs.length - 1]?.to.name}</b>
+                </div>
+                <div className="log-fuel">
+                  <div><span>{T("log.fuelTrip")}</span><b className="mono">{fuelTxt(log.totals.fuel)} {flow === null ? "" : fuelUnit}</b></div>
+                  <div><span>{T("log.endurance")}</span><b className="mono">{flow !== null && flow > 0 && ac ? formatDuration(((ac.fuel.capacity - ac.fuel.unusable) / flow) * 3600) : "---"}</b></div>
+                </div>
+              </div>
+            </>
           )}
 
           <h3>{T("navasp.title")}</h3>
@@ -391,7 +390,7 @@ export function NavScreen(p: NavProps) {
                 <span className="badge">{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
               </div>
               <div className="muted small">
-                {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {unitLabel("distance", prefs)}
+                {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {distUnit}
                 {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
                 {(() => { const st = periodStatus(h.airspace, p.date.getTime()); return st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`; })()}
               </div>
@@ -401,8 +400,7 @@ export function NavScreen(p: NavProps) {
             </div>
           ))}
           {p.hasAero && crossed.length > 0 && <p className="muted small">{T("navasp.legend")}</p>}
-
-        </>
+        </div>
       )}
     </div>
   );

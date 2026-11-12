@@ -312,3 +312,44 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .directsheet .dirrow { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); width: 100%; min-width: 0; padding: 0 var(--sp-3); font-size: var(--fs-16); text-align: left; white-space: normal; line-height: 1.15; }
 .directsheet .dirside { flex: none; font-size: var(--fs-14); }
 .directsheet .dirrow[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--ink); }
+
+/* Page Log : en-tête d'avion, tableau à la manière d'un log de navigation papier (trait épais, colonne Reports grisée une ligne sur deux). */
+.vfrlog { display: grid; gap: var(--sp-3); }
+.log-ac { display: flex; gap: var(--sp-3); align-items: end; flex-wrap: wrap; }
+.log-ac .numfield { flex: 1; min-width: 200px; }
+.log-ac select.field { text-align: left; font-size: var(--fs-16); }
+.log-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border: var(--rule-heavy); background: var(--field); }
+.log-head > div { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border-left: var(--rule-line); }
+.log-head > div:first-child { border-left: 0; }
+.log-head span { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.log-head b { font-size: var(--fs-20); }
+table.vfrtable { border-collapse: collapse; width: 100%; background: var(--field); font-variant-numeric: tabular-nums; }
+table.vfrtable th { background: var(--paper-2); font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.04em; font-weight: 600; text-align: center; padding: var(--sp-2); border: var(--rule-line); white-space: nowrap; }
+table.vfrtable th small { font-weight: 400; color: var(--ink-muted); }
+table.vfrtable td { border: var(--rule-line); padding: var(--sp-2); text-align: center; font-size: var(--fs-16); white-space: nowrap; }
+table.vfrtable td.repcol, table.vfrtable th.repcol { text-align: left; min-width: 130px; }
+table.vfrtable tbody tr:nth-child(odd) td.repcol { background: var(--paper-2); }
+table.vfrtable tr.startrow td { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; font-weight: 700; text-align: left; background: var(--field); }
+table.vfrtable td.etr { min-width: 78px; }
+table.vfrtable td.etr span { display: block; }
+table.vfrtable td.etr .rline { border-top: 1px dashed var(--hair); margin-top: 2px; min-height: 22px; }
+table.vfrtable tr.bad td { color: var(--zone-bad); }
+table.vfrtable tfoot td { font-weight: 700; background: var(--paper-2); }
+table.vfrtable tfoot td:first-child { text-align: left; }
+.log-foot { display: grid; grid-template-columns: 1fr 1fr; border: var(--rule-heavy); background: var(--field); }
+.log-foot > div { padding: var(--sp-3); display: grid; gap: var(--sp-2); align-content: start; }
+.log-foot > div + div { border-left: var(--rule-line); }
+.log-foot span { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
+.log-arr b { font-family: var(--font-display); font-stretch: var(--stretch-display); font-size: var(--fs-28); text-transform: uppercase; }
+.log-fuel > div { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: baseline; }
+.dupsheet h2 { margin: 0; }
+
+/* Points de la route : une carte par point (numéro, nom, suppression ; puis altitude et déplacements). */
+.pt-row { display: grid; grid-template-columns: 32px 1fr auto; gap: var(--sp-2) var(--sp-3); align-items: center; border: var(--rule-line); background: var(--field); padding: var(--sp-3); margin-bottom: var(--sp-2); }
+.pt-num { font-size: var(--fs-20); text-align: center; }
+.pt-name { text-align: left; font-size: var(--fs-20); min-width: 0; width: 100%; }
+.pt-del { min-width: 48px; padding: 0 var(--sp-3); }
+.pt-sub { grid-column: 2 / -1; display: flex; gap: var(--sp-3); align-items: end; flex-wrap: wrap; }
+.pt-sub .numfield { flex: 1; min-width: 120px; }
+.pt-actions { display: flex; gap: var(--sp-2); }
+.pt-actions button { min-width: 48px; padding: 0 var(--sp-3); font-size: var(--fs-16); }
