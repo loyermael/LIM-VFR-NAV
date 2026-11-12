@@ -1467,6 +1467,7 @@ export function App() {
                     lang={lang}
                     route={route}
                     airfields={aptSet?.items ?? []}
+                    airspaces={aspSet?.items ?? []}
                     set={notamSet}
                     nowMs={now}
                     window={{ startMs, endMs: startMs + km * 1000 }}

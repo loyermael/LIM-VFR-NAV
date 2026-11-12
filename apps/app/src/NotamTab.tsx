@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { Airfield } from "@lim/core";
+import { airspacesAlongRoute, type Airfield, type Airspace } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
 import { icaoAt, likelyAlternates, notamSubject, notamsForFlight, type Notam, type NotamRole, type NotamSet } from "./notam";
 import type { RouteRecord } from "./routeEdit";
@@ -41,6 +41,8 @@ export function NotamTab(p: {
   lang: Lang;
   route: RouteRecord | null;
   airfields: readonly Airfield[];
+  /** Espaces aériens (zones réglementées, activités…) pour lister les zones que la route peut rencontrer. */
+  airspaces: readonly Airspace[];
   set: NotamSet | null;
   nowMs: number;
   window: { startMs: number; endMs: number };
@@ -80,14 +82,31 @@ export function NotamTab(p: {
   const depIcao = p.route && p.route.points[0] ? icaoAt(p.route.points[0].position, p.airfields) : null;
   const arrIcao = p.route && p.route.points.length > 1 ? icaoAt(p.route.points[p.route.points.length - 1]!.position, p.airfields) : null;
   const alternates = useMemo(() => (p.route ? likelyAlternates(p.route.points, p.airfields) : []), [p.route, p.airfields]);
+  const pts = p.route?.points ?? [];
   const sameAd = !!depIcao && depIcao === arrIcao;
-  const groupDefs: { role: NotamRole; title: Key; hint: string; always: boolean }[] = [
-    { role: "dep", title: sameAd ? "notam.group.depArr" : "notam.group.dep", hint: depIcao ? `${depIcao} ${adName(depIcao)}`.trim() : "", always: !!depIcao },
-    ...(sameAd ? [] : [{ role: "arr" as NotamRole, title: "notam.group.arr" as Key, hint: arrIcao ? `${arrIcao} ${adName(arrIcao)}`.trim() : "", always: !!arrIcao }]),
-    { role: "via", title: "notam.group.via", hint: "", always: false },
-    { role: "alt", title: "notam.group.alt", hint: alternates.join(", "), always: alternates.length > 0 },
-    { role: "route", title: "notam.group.route", hint: "", always: false },
-  ];
+  const viaIcaos = useMemo(() => {
+    const out: string[] = [];
+    for (const pt of pts.slice(1, -1)) { const i = icaoAt(pt.position, p.airfields); if (i && i !== depIcao && i !== arrIcao && !out.includes(i)) out.push(i); }
+    return out;
+  }, [pts, p.airfields, depIcao, arrIcao]);
+  /** Zones traversées par la route qui peuvent faire l'objet d'un NOTAM (réglementées, dangereuses, activités). */
+  const zones = useMemo(() => {
+    if (!p.route || p.route.points.length < 2) return [] as Airspace[];
+    const seen = new Set<string>();
+    return airspacesAlongRoute(p.route, p.airspaces.filter((a) => a.group === "restricted" || a.group === "activity"))
+      .map((h) => h.airspace)
+      .filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
+  }, [p.route, p.airspaces]);
+  const adRow = (role: NotamRole, icao: string) => {
+    const list = relevant.filter((r) => r.role === role && r.notam.locations.includes(icao));
+    return (
+      <div className="notam-ad" key={`${role}-${icao}`}>
+        <div className="notam-ad-head"><b>{icao}</b> <span className="muted small">{adName(icao)}</span></div>
+        {list.length === 0 ? <p className="muted small">{T("notam.none")}</p> : list.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
+      </div>
+    );
+  };
+  const routeNotams = relevant.filter((r) => r.role === "route");
 
   return (
     <div className="navscreen">
@@ -122,23 +141,45 @@ export function NotamTab(p: {
           {" "}<button className="btn-inline" onClick={p.onClear}>{T("notam.clear")}</button>
         </p>
       )}
-      {!p.set && <p className="muted">{T("notam.empty")}</p>}
+      {!p.set && <p className="muted small">{T("notam.noneImported")}</p>}
 
-      {p.set && p.route && p.route.points.length > 0 && (
+      {p.route && p.route.points.length > 0 && (
         <>
-          {groupDefs.map((g) => {
-            const list = relevant.filter((r) => r.role === g.role);
-            if (list.length === 0 && !g.always) return null;
-            return (
-              <section key={g.role} className="notam-group">
-                <h3>{T(g.title)} ({list.length})</h3>
-                {g.hint && <p className="muted small">{g.hint}</p>}
-                {list.length === 0 && <p className="muted small">{T("notam.noneAd")}</p>}
-                {list.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
-              </section>
-            );
-          })}
-          {relevant.length === 0 && <p className="muted small">{T("notam.noneFlight")}</p>}
+          {depIcao && (
+            <section className="notam-group">
+              <h3>{T(sameAd ? "notam.group.depArr" : "notam.group.dep")}</h3>
+              {adRow("dep", depIcao)}
+            </section>
+          )}
+          {!sameAd && arrIcao && (
+            <section className="notam-group">
+              <h3>{T("notam.group.arr")}</h3>
+              {adRow("arr", arrIcao)}
+            </section>
+          )}
+          {viaIcaos.length > 0 && (
+            <section className="notam-group">
+              <h3>{T("notam.group.via")}</h3>
+              {viaIcaos.map((i) => adRow("via", i))}
+            </section>
+          )}
+          {alternates.length > 0 && (
+            <section className="notam-group">
+              <h3>{T("notam.group.alt")}</h3>
+              {alternates.map((i) => adRow("alt", i))}
+            </section>
+          )}
+          <section className="notam-group">
+            <h3>{T("notam.group.route")}</h3>
+            {zones.map((z) => (
+              <div className="notam-ad" key={z.id}>
+                <div className="notam-ad-head"><b>{z.name}</b> <span className="muted small">{z.typeLabel} · {z.lower.label} → {z.upper.label}</span></div>
+                <p className="muted small">{T("notam.none")}</p>
+              </div>
+            ))}
+            {routeNotams.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
+            {zones.length === 0 && routeNotams.length === 0 && <p className="muted small">{p.route.points.length < 2 ? T("notam.needTwo") : T("notam.none")}</p>}
+          </section>
         </>
       )}
       {p.set && others.length > 0 && (
