@@ -112,28 +112,6 @@ export function NotamTab(p: {
     <div className="navscreen">
       <p className="error notam-warn" role="note">{T("notam.warning")}</p>
 
-      <h3>{T("notam.import")}</h3>
-      <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
-      <div className="choices">
-        <button className="brand" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</button>
-        <label className="filebtn">
-          {T("notam.file")}
-          <input type="file" hidden accept=".txt,.text,.notam" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run(async () => p.onImportText(await f.text(), f.name), T("notam.imported")); }} />
-        </label>
-      </div>
-
-      <details className="perfbox">
-        <summary>{T("notam.api")}</summary>
-        <p className="muted small">{T("notam.apiHelp")}</p>
-        <label className="numfield">
-          <span>{T("notam.apiKey")}</span>
-          <input className="field mono" type="password" autoComplete="off" value={key} onChange={(e) => saveKey(e.target.value)} />
-        </label>
-        <button disabled={busy || key.trim() === "" || !p.route || p.route.points.length === 0} onClick={() => void run(() => p.onFetchApi(key.trim()), T("notam.imported"))}>{busy ? T("notam.fetching") : T("notam.fetch")}</button>
-        {!p.route && <p className="muted small">{T("notam.needRoute")}</p>}
-      </details>
-      {msg && <p className={msg.ok ? "muted small" : "error"} role="status">{msg.text}</p>}
-
       {p.set && (
         <p className="muted small">
           {items.length} NOTAM · {T("notam.source")} : {p.set.source} · {T("notam.received")} {utc(p.set.importedAtMs)} ({ageText(p.set.importedAtMs, p.nowMs)})
@@ -190,6 +168,28 @@ export function NotamTab(p: {
           {showAll && others.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
         </>
       )}
+      <h3>{T("notam.import")}</h3>
+      <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
+      <div className="choices">
+        <button className="brand" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</button>
+        <label className="filebtn">
+          {T("notam.file")}
+          <input type="file" hidden accept=".txt,.text,.notam" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run(async () => p.onImportText(await f.text(), f.name), T("notam.imported")); }} />
+        </label>
+      </div>
+
+      <details className="perfbox">
+        <summary>{T("notam.api")}</summary>
+        <p className="muted small">{T("notam.apiHelp")}</p>
+        <label className="numfield">
+          <span>{T("notam.apiKey")}</span>
+          <input className="field mono" type="password" autoComplete="off" value={key} onChange={(e) => saveKey(e.target.value)} />
+        </label>
+        <button disabled={busy || key.trim() === "" || !p.route || p.route.points.length === 0} onClick={() => void run(() => p.onFetchApi(key.trim()), T("notam.imported"))}>{busy ? T("notam.fetching") : T("notam.fetch")}</button>
+        {!p.route && <p className="muted small">{T("notam.needRoute")}</p>}
+      </details>
+      {msg && <p className={msg.ok ? "muted small" : "error"} role="status">{msg.text}</p>}
+
     </div>
   );
 }
