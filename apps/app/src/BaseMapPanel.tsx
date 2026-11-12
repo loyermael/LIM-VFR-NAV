@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useRef, useState } from "react";
 import { bboxAround, type BBox, type LatLon } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
@@ -21,7 +22,6 @@ export function BaseMapPanel(p: {
   const [zmax, setZmax] = useState<number>(12);
   const [busy, setBusy] = useState<{ done: number; total: number; bytes: number; failed: number } | null>(null);
   const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
-  const [confirm, setConfirm] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
 
   const bbox: BBox | null =
@@ -61,7 +61,6 @@ export function BaseMapPanel(p: {
     const next = areas.filter((x) => x.id !== a.id);
     setAreas(next);
     saveAreas(next);
-    setConfirm(null);
   };
 
   return (
@@ -109,9 +108,7 @@ export function BaseMapPanel(p: {
           <div className="datahead"><b>{a.name}</b><span className="mono small">{mo(a.bytes)} {T("dp.mb")}</span></div>
           <div className="muted small">z{a.zmin}–z{a.zmax} · {a.tiles} {T("bm.tiles")} · {new Date(a.at).toISOString().slice(0, 10)}</div>
           <div className="choices">
-            {confirm === a.id
-              ? <button className="brand" onClick={() => void remove(a)}>{T("bm.removeConfirm")}</button>
-              : <button onClick={() => setConfirm(a.id)}>{T("bm.remove")}</button>}
+            <ConfirmButton label={T("bm.remove")} confirmLabel={T("bm.removeConfirm")} onConfirm={() => void remove(a)} />
           </div>
         </div>
       ))}

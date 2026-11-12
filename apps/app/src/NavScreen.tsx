@@ -4,6 +4,7 @@ import {
   exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type Loads, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { LogSheet, useLogForm } from "./LogSheet";
 import { buildAutoFields, buildLogModel, vpKey } from "./logModel";
 import type { FuelPlanParams } from "./aircraftStore";
@@ -151,7 +152,6 @@ const loadCruise = (): number => {
 /** Écran Route : routes, points, vent (sous-page 0) et log de navigation (sous-page 1). */
 export function NavScreen(p: NavProps) {
   const T = (k: Key) => t(p.lang, k);
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
   /** Deux vues séparées : la liste des routes (choix), puis la route elle-même. */
   const [view, setView] = useState<"list" | "detail">("list");
   const [cruiseM, setCruiseM] = useState(loadCruise);
@@ -279,9 +279,7 @@ export function NavScreen(p: NavProps) {
                 <button className="row" aria-pressed={route?.id === r.id} onClick={() => { p.onSelectRoute(r.id); setView("detail"); }}>
                   {r.name} · {r.points.length}
                 </button>
-                {confirmDel === r.id
-                  ? <button className="brand" onClick={() => { p.onDeleteRoute(r.id); setConfirmDel(null); }}>{T("tr.confirmDelete")}</button>
-                  : <button aria-label={T("nav.delete")} onClick={() => setConfirmDel(r.id)}>✕</button>}
+                <ConfirmButton label="✕" ariaLabel={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onDeleteRoute(r.id)} />
               </div>
             ))}
             {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}

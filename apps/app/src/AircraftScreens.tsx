@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
 import {
   computeBalance, formatDuration, formatQuantity, fromSI, planFuel, toSI, unitLabel, validateAircraft,
@@ -225,7 +226,6 @@ interface AircraftTabProps {
 export function AircraftTab(p: AircraftTabProps) {
   const T = (k: Key) => t(p.lang, k);
   const [editing, setEditing] = useState(false);
-  const [confirm, setConfirm] = useState<string | null>(null);
   const a = p.active;
   if (a && editing) return <AircraftEditor lang={p.lang} prefs={p.prefs} aircraft={a} onChange={p.onPut} onDone={() => setEditing(false)} />;
   const create = () => {
@@ -242,7 +242,7 @@ export function AircraftTab(p: AircraftTabProps) {
       <div className="route-list">
         {p.aircraft.map((x) => (
           <div className={a?.id === x.id ? "aircard active" : "aircard"} key={x.id}>
-            <button className="row" aria-pressed={a?.id === x.id} onClick={() => { p.onSelect(x.id); setConfirm(null); }}>
+            <button className="row" aria-pressed={a?.id === x.id} onClick={() => p.onSelect(x.id)}>
               <b>{x.registration ? `${x.registration} · ` : ""}{x.name}</b>
               <span className="muted small"> — {status(x)}</span>
             </button>
@@ -250,9 +250,7 @@ export function AircraftTab(p: AircraftTabProps) {
               <div className="choices">
                 <button className="brand" onClick={() => setEditing(true)}>{T("ac.edit")}</button>
                 <button onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>
-                {confirm === x.id
-                  ? <button className="brand" onClick={() => { p.onRemove(x.id); setConfirm(null); }}>{T("tr.confirmDelete")}</button>
-                  : <button onClick={() => setConfirm(x.id)}>{T("nav.delete")}</button>}
+                <ConfirmButton label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
               </div>
             )}
           </div>

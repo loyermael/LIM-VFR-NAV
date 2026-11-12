@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
 import { airspacesAlongRoute, type Airfield, type Airspace } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
@@ -116,7 +117,7 @@ export function NotamTab(p: {
         <p className="muted small">
           {items.length} NOTAM · {T("notam.source")} : {p.set.source} · {T("notam.received")} {utc(p.set.importedAtMs)} ({ageText(p.set.importedAtMs, p.nowMs)})
           {p.nowMs - p.set.importedAtMs > 24 * 3_600_000 ? ` — ${T("notam.stale")}` : ""}
-          {" "}<button className="btn-inline" onClick={p.onClear}>{T("notam.clear")}</button>
+          {" "}<ConfirmButton className="btn-inline" label={T("notam.clear")} confirmLabel={T("tr.confirmDelete")} onConfirm={p.onClear} />
         </p>
       )}
       {!p.set && <p className="muted small">{T("notam.noneImported")}</p>}

@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
 import { applyBaseUrl, type PackCountry, type PackDataset, type PackHook } from "./dataPack";
@@ -44,7 +45,6 @@ function Row(p: { lang: Lang; pack: PackHook; ds: PackDataset; nowMs: number }) 
 export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemovePackage: () => void }) {
   const T = (k: Key) => t(p.lang, k);
   const k = p.pack;
-  const [confirm, setConfirm] = useState(false);
   const countries: readonly PackCountry[] = k.manifest?.countries ?? [];
   const live = countries.flatMap((c) => c.datasets).filter((d) => d.live).slice(0, 1);
   const busy = Object.values(k.status).some((s) => s.state === "downloading" || s.state === "installing");
@@ -78,9 +78,7 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
                   {k.checking
                     ? <button className="brand" onClick={k.cancel}>{T("dp.cancel")}</button>
                     : <button onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</button>}
-                  {!busy && (confirm
-                    ? <button className="brand" onClick={() => { p.onRemovePackage(); setConfirm(false); }}>{T("dp.removeConfirm")}</button>
-                    : <button onClick={() => setConfirm(true)}>{T("dp.remove")}</button>)}
+                  {!busy && <ConfirmButton label={T("dp.remove")} confirmLabel={T("dp.removeConfirm")} onConfirm={p.onRemovePackage} />}
                 </div>
               </>
             )}

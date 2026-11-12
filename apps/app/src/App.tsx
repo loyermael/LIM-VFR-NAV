@@ -47,6 +47,7 @@ import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { SAME_PLACE_M, SNAP_PIXELS, isInRoute, snapTap, type SnapCandidate } from "./routeSnap";
 import { WindsTab } from "./WxScreen";
 import { NotamTab } from "./NotamTab";
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, notamsAtAirfield, parseNotams, saveNotams, type NotamSet } from "./notam";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
@@ -1364,7 +1365,7 @@ export function App() {
               <div className="chart-item" key={c.id}>
                 <div className="overlay-item">
                   <span>{c.name}</span>
-                  <button onClick={() => dropChart(c.id)}>{T("overlay.remove")}</button>
+                  <ConfirmButton label={T("overlay.remove")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => dropChart(c.id)} />
                 </div>
                 <p className="muted small">
                   {c.info.tileCount} {T("chart.tiles")} · z{c.info.minZoom}–{c.info.maxZoom} · {(c.sizeBytes / 1048576).toFixed(0)} Mo
@@ -1422,14 +1423,14 @@ export function App() {
             {aeroProblems.map((m, i) => (
               <p className="error" role="alert" key={i}>{T("aero.problem")} — {m}</p>
             ))}
-                    {(aspSet || aptSet) && <button onClick={removeAero}>{T("aero.remove")}</button>}
+                    {(aspSet || aptSet) && <ConfirmButton label={T("aero.remove")} confirmLabel={T("tr.confirmDelete")} onConfirm={removeAero} />}
             <p className="muted small">{T("aero.licence")}</p>
             <h3>{T("layers.overlays")}</h3>
             <ul>
               {overlays.map((o) => (
                 <li key={o.id} className="overlay-item">
                   <span>{o.name}</span>
-                  <button onClick={() => removeOverlay(o.id)}>{T("overlay.remove")}</button>
+                  <ConfirmButton label={T("overlay.remove")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => removeOverlay(o.id)} />
                 </li>
               ))}
             </ul>

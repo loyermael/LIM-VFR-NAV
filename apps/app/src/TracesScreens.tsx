@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
 import {
   exportTrackGPX, exportTrackIGC, exportTrackKML, formatQuantity, fromSI, pointAt, trackStats, unitLabel, type TrackPoint, type UnitPrefs,
@@ -140,9 +141,7 @@ interface TracesProps {
 export function TracesTab(p: TracesProps) {
   const T = (k: Key) => t(p.lang, k);
   const [sel, setSel] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<string | null>(null);
   const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
-  const [confirmClean, setConfirmClean] = useState(false);
   const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const sorted = [...p.tracks].sort((a, b) => b.startMs - a.startMs);
   const track = sel ? p.tracks.find((x) => x.id === sel) ?? null : null;
@@ -159,7 +158,7 @@ export function TracesTab(p: TracesProps) {
     const isOpen = (id: string) => open.has(id) || (id === "replay" && rp !== null);
     return (
       <div className="navscreen">
-        <div className="choices"><button onClick={() => { setSel(null); setConfirm(null); }}>← {T("tr.back")}</button></div>
+        <div className="choices"><button onClick={() => { setSel(null); }}>← {T("tr.back")}</button></div>
         <h3 className="doctitle">{track.name}</h3>
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}
         {track.interrupted && <p className="error" role="alert">{T("tr.interrupted")}</p>}
@@ -202,9 +201,7 @@ export function TracesTab(p: TracesProps) {
           <p className="muted small">{track.points.length} {T("tr.points")}</p>
         </Section>
         <div className="choices">
-          {confirm === track.id
-            ? <button className="brand" onClick={() => { p.onRemove(track.id); setSel(null); setConfirm(null); if (rp) p.onReplay(null); }}>{T("tr.confirmDelete")}</button>
-            : <button onClick={() => setConfirm(track.id)}>{T("nav.delete")}</button>}
+          <ConfirmButton label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => { p.onRemove(track.id); setSel(null); if (rp) p.onReplay(null); }} />
         </div>
       </div>
     );
@@ -221,9 +218,7 @@ export function TracesTab(p: TracesProps) {
       {sorted.length === 0 && <p className="muted">{T("tr.none")}</p>}
       {short.length > 0 && (
         <div className="choices">
-          {confirmClean
-            ? <button className="brand" onClick={() => { short.forEach((x) => p.onRemove(x.id)); setConfirmClean(false); }}>{T("tr.cleanConfirm")} ({short.length})</button>
-            : <button onClick={() => setConfirmClean(true)}>{T("tr.clean")} ({short.length})</button>}
+          <ConfirmButton label={`${T("tr.clean")} (${short.length})`} confirmLabel={`${T("tr.cleanConfirm")} (${short.length})`} onConfirm={() => short.forEach((x) => p.onRemove(x.id))} />
         </div>
       )}
       {[...groups.entries()].map(([m, list]) => (

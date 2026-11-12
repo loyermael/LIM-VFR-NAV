@@ -1,3 +1,4 @@
+import { ConfirmButton } from "./ui/ConfirmButton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fitGeoref, georefFromRunway, georefMetrics, parseCoordinate, type Airfield, type ControlPoint } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
@@ -200,7 +201,6 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
   const [page, setPage] = useState(d.georef?.page ?? 1);
   const [zoom, setZoom] = useState(1);
   const [mode, setMode] = useState<"view" | "calibrate">("view");
-  const [confirm, setConfirm] = useState(false);
   const [open, setOpen] = useState<ReadonlySet<string>>(() => new Set(d.georef || d.kind !== "vac" ? [] : ["geo"]));
   const toggle = (id: string) => setOpen((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const { r, error } = useRendered(d, page);
@@ -278,9 +278,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
         <Calibrator lang={p.lang} doc={d} airfield={(d.icao && p.airfields.find((x) => x.icao === d.icao)) || null} r={r} page={page} onCancel={() => setMode("view")} onSave={(nd) => { p.onPut(nd); setMode("view"); }} />
       )}
       <div className="choices">
-        {confirm
-          ? <button className="brand" onClick={() => { p.onRemove(d.id); p.onBack(); }}>{T("tr.confirmDelete")}</button>
-          : <button onClick={() => setConfirm(true)}>{T("nav.delete")}</button>}
+        <ConfirmButton label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => { p.onRemove(d.id); p.onBack(); }} />
       </div>
     </div>
   );
