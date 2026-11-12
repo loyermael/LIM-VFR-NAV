@@ -39,7 +39,6 @@ button.brand { background: var(--brand); color: var(--on-brand); border-color: v
 .stage { position: relative; flex: 1; min-height: 0; }
 .map { position: absolute; inset: 0; }
 .map-empty { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1; pointer-events: none; font-family: var(--font-mono); font-size: var(--fs-16); color: var(--ink-muted); text-align: center; }
-.fab { position: absolute; right: calc(var(--sp-3) + env(safe-area-inset-right)); bottom: var(--sp-3); z-index: 2; width: 64px; height: 64px; font-size: var(--fs-32); box-shadow: var(--shadow-pop); }
 
 /* Avion : seul élément en rouge signal avec les alertes (règle de la DA) */
 .plane svg { display: block; fill: var(--signal); stroke: var(--paper); stroke-width: 2; stroke-linejoin: round; }
@@ -155,8 +154,7 @@ button.cell:active { background: var(--ink); color: var(--on-ink); }
 .suffix { font-family: var(--font-mono); color: var(--ink-muted); }
 .params { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-3); }
 .point-row { display: grid; grid-template-columns: 28px 1fr minmax(110px, 150px) auto; gap: var(--sp-2); align-items: end; border-top: var(--rule-hair); padding-top: var(--sp-2); }
-.point-actions { display: flex; gap: var(--sp-1); flex-wrap: wrap; }
-.point-actions button { min-width: var(--h-control); padding: 0 var(--sp-2); font-size: var(--fs-16); }
+
 .tablewrap { overflow-x: auto; border: var(--rule-line); background: var(--field); }
 table.navlog { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
 table.navlog th, table.navlog td { padding: var(--sp-2); text-align: right; border-bottom: var(--rule-hair); white-space: nowrap; }
@@ -173,7 +171,7 @@ table.navlog tfoot td:first-child { text-align: left; }
 @media (min-width: 1100px) {
   .stage.split .map { right: 600px; }
   .stage.split .screen { left: auto; width: 600px; border-left: var(--rule-heavy); }
-  .stage.split .fab { right: calc(600px + var(--sp-3)); }
+
   .stage.split .drawer { right: 600px; }
   .stage.split .sheet { right: 600px; }
   .stage.split .banner { left: calc((100% - 600px) / 2); }
@@ -223,7 +221,6 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 
 /* J5 : avion, centrage, carburant */
 .balchart { width: 100%; max-width: 480px; height: auto; display: block; margin: var(--sp-3) 0; background: var(--paper); border: var(--rule-line); }
-.station-row { display: grid; gap: var(--sp-2); padding: var(--sp-2) 0; border-bottom: 1px solid var(--hair); }
 
 /* J6 : traces, chronos, rejeu */
 .bigtime { font-family: var(--font-mono); font-size: 40px; font-weight: 700; color: var(--data-figure); letter-spacing: 0.02em; padding: var(--sp-2) 0; }
@@ -318,30 +315,7 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .log-ac { display: flex; gap: var(--sp-3); align-items: end; flex-wrap: wrap; }
 .log-ac .numfield { flex: 1; min-width: 200px; }
 .log-ac select.field { text-align: left; font-size: var(--fs-16); }
-.log-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); border: var(--rule-heavy); background: var(--field); }
-.log-head > div { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border-left: var(--rule-line); }
-.log-head > div:first-child { border-left: 0; }
-.log-head span { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.log-head b { font-size: var(--fs-20); }
-table.vfrtable { border-collapse: collapse; width: 100%; background: var(--field); font-variant-numeric: tabular-nums; }
-table.vfrtable th { background: var(--paper-2); font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.04em; font-weight: 600; text-align: center; padding: var(--sp-2); border: var(--rule-line); white-space: nowrap; }
-table.vfrtable th small { font-weight: 400; color: var(--ink-muted); }
-table.vfrtable td { border: var(--rule-line); padding: var(--sp-2); text-align: center; font-size: var(--fs-16); white-space: nowrap; }
-table.vfrtable td.repcol, table.vfrtable th.repcol { text-align: left; min-width: 130px; }
-table.vfrtable tbody tr:nth-child(odd) td.repcol { background: var(--paper-2); }
-table.vfrtable tr.startrow td { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; font-weight: 700; text-align: left; background: var(--field); }
-table.vfrtable td.etr { min-width: 78px; }
-table.vfrtable td.etr span { display: block; }
-table.vfrtable td.etr .rline { border-top: 1px dashed var(--hair); margin-top: 2px; min-height: 22px; }
-table.vfrtable tr.bad td { color: var(--zone-bad); }
-table.vfrtable tfoot td { font-weight: 700; background: var(--paper-2); }
-table.vfrtable tfoot td:first-child { text-align: left; }
-.log-foot { display: grid; grid-template-columns: 1fr 1fr; border: var(--rule-heavy); background: var(--field); }
-.log-foot > div { padding: var(--sp-3); display: grid; gap: var(--sp-2); align-content: start; }
-.log-foot > div + div { border-left: var(--rule-line); }
-.log-foot span { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.log-arr b { font-family: var(--font-display); font-stretch: var(--stretch-display); font-size: var(--fs-28); text-transform: uppercase; }
-.log-fuel > div { display: flex; justify-content: space-between; gap: var(--sp-3); align-items: baseline; }
+
 .dupsheet h2 { margin: 0; }
 
 /* Points de la route : une carte par point (numéro, nom, suppression ; puis altitude et déplacements). */
@@ -352,78 +326,7 @@ table.vfrtable tfoot td:first-child { text-align: left; }
 .pt-actions { grid-area: actions; display: flex; gap: var(--sp-2); justify-content: flex-end; }
 .pt-actions button { min-width: var(--h-compact); padding: 0 var(--sp-3); }
 
-.route-head { display: flex; align-items: center; gap: var(--sp-3); }
-
-/* Log de navigation : fiche papier (traits épais, cases coupées en diagonale, valeurs en encre bleue, colonne Reports grisée une ligne sur deux). */
-.paperlog { border: var(--rule-heavy); background: var(--field); display: grid; font-family: var(--font-display); }
-.paperlog .pf { display: flex; align-items: baseline; gap: var(--sp-2); padding: 2px var(--sp-2); border-bottom: 1px dotted var(--hair); min-width: 0; }
-.paperlog .pf > span { font-size: var(--fs-14); font-weight: 700; white-space: nowrap; letter-spacing: 0.02em; }
-.paperlog .pf input, .paperlog .pf b { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; font-family: var(--font-mono); font-size: var(--fs-16); font-weight: 600; color: var(--data-figure); padding: 2px 0; text-align: left; }
-.paperlog .pf input:focus-visible { outline: 2px solid var(--brand); }
-.pl-top { display: grid; grid-template-columns: 1fr 1fr 1.2fr 2fr; border-bottom: var(--rule-heavy); }
-.pl-top > div { border-left: var(--rule-line); display: grid; align-content: stretch; }
-.pl-top > div:first-child { border-left: 0; }
-.pl-wind-head { display: grid; grid-template-columns: 1fr 1fr; }
-.pl-alpha { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-size: var(--fs-14); }
-.pl-alpha th, .pl-alpha td { border: 1px solid var(--hair); padding: 2px 4px; text-align: center; color: var(--data-figure); }
-.pl-alpha th { color: var(--ink); background: var(--paper-2); }
-.pl-tablewrap { overflow-x: auto; }
-table.pl-table { border-collapse: collapse; width: 100%; min-width: 620px; }
-table.pl-table th, table.pl-table td { border: 1px solid var(--ink); padding: 0; text-align: center; vertical-align: middle; }
-table.pl-table th { background: var(--paper-2); font-size: var(--fs-14); font-weight: 700; padding: var(--sp-1); }
-table.pl-table .c-rm { width: 84px; } table.pl-table .c-dist { width: 70px; } table.pl-table .c-t { width: 96px; } table.pl-table .c-er { width: 92px; }
-table.pl-table .c-rep { width: 22%; text-align: center; font-size: var(--fs-20); }
-table.pl-table tbody tr:nth-child(odd) .c-rep { background: var(--paper-2); }
-table.pl-table .c-note { min-width: 160px; }
-table.pl-table .c-note input { width: 100%; border: 0; background: transparent; font-family: var(--font-mono); font-size: var(--fs-14); color: var(--data-figure); padding: var(--sp-2); }
-table.pl-table td { height: 64px; }
-table.pl-table .diag { position: relative; background-image: linear-gradient(to bottom right, transparent calc(50% - 0.6px), var(--ink) 50%, transparent calc(50% + 0.6px)); }
-table.pl-table .diag .tl { position: absolute; left: 6px; top: 4px; font-size: var(--fs-16); color: var(--data-figure); }
-table.pl-table .diag .br { position: absolute; right: 6px; bottom: 4px; font-size: var(--fs-16); color: var(--data-figure); }
-table.pl-table th.c-rm, table.pl-table th.c-t { position: relative; height: 44px; }
-table.pl-table th .sub { font-weight: 400; font-size: var(--fs-12); display: block; }
-table.pl-table .c-dist { font-size: var(--fs-16); color: var(--data-figure); font-weight: 600; }
-.pl-real { width: 64px; border: 0; background: transparent; text-align: right; font-family: var(--font-mono); font-size: var(--fs-16); color: var(--data-figure); }
-table.pl-table tfoot td { height: 48px; font-weight: 700; background: var(--paper-2); }
-table.pl-table tfoot .diag .tl, table.pl-table tfoot .diag .br { top: auto; }
-table.pl-table tfoot .diag .tl { top: 2px; } table.pl-table tfoot .diag .br { bottom: 2px; }
-table.pl-table tr.bad td { color: var(--zone-bad); }
-.pl-bottom { display: grid; grid-template-columns: 1.2fr 1.2fr 1fr; border-top: var(--rule-heavy); }
-.pl-bottom > div { border-left: var(--rule-line); display: grid; align-content: start; }
-.pl-bottom > div:first-child { border-left: 0; }
-.pl-arr-name { padding: var(--sp-2); border-bottom: var(--rule-line); text-align: center; display: grid; }
-.pl-arr-name span { font-size: var(--fs-14); font-style: italic; font-weight: 700; }
-.pl-arr-name b { font-size: var(--fs-24); text-transform: uppercase; font-stretch: var(--stretch-display); }
-.pl-caption { margin: 0; padding: var(--sp-1) var(--sp-2); border-top: var(--rule-line); text-align: center; font-style: italic; font-size: var(--fs-14); }
-@media (max-width: 600px) { .pl-top { grid-template-columns: 1fr 1fr; } .pl-top > div:nth-child(3) { border-left: 0; } .pl-wind { grid-column: 1 / -1; border-left: 0; border-top: var(--rule-line); } .pl-bottom { grid-template-columns: 1fr; } .pl-bottom > div { border-left: 0; border-top: var(--rule-line); } .pl-bottom > div:first-child { border-top: 0; } }
-
-/* Log : cartes de branches lisibles en vol (Z, Cm/Rm, DSD/DIST/DTA, TAV/TSV, report + fréquence) ; la branche en cours est surlignée. */
-.log-sum { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); border: var(--rule-line); background: var(--field); }
-.log-sum > div { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border-left: var(--rule-line); }
-.log-sum > div:first-child { border-left: 0; }
-.log-sum span { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted); }
-.log-sum b { font-size: var(--fs-20); }
-.legtable { border: var(--rule-heavy); background: var(--field); }
-.lg-row { display: grid; grid-template-columns: 19% 17% 19% 17% 28%; border-top: var(--rule-line); min-height: 112px; background: var(--field); }
-.lg-row.alt { background: var(--paper-2); }
-.lg-row.active { background: var(--brand); color: var(--on-brand); }
-.lg-row.active .lc i, .lg-row.active .lc .arrow { color: var(--on-brand); opacity: 0.8; }
-.lg-head { min-height: 0; border-top: 0; background: var(--ink); color: var(--on-ink); }
-.lg-head .lc { min-height: 0; padding: var(--sp-2); grid-auto-rows: auto; align-content: center; gap: 2px; text-align: center; font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; letter-spacing: 0.04em; }
-.lg-start { min-height: 64px; }
-.lg-start .rep { align-content: center; }
-.lc { display: grid; align-content: space-between; justify-items: center; padding: var(--sp-2) var(--sp-1); border-left: var(--rule-hair); min-width: 0; text-align: center; }
-.lc:first-child { border-left: 0; }
-.lc b { font-size: var(--fs-fluid-l); font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
-.lc i { font-size: var(--fs-fluid-s); font-style: italic; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-.lc .arrow { font-size: var(--fs-fluid-m); line-height: 1; }
-.lc .zmin { width: 90%; border: 0; border-bottom: 1px dashed var(--hair); background: transparent; text-align: center; font-family: var(--font-mono); font-style: italic; font-size: var(--fs-fluid-s); color: var(--ink-muted); padding: 0; }
-.lc.rep { padding-left: var(--sp-4); }
-.lc.rep b { font-size: var(--fs-fluid-m); font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; align-self: center; }
-.lc.rep i { font-family: var(--font-mono); font-size: var(--fs-fluid-xs); }
-.lg-head .lc.rep { padding: var(--sp-2); }
-.lg-row.bad .lc b { color: var(--zone-bad); }
-
+/* Log : en-tête (Vp, Fb, conso, vents), total, carburant, arrivée et performances. */
 .lgsheet { --H: 92px; display: grid; gap: var(--sp-3); }
 .ls-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); border: var(--rule-heavy); background: var(--field); }
 .ls-card { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border-left: var(--rule-line); align-content: start; }
@@ -435,7 +338,7 @@ table.pl-table tr.bad td { color: var(--zone-bad); }
 .ls-winds > div { display: flex; gap: var(--sp-2); align-items: baseline; }
 .ls-winds i { font-style: normal; font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); }
 .ls-winds b { font-size: var(--fs-16); }
-.ls-meta { display: grid; grid-template-columns: 1fr 2fr; gap: var(--sp-3); }
+
 .ls-in { display: grid; gap: 2px; min-width: 0; }
 .ls-in input, .ls-in textarea, .lgsheet textarea { width: 100%; border: var(--rule-line); background: var(--field); padding: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-16); color: var(--data-figure); min-width: 0; }
 
@@ -468,7 +371,7 @@ table.pl-table tr.bad td { color: var(--zone-bad); }
 .ls-perf-row { display: grid; gap: var(--sp-2); }
 .ls-perf-row.two { grid-template-columns: 1fr 1fr; }
 .ls-perf-row.three { grid-template-columns: repeat(3, 1fr); }
-.ls-leg.active.alt, .ls-rep.active.alt { background: var(--brand); color: var(--on-brand); }
+
 .lt-fill { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-3); background: var(--paper-2); font-family: var(--font-mono); }
 .lt-fill b { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; }
 
@@ -485,8 +388,7 @@ table.pl-table tr.bad td { color: var(--zone-bad); }
 input.mini { width: 100%; min-width: 0; height: var(--h-touch); border: var(--rule-line); border-radius: var(--r); background: var(--paper); padding: 0 var(--sp-2); font-size: var(--fs-16); color: var(--ink); text-align: left; box-sizing: border-box; }
 .windbox { border: var(--rule-line); background: var(--field); padding: var(--sp-2) var(--sp-3); }
 .windbox summary { cursor: pointer; font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-14); }
-.wd-auto { display: flex; align-items: center; gap: var(--sp-2); margin: var(--sp-2) 0; font-family: var(--font-mono); font-size: var(--fs-14); }
-.wd-auto input { width: 22px; height: 22px; accent-color: var(--ink); }
+
 .wind-grid { display: grid; grid-template-columns: 82px minmax(0, 1fr) minmax(0, 1fr) 40px; gap: var(--sp-2) var(--sp-2); align-items: center; }
 .wind-grid .wg-row { display: contents; }
 .wg-h { font-family: var(--font-mono); font-size: var(--fs-12); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-muted); }
@@ -508,7 +410,6 @@ button.row { text-align: left; }
   .tabs button { min-width: 0; padding: 0 2px; font-size: var(--fs-14); letter-spacing: 0; white-space: normal; overflow-wrap: anywhere; }
 }
 .numfield .field, .nf-row { min-width: 0; width: 100%; box-sizing: border-box; }
-.pt-sub .numfield { min-width: 0; }
 
 /* Log : champs de saisie en vol (Z min, Hr, info) à hauteur de cible tactile, avec un cadre visible. */
 .ls-table { --H: 128px; }
@@ -517,3 +418,17 @@ button.row { text-align: left; }
 .lt-t .he { grid-template-columns: minmax(0, 1fr); gap: 2px; justify-items: stretch; }
 .lt-t .he em { text-align: center; }
 .lt-r input { margin-top: 2px; }
+
+/* Bandeau d'annulation (6 s) : mêmes jetons que le reste, au-dessus de la barre d'onglets. */
+.toast { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--h-strip) + var(--sp-3)); z-index: 6; display: flex; align-items: center; gap: var(--sp-3); max-width: calc(100% - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-3); background: var(--ink); color: var(--on-ink); border: var(--rule-line); box-shadow: var(--shadow-pop); font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; }
+.toast .btn-inline { background: var(--brand); color: var(--on-brand); border-color: var(--on-ink); }
+
+/* Menu « Plus » du téléphone : liste verticale de boutons de 56 px sous la barre, mêmes jetons que le reste. */
+.morepop { position: absolute; right: var(--sp-2); top: calc(var(--h-control) + var(--sp-4) + 3px + env(safe-area-inset-top)); z-index: 7; display: grid; gap: var(--sp-2); padding: var(--sp-2); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); min-width: 200px; }
+.morepop button { width: 100%; text-align: left; }
+@media (max-width: 600px) {
+  .toolbar { gap: var(--sp-1); }
+  .toolbar button { padding: 0 var(--sp-3); font-size: var(--fs-16); }
+  .toolbar button.sep { margin-left: var(--sp-3); }
+  .toolbar button.sep::before { left: calc(-1 * var(--sp-2) - 1px); }
+}

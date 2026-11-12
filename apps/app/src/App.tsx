@@ -57,11 +57,9 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "wx.notam", "nav.profile"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "wx.notam"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
-/** Onglets annoncés mais pas encore construits : affichés grisés. */
-const DISABLED_TABS: ReadonlySet<Key> = new Set<Key>(["nav.profile"]);
 const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
@@ -111,9 +109,24 @@ function useWide(): boolean {
   return wide;
 }
 
+/** Téléphone en portrait (≤ 600 px) : les écrans rares passent derrière un bouton « Plus ». */
+function usePhone(): boolean {
+  const query = "(max-width: 600px)";
+  const [phone, setPhone] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const onChange = () => setPhone(m.matches);
+    m.addEventListener("change", onChange);
+    return () => m.removeEventListener("change", onChange);
+  }, []);
+  return phone;
+}
+
 export function App() {
   const [lang, setLang] = useState<Lang>(detectLang);
   const wide = useWide();
+  const phone = usePhone();
+  const [moreOpen, setMoreOpen] = useState(false);
   // L'avertissement est volontairement redemandé à chaque lancement (jamais mémorisé).
   const [accepted, setAccepted] = useState(false);
   const [theme, setTheme] = useState<Theme>("day");
@@ -126,6 +139,14 @@ export function App() {
   const simSpeedRef = useRef(1);
   simSpeedRef.current = simSpeed;
   const [drawer, setDrawer] = useState(false);
+  /** Bandeau « Annuler » après une suppression (6 s). */
+  const [undo, setUndo] = useState<{ text: string; restore: () => void } | null>(null);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const offerUndo = (text: string, restore: () => void) => {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo({ text, restore });
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
+  };
   const [routeView, setRouteView] = useState<"list" | "detail">("list");
   const [ceiling, setCeiling] = useState<number>(CEILING_FILTER.defaultFL);
   const [prefs, setPrefs] = useState<UnitPrefs>(loadUnitPrefs);
@@ -844,6 +865,14 @@ export function App() {
   const T = (k: Key) => t(lang, k);
   const toggleLang = () => setLang(lang === "fr" ? "en" : "fr");
   const toggleTheme = () => setTheme(theme === "day" ? "night" : "day");
+  useEffect(() => {
+    if (!moreOpen) return;
+    const away = (e: Event) => { if (!(e.target as Element).closest(".morepop, .toolbar")) setMoreOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMoreOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [moreOpen]);
   // La barre du haut défile sur téléphone : l'onglet actif reste toujours dans la vue.
   useEffect(() => { document.querySelector<HTMLElement>(".toolbar button[aria-pressed='true']")?.scrollIntoView({ inline: "nearest", block: "nearest" }); }, [screen, drawer]);
   const open = (s: Screen) => {
@@ -986,16 +1015,16 @@ export function App() {
   const mapActive = screen === "map" || split;
   const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
-  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean }[] = [
+  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean }[] = [
     { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
     { label: "tb.maps", action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
     { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
-    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft" },
-    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx" },
-    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces" },
-    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true },
-    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data" },
-    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true },
+    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
+    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
+    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces", more: true },
+    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true, more: true },
+    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data", more: true },
+    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true },
   ];
 
   const banner: { text: string; alert: boolean; onClick?: () => void } | null =
@@ -1014,12 +1043,24 @@ export function App() {
   return (
     <div className="app">
       <nav className="toolbar" aria-label={T("toolbar.aria")}>
-        {toolbar.map((b) => (
+        {toolbar.filter((b) => !(phone && b.more)).map((b) => (
           <button key={b.label} className={b.sep ? "sep" : undefined} aria-pressed={b.pressed} onClick={b.action}>
             {T(b.label)}
           </button>
         ))}
+        {phone && (
+          <button className="sep" aria-haspopup="menu" aria-expanded={moreOpen} aria-pressed={toolbar.some((b) => b.more && b.pressed)} onClick={() => setMoreOpen((o) => !o)}>
+            {T("tb.more")}
+          </button>
+        )}
       </nav>
+      {phone && moreOpen && (
+        <div className="morepop" role="menu">
+          {toolbar.filter((b) => b.more).map((b) => (
+            <button key={b.label} role="menuitem" aria-pressed={b.pressed} onClick={() => { setMoreOpen(false); b.action(); }}>{T(b.label)}</button>
+          ))}
+        </div>
+      )}
 
       <div className={split ? "stage split" : "stage"}>
         <MapView
@@ -1194,8 +1235,15 @@ export function App() {
             index={selectedPoint}
             onRoute={putRoute}
             onDirect={pickRoutePoint}
+            onUndoable={offerUndo}
             onClose={() => setSelectedPoint(null)}
           />
+        )}
+        {undo && (
+          <div className="toast" role="status">
+            <span>{undo.text}</span>
+            <button className="btn-inline" onClick={() => { undo.restore(); setUndo(null); }}>{T("undo")}</button>
+          </div>
         )}
         {dupPrompt && mapActive && (
           <aside className="sheet dupsheet" role="alertdialog" aria-label={T("route.dup.title")}>
@@ -1505,6 +1553,7 @@ export function App() {
                 onGoRoutes={() => { setTab(0); setRouteView("list"); }}
                 routeView={routeView}
                 onRouteView={setRouteView}
+                onUndoable={offerUndo}
                 aircraftList={ac.list}
                 aircraft={ac.active}
                 loads={ac.loads}
@@ -1607,7 +1656,7 @@ export function App() {
             {tabs && (
               <nav className="tabs">
                 {tabs.map((k, i) => (
-                  <button key={k} aria-current={tab === i ? "page" : undefined} disabled={DISABLED_TABS.has(k)} title={DISABLED_TABS.has(k) ? T("soon") : undefined} onClick={() => setTab(i)}>
+                  <button key={k} aria-current={tab === i ? "page" : undefined} onClick={() => setTab(i)}>
                     {T(k)}
                   </button>
                 ))}

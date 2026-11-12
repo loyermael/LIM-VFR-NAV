@@ -121,6 +121,8 @@ interface NavProps {
   /** Vue de l'onglet Route (liste ou détail), tenue par l'application pour que « Retour » remonte d'un niveau. */
   routeView: "list" | "detail";
   onRouteView: (v: "list" | "detail") => void;
+  /** Propose d'annuler une suppression pendant quelques secondes (bandeau « Annuler »). */
+  onUndoable: (text: string, restore: () => void) => void;
   /** Espaces aériens (déjà filtrés par groupe) pour la liste des espaces traversés. */
   airspaces: readonly Airspace[];
   hasAero: boolean;
@@ -342,7 +344,7 @@ export function NavScreen(p: NavProps) {
                     <button className="btn-inline" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
                     <button className="btn-inline" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
                     <button className="btn-inline" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
-                    <button className="btn-inline" aria-label={T("nav.delete")} onClick={() => edit((r) => removePoint(r, i, now()))}>✕</button>
+                    <button className="btn-inline" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</button>
                   </div>
                 </div>
               ))}
@@ -488,6 +490,7 @@ export function PointSheet(p: {
   index: number;
   onRoute: (next: RouteRecord) => void;
   onDirect: (i: number) => void;
+  onUndoable: (text: string, restore: () => void) => void;
   onClose: () => void;
 }) {
   const T = (k: Key) => t(p.lang, k);
@@ -523,7 +526,7 @@ export function PointSheet(p: {
             p.onClose();
           }}
         >{T("nav.point.arrival")}</button>
-        <button onClick={() => { p.onRoute(removePoint(p.route, p.index, now)); p.onClose(); }}>{T("nav.delete")}</button>
+        <button onClick={() => { const before = p.route; p.onRoute(removePoint(p.route, p.index, now)); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); p.onClose(); }}>{T("nav.delete")}</button>
       </div>
     </aside>
   );
