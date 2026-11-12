@@ -353,3 +353,5 @@ table.vfrtable tfoot td:first-child { text-align: left; }
 .pt-sub .numfield { flex: 1; min-width: 120px; }
 .pt-actions { display: flex; gap: var(--sp-2); }
 .pt-actions button { min-width: 48px; padding: 0 var(--sp-3); font-size: var(--fs-16); }
+
+.route-head { display: flex; align-items: center; gap: var(--sp-3); }

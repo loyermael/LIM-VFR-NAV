@@ -109,6 +109,8 @@ const loadCruise = (): number => {
 export function NavScreen(p: NavProps) {
   const T = (k: Key) => t(p.lang, k);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  /** Deux vues séparées : la liste des routes (choix), puis la route elle-même. */
+  const [view, setView] = useState<"list" | "detail">("list");
   const [cruiseM, setCruiseM] = useState(loadCruise);
   const [awMsg, setAwMsg] = useState<string | null>(null);
   const { prefs, route } = p;
@@ -156,13 +158,13 @@ export function NavScreen(p: NavProps) {
 
   return (
     <div className="navscreen">
-      {p.tab === 0 && (
+      {p.tab === 0 && view === "list" && (
         <>
           <h3>{T("nav.routes")}</h3>
           <div className="route-list">
             {p.routes.map((r) => (
               <div key={r.id} className="route-item">
-                <button className="row" aria-pressed={route?.id === r.id} onClick={() => p.onSelectRoute(r.id)}>
+                <button className="row" aria-pressed={route?.id === r.id} onClick={() => { p.onSelectRoute(r.id); setView("detail"); }}>
                   {r.name} · {r.points.length}
                 </button>
                 {confirmDel === r.id
@@ -173,17 +175,24 @@ export function NavScreen(p: NavProps) {
             {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}
           </div>
           <div className="choices">
-            <button onClick={p.onNewRoute}>{T("nav.new")}</button>
+            <button className="brand" onClick={() => { p.onNewRoute(); setView("detail"); }}>{T("nav.new")}</button>
             <label className="filebtn">
               {T("nav.import")}
               <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
             </label>
           </div>
           {p.importError && <p className="error" role="alert">{T("nav.import.error")} — {p.importError}</p>}
+        </>
+      )}
 
+      {p.tab === 0 && view === "detail" && (
+        <>
+          <div className="route-head">
+            <button onClick={() => setView("list")}>← {T("nav.routes")}</button>
+          </div>
+          {!route && <p className="muted">{T("nav.needRoute")}</p>}
           {route && (
             <>
-              <h3>{T("nav.selected")}</h3>
               <label className="numfield">
                 <span>{T("nav.name")}</span>
                 <input
