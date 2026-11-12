@@ -46,6 +46,8 @@ import { DeviceGpsSource, RouteFlightSource, SimulatedSource, type PositionSourc
 import { DirectSheet, NavScreen, PointSheet } from "./NavScreen";
 import { SAME_PLACE_M, SNAP_PIXELS, isInRoute, snapTap, type SnapCandidate } from "./routeSnap";
 import { WindsTab } from "./WxScreen";
+import { NotamTab } from "./NotamTab";
+import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, parseNotams, saveNotams, type NotamSet } from "./notam";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
 import { fetchWinds, loadWindCache, windKey } from "./windClient";
@@ -60,7 +62,7 @@ const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", 
 /** Onglets annoncés mais pas encore construits : affichés grisés. */
 const DISABLED_TABS: ReadonlySet<Key> = new Set<Key>(["nav.profile"]);
 const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
-const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
+const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds", "wx.notam"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.documents"];
 
@@ -159,6 +161,8 @@ export function App() {
   const [adhoc, setAdhoc] = useState<{ name: string; position: LatLon } | null>(null);
   const aeroInput = useRef<HTMLInputElement>(null);
   // Météo : prévisions de vent (réseau pour les charger, cache sur l'appareil pour l'ensuite).
+  const [notamSet, setNotamSet] = useState<NotamSet | null>(null);
+  useEffect(() => { loadNotams().then(setNotamSet).catch(() => undefined); }, []);
   const [windForecasts, setWindForecasts] = useState<Map<string, WindForecast>>(new Map());
   const [windBusy, setWindBusy] = useState(false);
   const [metarSet, setMetarSet] = useState<MetarSet | null>(null);
@@ -382,6 +386,31 @@ export function App() {
       return e instanceof Error ? e.message : String(e);
     } finally {
       setAutoWindBusy(false);
+    }
+  };
+  /** Ajoute des NOTAM (texte importé ou réponse du service) à ceux déjà reçus ; les NOTAMC / NOTAMR retirent les NOTAM visés. */
+  const addNotams = async (incoming: ReturnType<typeof parseNotams>, source: string) => {
+    const next: NotamSet = { id: "notam", importedAtMs: Date.now(), source, items: mergeNotams(notamSet?.items ?? [], incoming) };
+    await saveNotams(next).catch(() => undefined);
+    setNotamSet(next);
+  };
+  const importNotamText = async (text: string, source: string): Promise<string | null> => {
+    const parsed = parseNotams(text);
+    if (parsed.length === 0) return t(lang, "notam.unreadable");
+    await addNotams(parsed, source);
+    return null;
+  };
+  const fetchNotamApi = async (key: string): Promise<string | null> => {
+    if (!route || route.points.length === 0) return t(lang, "notam.needRoute");
+    const places = new Set<string>(FRENCH_FIRS);
+    for (const pt of route.points) { const i = icaoAt(pt.position, aptSet?.items ?? []); if (i) places.add(i); }
+    try {
+      const items = await fetchIcaoNotams([...places], key);
+      if (items.length === 0) return t(lang, "notam.apiEmpty");
+      await addNotams(items, "API ICAO");
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : String(e);
     }
   };
   const pickRoutePoint = (i: number) => {
@@ -1415,7 +1444,7 @@ export function App() {
             {overlayError && <p className="error" role="alert">{T("overlay.error")} — {overlayError}</p>}
                 </details>
               </div>
-            ) : screen === "wx" && tab !== 4 ? (
+            ) : screen === "wx" && tab < 4 ? (
               (() => {
                 const startMs = route?.departureMs ?? now;
                 const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, a) => (i === 0 ? 0 : acc + distance((a[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;
@@ -1426,6 +1455,24 @@ export function App() {
                   onRefresh: pack.refresh, refreshing: pack.checking, onOpenData: () => open("data"),
                 };
                 return tab === 0 ? <BriefingTab {...common} /> : tab === 1 ? <MetarTab {...common} /> : tab === 2 ? <TafTab {...common} /> : <SigmetTab {...common} />;
+              })()
+            ) : screen === "wx" && tab === 5 ? (
+              (() => {
+                const startMs = route?.departureMs ?? now;
+                const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, arr) => (i === 0 ? 0 : acc + distance((arr[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;
+                return (
+                  <NotamTab
+                    lang={lang}
+                    route={route}
+                    airfields={aptSet?.items ?? []}
+                    set={notamSet}
+                    nowMs={now}
+                    window={{ startMs, endMs: startMs + km * 1000 }}
+                    onImportText={importNotamText}
+                    onFetchApi={fetchNotamApi}
+                    onClear={() => { setNotamSet(null); void deleteNotams().catch(() => undefined); }}
+                  />
+                );
               })()
             ) : screen === "wx" && tab === 4 ? (
               <WindsTab

@@ -473,3 +473,8 @@ table.pl-table tr.bad td { color: var(--zone-bad); }
 .ls-leg.active.alt, .ls-rep.active.alt { background: var(--brand); color: var(--on-brand); }
 .lt-fill { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: 0 var(--sp-3); background: var(--paper-2); font-family: var(--font-mono); }
 .lt-fill b { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; }
+
+/* NOTAM */
+.notam-warn { border: var(--rule-line); padding: var(--sp-2) var(--sp-3); background: var(--field); margin: 0; }
+.notam-paste { width: 100%; border: var(--rule-line); background: var(--field); padding: var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-14); }
+.notam-text { margin: var(--sp-1) 0; font-family: var(--font-mono); font-size: var(--fs-14); white-space: pre-wrap; overflow-wrap: anywhere; }
