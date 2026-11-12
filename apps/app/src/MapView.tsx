@@ -921,6 +921,8 @@ export function MapView(props: MapViewProps) {
   const aggloZ = useRef(-1);
   const aggloReal = useRef(new Map<string, { x0: number; y0: number; x1: number; y1: number; geometry: GeoJSON.Geometry }>());
   const aggloNPlaces = useRef(0);
+  /** Rayon maximal (m) de chaque secteur de 15° autour d'une ville, mesuré sur ses zones bâties réelles : donne l'enveloppe de l'agglomération. */
+  const aggloEnv = useRef(new Map<string, number[]>());
   const aggloPlaces = useRef(new Map<string, { lon: number; lat: number; kind: "big" | "mid" }>());
   /** Agglomérations selon la légende OACI : points (petite, repère) et contours (moyenne, grande), à l'échelle réelle. Contours généralisés aux petits zooms, vraies zones bâties au zoom 9,5 et plus. */
   function syncAglo() {
@@ -979,19 +981,52 @@ export function MapView(props: MapViewProps) {
       // la couleur se recalcule avec toutes les villes connues (une ville peut arriver après ses zones bâties) : une grande ville à moins de 8 km l'emporte, sinon une ville moyenne à moins de 4 km
       if (changed || aggloNPlaces.current !== aggloPlaces.current.size) {
         aggloNPlaces.current = aggloPlaces.current.size;
-        const places = [...aggloPlaces.current.values()];
+        const placeList = [...aggloPlaces.current.entries()];
         for (const k of [...agglo.current.keys()]) if (k.startsWith("r|")) agglo.current.delete(k);
         for (const [key, r] of aggloReal.current) {
           const kx = 111320 * Math.cos((((r.y0 + r.y1) / 2) * Math.PI) / 180);
-          let bigD = Infinity, midD = Infinity;
-          for (const pl of places) {
+          let bigD = Infinity, midD = Infinity, bigK = "", midK = "";
+          for (const [pk, pl] of placeList) {
             // distance de la ville à l'emprise de la zone bâtie (et non à son centre : une grande zone peut avoir son centre loin de la ville)
             const dx = Math.max(r.x0 - pl.lon, 0, pl.lon - r.x1) * kx, dy = Math.max(r.y0 - pl.lat, 0, pl.lat - r.y1) * 111320;
             const d = Math.hypot(dx, dy);
-            if (pl.kind === "big") bigD = Math.min(bigD, d); else midD = Math.min(midD, d);
+            if (pl.kind === "big") { if (d < bigD) { bigD = d; bigK = pk; } } else if (d < midD) { midD = d; midK = pk; }
           }
           const kind = bigD < 2500 ? "big" : midD < 1500 ? "mid" : null;
+          if (kind) {
+            const pk = kind === "big" ? bigK : midK, pl = aggloPlaces.current.get(pk)!;
+            const env = aggloEnv.current.get(pk) ?? new Array<number>(24).fill(0);
+            const cap = kind === "big" ? 9000 : 5000;
+            const walk = (c: unknown): void => {
+              if (!Array.isArray(c)) return;
+              if (typeof c[0] === "number") {
+                const [x, y] = c as [number, number];
+                const ex = (x - pl.lon) * kx, ey = (y - pl.lat) * 111320, d = Math.hypot(ex, ey);
+                if (d > cap) return;
+                const sec = Math.floor(((Math.atan2(ey, ex) + Math.PI) / (2 * Math.PI)) * 24) % 24;
+                if (d > env[sec]!) env[sec] = d;
+              } else for (const e of c) walk(e);
+            };
+            walk((r.geometry as GeoJSON.Polygon).coordinates);
+            aggloEnv.current.set(pk, env);
+          }
           if (kind) agglo.current.set(key, { type: "Feature", properties: { kind, src: "real" }, geometry: r.geometry });
+        }
+        // enveloppe de chaque agglomération d'après ses zones bâties (lobes compris) : remplace la forme générique
+        for (const [pk, env0] of aggloEnv.current) {
+          const pl = aggloPlaces.current.get(pk);
+          if (!pl || env0.filter((v) => v > 0).length < 4) continue;
+          const env = env0.map((v, i) => {
+            // secteur vide : on prend le voisin le plus proche ; puis lissage par moyenne glissante pour des contours nets sans dents
+            if (v > 0) return v;
+            for (let d = 1; d < 12; d++) { const a = env0[(i + d) % 24]!, b = env0[(i - d + 24) % 24]!; if (a > 0 || b > 0) return Math.max(a, b) * 0.8; }
+            return 0;
+          });
+          const sm = env.map((v, i) => Math.max(v, (env[(i + 1) % 24]! + v + env[(i + 23) % 24]!) / 3) + 350);
+          const lat0 = pl.lat, kx = 111320 * Math.cos((lat0 * Math.PI) / 180);
+          const ring: [number, number][] = sm.map((rr, i) => { const a = ((i + 0.5) / 24) * 2 * Math.PI - Math.PI; return [pl.lon + (rr * Math.cos(a)) / kx, pl.lat + (rr * Math.sin(a)) / 111320]; });
+          ring.push(ring[0]!);
+          agglo.current.set(pk, { type: "Feature", properties: { kind: pl.kind, src: "blob" }, geometry: { type: "Polygon", coordinates: [ring] } });
         }
         changed = true;
       }
@@ -1052,8 +1087,8 @@ export function MapView(props: MapViewProps) {
     // petite agglomération (< 1200 m) : rond jaune ; petite agglomération repère de navigation : rond blanc
     const pt = (k: string[]) => ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", k]]];
     add({ id: "aerob-agglo-dot-low", type: "circle", source: "aerob-agglo", maxzoom: 7.5, filter: pt(["big", "mid"]) as never, paint: { "circle-color": col as never, "circle-radius": 4, "circle-stroke-color": "#6b5400", "circle-stroke-width": 0.8 } });
-    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 8, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
-    add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
+    add({ id: "aerob-agglo-dot-small", type: "circle", source: "aerob-agglo", minzoom: 9.2, filter: pt(["small"]) as never, paint: { "circle-color": "#fff200", "circle-radius": ["interpolate", ["linear"], ["zoom"], 9.2, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
+    add({ id: "aerob-agglo-dot-hamlet", type: "circle", source: "aerob-agglo", minzoom: 9.2, filter: pt(["hamlet"]) as never, paint: { "circle-color": "#ffffff", "circle-radius": ["interpolate", ["linear"], ["zoom"], 8, 2.4, 12, 3.6], "circle-stroke-color": "#222222", "circle-stroke-width": 1 } });
     add({ id: "aerob-water", type: "fill", source: "aerob-v", "source-layer": "water", paint: { "fill-color": "#cfe8f4" } });
     add({ id: "aerob-river", type: "line", source: "aerob-v", "source-layer": "waterway", filter: ["in", ["get", "class"], ["literal", ["river", "canal"]]], paint: { "line-color": "#5fa8cf", "line-width": zoomW(0.6, 1.8) } });
     add({ id: "aerob-boundary", type: "line", source: "aerob-v", "source-layer": "boundary", filter: ["all", ["==", ["get", "admin_level"], 2], ["!=", ["get", "maritime"], 1]], paint: { "line-color": "#c1608f", "line-width": zoomW(1.6, 3.4, 5, 12), "line-opacity": 0.6, "line-dasharray": [3, 2] } });
@@ -1071,7 +1106,7 @@ export function MapView(props: MapViewProps) {
     });
     // Nom des petites agglomérations : gris clair à côté du point, comme sur la carte OACI.
     add({
-      id: "aerob-agglo-name", type: "symbol", source: "aerob-agglo", minzoom: 9, filter: ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", ["small", "hamlet"]]]],
+      id: "aerob-agglo-name", type: "symbol", source: "aerob-agglo", minzoom: 9.8, filter: ["all", ["==", ["geometry-type"], "Point"], ["in", ["get", "kind"], ["literal", ["small", "hamlet"]]]],
       layout: { "text-field": ["get", "name"], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 9, 9.5, 13, 12], "text-anchor": "left", "text-offset": [0.9, 0], "text-max-width": 7, "text-padding": 2 },
       paint: { "text-color": "#8c8c8c", "text-halo-color": "#ffffff", "text-halo-width": 1.4 },
     });
