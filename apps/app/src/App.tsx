@@ -868,7 +868,6 @@ export function App() {
   const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
   const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean }[] = [
-    { label: "tb.center", action: () => { open("map"); setFollow(true); }, pressed: follow && mapActive },
     { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
     { label: "tb.maps", action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
     { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
@@ -1023,6 +1022,7 @@ export function App() {
             <div className="mapctl">
               <button aria-label="zoom +" onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
               <button aria-label="zoom −" onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
+              <button aria-pressed={follow} aria-label={T("tb.center")} onClick={() => setFollow(true)}>◎</button>
               <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>
               <button aria-pressed={orientation === "track"} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}>
                 {orientation === "north" ? "N" : "↑"}
