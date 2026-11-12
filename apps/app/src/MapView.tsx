@@ -67,7 +67,8 @@ export interface MapViewProps {
   /** Appui en mode tracé : position et mètres par pixel d'écran (rayon d'aimantation). */
   onMapTap: (lat: number, lon: number, metersPerPixel: number) => void;
   onPointTap: (index: number) => void;
-  onPointMove: (index: number, lat: number, lon: number) => void;
+  /** Fin du déplacement d'un point : nouvelle position et mètres par pixel d'écran (rayon d'aimantation). */
+  onPointMove: (index: number, lat: number, lon: number, metersPerPixel: number) => void;
   ceilingFL: number;
   onDoubleTap: (features: TappedFeature[]) => void;
   /** Appui simple sur un terrain (id + position écran), ou null si l'appui est ailleurs (ferme le menu). */
@@ -412,7 +413,9 @@ export function MapView(props: MapViewProps) {
     m.on("load", () => {
       m.addSource("vector", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("route", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 4 } });
+      // Trace de route : large et légèrement transparente, avec un liseré clair sous le trait pour rester lisible sur le fond.
+      m.addLayer({ id: "route-casing", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": "#ffffff", "line-width": 11, "line-opacity": 0.45 } });
+      m.addLayer({ id: "route-line", type: "line", source: "route", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.ink, "line-width": 7, "line-opacity": 0.72 } });
       m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -640,7 +643,7 @@ export function MapView(props: MapViewProps) {
         .addTo(m);
       mk.on("dragend", () => {
         const ll = mk.getLngLat();
-        latest.current.onPointMove(i, ll.lat, ll.lng);
+        latest.current.onPointMove(i, ll.lat, ll.lng, metersPerPixel(ll.lat, m.getZoom()));
       });
       wpMarkers.current.push(mk);
     });

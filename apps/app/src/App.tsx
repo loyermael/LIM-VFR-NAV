@@ -271,6 +271,16 @@ export function App() {
     putRoute(next);
     if (targetIndex === null) setTargetIndex(0);
   };
+  /** Fin du déplacement d'un point : aimantation sur un terrain, une balise, un report ou un autre point de la route ; un nom automatique (WPTnn) devient celui du lieu. */
+  const onPointMove = (i: number, lat: number, lon: number, mpp: number) => {
+    if (!route) return;
+    const others: SnapCandidate[] = route.points.flatMap((pt, k) => (k === i ? [] : [{ name: pt.name, lat: pt.position.lat, lon: pt.position.lon, kind: "point" as const }]));
+    const snap = snapTap({ lat, lon }, SNAP_PIXELS * mpp, [...others, ...snapCandidates]);
+    const now = Date.now();
+    let next = movePoint(route, i, snap?.lat ?? lat, snap?.lon ?? lon, now);
+    if (snap && snap.kind !== "point" && /^WPT\d+$/i.test(route.points[i]?.name ?? "")) next = renamePoint(next, i, snap.name, now);
+    putRoute(next);
+  };
   const confirmDup = () => {
     if (!dupPrompt || !route) return setDupPrompt(null);
     let next = addPoint(route, dupPrompt.lat, dupPrompt.lon, uid(), Date.now());
@@ -1003,7 +1013,7 @@ export function App() {
           fitRequest={fit}
           onMapTap={onMapTap}
           onPointTap={(i) => { setDirectOpen(false); setCellSheet(null); setDetails(null); setSelectedPoint(i); }}
-          onPointMove={(i, lat, lon) => route && putRoute(movePoint(route, i, lat, lon, Date.now()))}
+          onPointMove={onPointMove}
           ceilingFL={ceiling}
           onDoubleTap={onDoubleTap}
           onAirfieldTap={onAirfieldTap}
