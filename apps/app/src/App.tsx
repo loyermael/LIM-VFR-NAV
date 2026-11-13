@@ -164,11 +164,6 @@ export function App() {
   const [targetIndex, setTargetIndex] = useState<number | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const [editMode, setEditMode] = useState(false);
-  /** Mode Vol : route verrouillée, écrans de préparation masqués. Armé au décollage détecté ou à la main ; quitté par appui long. */
-  const [flightMode, setFlightMode] = useState(false);
-  const [flightHint, setFlightHint] = useState(false);
-  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const holdFired = useRef(false);
   const [directOpen, setDirectOpen] = useState(false);
   const [perf, setPerf] = useState(loadPerf);
   const [routeImportError, setRouteImportError] = useState<string | null>(null);
@@ -774,20 +769,6 @@ export function App() {
     if (recorder.takeoffMs === null || Date.now() - recorder.takeoffMs > 12 * 3_600_000) return;
     if (route && route.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(route, recorder.takeoffMs, Date.now()));
   }, [recorder.takeoffMs]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (recorder.takeoffMs !== null) setFlightMode(true);
-  }, [recorder.takeoffMs]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!flightMode) return;
-    setEditMode(false);
-    setSelectedPoint(null);
-    if (screen !== "map") open("map");
-  }, [flightMode]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => {
-    if (!flightHint) return;
-    const id = setTimeout(() => setFlightHint(false), 3500);
-    return () => clearTimeout(id);
-  }, [flightHint]);
   const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
   const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
   const [cdFired, setCdFired] = useState(false);
@@ -1038,38 +1019,17 @@ export function App() {
   const split = wide && screen === "nav";
   const mapActive = screen === "map" || split;
   const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
-  const holdStart = () => {
-    holdFired.current = false;
-    if (!flightMode) return;
-    holdTimer.current = setTimeout(() => { holdFired.current = true; setFlightMode(false); }, 800);
-  };
-  const holdEnd = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null; };
-  const flightPill = (
-    <button
-      className={flightMode ? "mode-pill flight" : "mode-pill"}
-      aria-pressed={flightMode}
-      aria-label={flightMode ? T("mode.flightHold") : T("mode.prepTap")}
-      onPointerDown={holdStart}
-      onPointerUp={holdEnd}
-      onPointerLeave={holdEnd}
-      onPointerCancel={holdEnd}
-      onContextMenu={(e) => e.preventDefault()}
-      onClick={() => { if (holdFired.current) { holdFired.current = false; return; } if (!flightMode) setFlightMode(true); else setFlightHint(true); }}
-    >
-      {flightMode ? T("mode.flight") : T("mode.prep")}
-    </button>
-  );
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
-  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean; prep?: boolean }[] = [
+  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean }[] = [
     { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
     { label: "tb.maps", action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
-    { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true, prep: true },
-    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true, prep: true },
-    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true, prep: true },
-    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces", more: true, prep: true },
-    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true, more: true, prep: true },
-    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data", more: true, prep: true },
-    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true, prep: true },
+    { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
+    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
+    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
+    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces", more: true },
+    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true, more: true },
+    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data", more: true },
+    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true },
   ];
 
   /**
@@ -1098,7 +1058,6 @@ export function App() {
       sev: aspAhead.seconds <= 120 ? "alert" : "caution",
     });
   }
-  if (flightHint) candidates.push({ text: T("mode.flightHold"), sev: "caution" });
   if (status === "none") candidates.push({ text: T("gps.waiting"), sev: "info" });
   if (pack.baseUrl && !pack.installed.country) candidates.push({ text: T("dp.choose"), sev: "info", onClick: () => open("data") });
   const rank: Record<Sev, number> = { alert: 0, caution: 1, info: 2 };
@@ -1108,13 +1067,12 @@ export function App() {
   return (
     <div className="app">
       <nav className="toolbar" aria-label={T("toolbar.aria")}>
-        {flightPill}
-        {toolbar.filter((b) => !(phone && b.more) && !(flightMode && b.prep)).map((b) => (
+        {toolbar.filter((b) => !(phone && b.more)).map((b) => (
           <button key={b.label} className={b.sep ? "sep" : undefined} aria-pressed={b.pressed} onClick={b.action}>
             {T(b.label)}
           </button>
         ))}
-        {phone && !flightMode && (
+        {phone && (
           <button className="sep" aria-haspopup="menu" aria-expanded={moreOpen} aria-pressed={toolbar.some((b) => b.more && b.pressed)} onClick={() => setMoreOpen((o) => !o)}>
             {T("tb.more")}
           </button>
@@ -1253,7 +1211,7 @@ export function App() {
               <button aria-label={T("map.zoomIn")} onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
               <button aria-label={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
               <button aria-pressed={follow} aria-label={T("tb.center")} onClick={() => setFollow(true)}>◎</button>
-              {!flightMode && <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>}
+              <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>
               <button aria-pressed={orientation === "track"} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}>
                 {orientation === "north" ? "N" : "↑"}
               </button>
