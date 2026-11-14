@@ -467,22 +467,37 @@ export function NavScreen(p: NavProps) {
           <h3>{T("navasp.title")}</h3>
           {!p.hasAero && <p className="muted small">{T("navasp.needData")}</p>}
           {p.hasAero && route.points.length >= 2 && crossed.length === 0 && <p className="muted small">{T("navasp.none")}</p>}
-          {crossed.map((h) => (
-            <div className={`crossed ${h.vertical}`} key={h.airspace.id}>
-              <div className="crossed-head">
-                <b>{h.airspace.name}</b>
-                <span className="badge">{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
+          {(() => {
+            const card = (h: (typeof crossed)[number]) => (
+              <div className={`crossed ${h.vertical}`} key={h.airspace.id}>
+                <div className="crossed-head">
+                  <b>{h.airspace.name}</b>
+                  <span className="badge">{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
+                </div>
+                <div className="muted small">
+                  {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {distUnit}
+                  {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
+                  {(() => { const st = periodStatus(h.airspace, p.date.getTime()); return st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`; })()}
+                </div>
+                {h.airspace.frequencies.length > 0 && (
+                  <div className="freqs mono">{h.airspace.frequencies.map((f) => `${f.mhz} ${f.name}`.trim()).join(" · ")}</div>
+                )}
               </div>
-              <div className="muted small">
-                {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {distUnit}
-                {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
-                {(() => { const st = periodStatus(h.airspace, p.date.getTime()); return st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`; })()}
-              </div>
-              {h.airspace.frequencies.length > 0 && (
-                <div className="freqs mono">{h.airspace.frequencies.map((f) => `${f.mhz} ${f.name}`.trim()).join(" · ")}</div>
-              )}
-            </div>
-          ))}
+            );
+            const rel = crossed.filter((h) => h.vertical !== "outside");
+            const out = crossed.filter((h) => h.vertical === "outside");
+            return (
+              <>
+                {rel.map(card)}
+                {out.length > 0 && (
+                  <details className="foldsec rawbox">
+                    <summary>{out.length} {T("navasp.outsideGroup")}</summary>
+                    {out.map(card)}
+                  </details>
+                )}
+              </>
+            );
+          })()}
           {p.hasAero && crossed.length > 0 && <p className="muted small">{T("navasp.legend")}</p>}
           </div>
         </div>
@@ -557,7 +572,15 @@ export function DirectSheet(p: {
   const [query, setQuery] = useState("");
   const results = useMemo(() => searchAirfields(query, p.airfields, 8), [query, p.airfields]);
   const nearby = useMemo(
-    () => (p.position && p.airfields.length > 0 ? nearestAirfields(p.position, p.airfields, 6, (a) => !a.private) : []),
+    () => {
+      if (!p.position || p.airfields.length === 0) return [];
+      // Types openAIP : 4 et 7 = héliports, 8 = terrain fermé, 12 = piste agricole. Ils passent après les terrains utilisables.
+      const unusable = (a: Airfield) => a.type === 4 || a.type === 7 || a.type === 8 || a.type === 12;
+      const first = nearestAirfields(p.position, p.airfields, 6, (a) => !a.private && !unusable(a));
+      if (first.length >= 6) return first;
+      const rest = nearestAirfields(p.position, p.airfields, 6 - first.length, (a) => !a.private && unusable(a));
+      return [...first, ...rest];
+    },
     [p.position, p.airfields],
   );
   const dist = (m: number) => `${formatQuantity("distance", p.prefs, m)} ${unitLabel("distance", p.prefs)}`;

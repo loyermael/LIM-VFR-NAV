@@ -72,14 +72,16 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
               </>
             ) : (
               <>
+                <div className="choices">
+                  {k.checking
+                    ? <button onClick={k.cancel}>{T("dp.cancel")}</button>
+                    : <Button role="primary" onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</Button>}
+                </div>
                 <div className="datalist">{items.map((d) => <Row key={d.id} lang={p.lang} pack={k} ds={d} nowMs={p.nowMs} />)}</div>
                 <div className="datarow soon"><b>{T("dp.soonMaps")}</b><span className="muted small">{T("dp.soon")}</span></div>
                 <div className="datarow soon"><b>{T("dp.soonVac")}</b><span className="muted small">{T("dp.soon")}</span></div>
                 <div className="choices">
-                  {k.checking
-                    ? <button onClick={k.cancel}>{T("dp.cancel")}</button>
-                    : <button onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</button>}
-                  {!busy && <ConfirmButton label={T("dp.remove")} confirmLabel={T("dp.removeConfirm")} onConfirm={p.onRemovePackage} />}
+                  {!busy && <ConfirmButton className="end" label={T("dp.remove")} confirmLabel={T("dp.removeConfirm")} onConfirm={p.onRemovePackage} />}
                 </div>
               </>
             )}
@@ -90,7 +92,7 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
       <h3>{T("dp.auto")}</h3>
       {live.map((d) => <Row key={d.id} lang={p.lang} pack={k} ds={d} nowMs={p.nowMs} />)}
       <div className="datarow soon"><b>NOTAM</b><span className="muted small">{T("dp.notamSoon")}</span></div>
-      {live.length > 0 && !k.checking && <div className="choices"><button onClick={k.refresh}>{T("wxd.refresh")}</button></div>}
+      {live.length > 0 && !k.checking && !k.installed.country && <div className="choices"><button onClick={k.refresh}>{T("wxd.refresh")}</button></div>}
       {k.lastError && <p className="muted small" role="status">{T("dp.offline")}</p>}
 
       <details className="rawbox">

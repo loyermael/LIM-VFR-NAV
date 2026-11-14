@@ -52,7 +52,7 @@ export function WxSource(p: WxCommon) {
           <span className={age !== null && age > DATASET_STALE_MIN ? "error" : "muted small"}>
             {T("wxd.fetched")} {age === null ? "" : ageText(age)}{age !== null && age > DATASET_STALE_MIN ? ` — ${T("wxd.stale")}` : ""}
           </span>
-          <button disabled={p.refreshing} onClick={p.onRefresh}>{p.refreshing ? T("dp.checking") : T("wxd.refresh")}</button>
+          <Button role="primary" disabled={p.refreshing} aria-busy={p.refreshing} onClick={p.onRefresh}>{p.refreshing ? T("dp.checking") : T("wxd.refresh")}</Button>
         </div>
       )}
       <details className="rawbox">

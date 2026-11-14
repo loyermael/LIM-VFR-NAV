@@ -66,7 +66,6 @@ export function BaseMapPanel(p: {
 
   return (
     <div>
-      <h3>{T("bm.title")}</h3>
       <p className="muted small">{T("bm.help")}</p>
 
       <div className="pkg">

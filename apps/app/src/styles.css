@@ -271,8 +271,8 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .traffic.stale { opacity: 0.4; }
 
 /* Données : lignes avec progression */
-.datalist { display: grid; gap: var(--sp-3); margin: var(--sp-3) 0; }
-.datarow { border: var(--rule-line); padding: var(--sp-3); display: grid; gap: var(--sp-2); background: var(--paper); }
+.datalist { display: grid; gap: var(--sp-2); margin: var(--sp-2) 0; }
+.datarow { border: var(--rule-line); padding: var(--sp-2) var(--sp-3); display: grid; gap: var(--sp-1); background: var(--paper); }
 .datahead { display: flex; justify-content: space-between; gap: var(--sp-3); }
 .datarow progress { width: 100%; height: 14px; accent-color: var(--ink); }
 
@@ -532,3 +532,9 @@ button.row { text-align: left; }
 @media (max-width: 600px) {
   .banner.alert { font-size: var(--fs-16); }
 }
+
+/* Sections repliables (Données, Log) : titre de 48 px, même repère que les titres de section (barre encre). */
+.foldsec > summary { list-style: none; display: flex; align-items: center; gap: var(--sp-2); min-height: var(--h-prep); padding: 0 var(--sp-3); border-left: 6px solid var(--ink); border-top: var(--rule-line); font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); cursor: pointer; }
+.foldsec > summary::-webkit-details-marker { display: none; }
+.foldsec > summary::before { content: "▸"; }
+.foldsec[open] > summary::before { content: "▾"; }

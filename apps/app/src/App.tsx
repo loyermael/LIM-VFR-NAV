@@ -1452,7 +1452,11 @@ export function App() {
             ) : screen === "data" ? (
               <div className="settings">
                 <DataPanel lang={lang} pack={pack} nowMs={now} onRemovePackage={() => { removeAero(); pack.removePackage(); }} />
+                <details className="foldsec rawbox"><summary>{T("dp.fonds")}</summary>
                 <BaseMapPanel lang={lang} getViewBounds={() => mapApi.current?.getBounds() ?? null} routePoints={route?.points.map((x) => x.position) ?? []} position={fix?.position ?? null} />
+                </details>
+            <details className="foldsec rawbox">
+              <summary>{T("dp.files")}</summary>
             <h3>{T("layers.maps")}</h3>
             {charts.length === 0 && <p className="muted">{T("layers.none")}</p>}
             {charts.map((c) => (
@@ -1488,8 +1492,6 @@ export function App() {
             {chartBusy && <p className="muted small" role="status">{chartBusy}</p>}
             {chartNotice && <p className="error" role="alert">{T("chart.notPersisted")}</p>}
             {chartError && <p className="error" role="alert">{T("chart.error")} — {chartError}</p>}
-                <details className="rawbox">
-                  <summary>{T("dp.files")}</summary>
             <h3>{T("aero.title")}</h3>
             {!aspSet && !aptSet && <p className="muted small">{T("aero.none")}</p>}
             {([[T("aero.airspaces"), aspSet], [T("aero.airfields"), aptSet]] as const).map(([label, set]) =>

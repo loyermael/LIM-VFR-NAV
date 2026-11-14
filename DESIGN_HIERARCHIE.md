@@ -138,3 +138,11 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 - **Écran Vol** : temps de vol en grand, puis compte à rebours (raccourcis 5 / 10 / 15 / 30 min), puis chrono, plus discrets ; un primaire « Démarrer » par bloc, les « Arrêter » sont neutres ; onglets Chrono / Traces à 56 px.
 - **Fiche Infos** : « Direct » dans l'en-tête à côté de ✕ (56 px) ; pistes et fréquences une par ligne, radio principale (★) en 20 px ; NOTAM sans import : « Aucun NOTAM importé pour l'instant ».
 - **Pas vérifié** : le bandeau d'alerte sur téléphone réel ; l'écran Vol en portrait (non ouvert dans l'aperçu étroit).
+
+## 7. Revue Avion / Météo / Docs / Données / Réglages / Calques / Direct / Log / NOTAM : 4 priorités corrigées
+
+- **Données** : « Mettre à jour maintenant » en primaire, en tête du package (plus de second « Actualiser » quand un package est installé) ; « Retirer » à l'écart ; fonds de carte hors ligne et import de fichiers dans des sections repliables ; lignes de données plus compactes.
+- **Météo** : « Actualiser » en primaire, sur la même ligne que l'âge des données ; l'import à la main reste replié.
+- **Direct vers** : les terrains utilisables (hors héliports, terrains fermés et pistes agricoles, types openAIP 4, 7, 8, 12) passent avant ; les autres ne complètent la liste que s'il manque des terrains.
+- **Log** : les espaces « hors limites » verticales sont regroupés dans un repli (« 5 espaces hors limites verticales ») ; « dans les limites » et « à vérifier » restent visibles.
+- **Reste de la revue (non traité)** : Avion (« Nouvel avion » primaire, « Supprimer » à l'écart), Route (↑ ↓ ✕ à 44 px), Docs (primaire à l'import), NOTAM (groupes vides sur une ligne), curseur de plafond.
