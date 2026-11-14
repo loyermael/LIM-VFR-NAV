@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useEffect, useMemo, useState } from "react";
 import {
   airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
@@ -291,7 +292,7 @@ export function NavScreen(p: NavProps) {
             {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}
           </div>
           <div className="choices">
-            <button className="brand" onClick={() => { p.onNewRoute(); setView("detail"); }}>{T("nav.new")}</button>
+            <Button role="primary" onClick={() => { p.onNewRoute(); setView("detail"); }}>{T("nav.new")}</Button>
             <label className="filebtn">
               {T("nav.import")}
               <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
@@ -317,7 +318,7 @@ export function NavScreen(p: NavProps) {
                 />
               </label>
               <div className="choices">
-                <button className="brand" onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
+                <button onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
                 <button disabled={route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
                 <button onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</button>
               </div>
@@ -342,10 +343,10 @@ export function NavScreen(p: NavProps) {
                     />
                   </div>
                   <div className="pt-actions">
-                    <button className="btn-inline" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</button>
-                    <button className="btn-inline" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</button>
-                    <button className="btn-inline" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</button>
-                    <button className="btn-inline" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</button>
+                    <Button size="compact" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</Button>
+                    <Button size="compact" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</Button>
+                    <Button size="compact" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</Button>
+                    <Button size="compact" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</Button>
                   </div>
                 </div>
               ))}
@@ -373,7 +374,7 @@ export function NavScreen(p: NavProps) {
               {depStale && <p className="error" role="alert">{T("nav.dep.stale")}</p>}
               <p className={awFailed ? "error small" : "muted small"} role="status">
                 {!autoOn ? T("nav.aw.manual") : !canAuto ? T("nav.aw.needAircraft") : p.autoWindBusy ? T("nav.aw.busy") : (awMsg ?? "")}
-                {awFailed && autoOn && canAuto && !p.autoWindBusy && <> <button className="btn-inline" onClick={() => setAwRetry((n) => n + 1)}>{T("nav.aw.retry")}</button></>}
+                {awFailed && autoOn && canAuto && !p.autoWindBusy && <> <Button size="compact" onClick={() => setAwRetry((n) => n + 1)}>{T("nav.aw.retry")}</Button></>}
               </p>
               <details className="windbox">
                 <summary>{T("nav.legwind")}</summary>
@@ -392,7 +393,7 @@ export function NavScreen(p: NavProps) {
                         <span className="wg-n" title={`${route.points[k]?.name ?? ""} → ${pt.name}`}>{T("nav.wind.leg")} {k + 1}</span>
                         <MiniNum label={`${T("nav.wind.dir")} ${k + 1}`} value={w?.directionDeg ?? null} onCommit={(d) => { setAutoOff(); commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
                         <MiniNum label={`${T("nav.wind.speed")} ${k + 1}`} value={windSpeedShown(w)} onCommit={(sp) => { setAutoOff(); commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
-                        <button className="btn-inline wg-reset" aria-label={T("nav.legwind.reset")} title={T("nav.legwind.reset")} disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>↺</button>
+                        <Button size="compact" className="wg-reset" aria-label={T("nav.legwind.reset")} title={T("nav.legwind.reset")} disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>↺</Button>
                       </div>
                     );
                   })}
@@ -402,9 +403,9 @@ export function NavScreen(p: NavProps) {
               <h3>{T("nav.exportTitle")}</h3>
               <div className="choices export-row">
                 {(["gpx", "kml", "fpl", "pln"] as RouteFormat[]).map((f) => (
-                  <button key={f} className="btn-inline" disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</button>
+                  <Button key={f} size="compact" disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</Button>
                 ))}
-                <button className="btn-inline brand" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</button>
+                <Button role="primary" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</Button>
               </div>
               </div>
             </div>
@@ -415,7 +416,7 @@ export function NavScreen(p: NavProps) {
       {p.tab === 1 && !route && (
         <>
           <p className="muted">{T("nav.needRoute")}</p>
-          <div className="choices"><button className="brand" onClick={p.onGoRoutes}>{T("nav.goRoutes")}</button></div>
+          <div className="choices"><Button role="primary" onClick={p.onGoRoutes}>{T("nav.goRoutes")}</Button></div>
         </>
       )}
 
@@ -509,7 +510,7 @@ export function PointSheet(p: {
     <aside className="sheet" aria-label={T("nav.points")}>
       <header>
         <h2>{p.index + 1} · {pt.name}</h2>
-        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
+        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
       </header>
       <label className="numfield">
         <span>{T("nav.name")}</span>
@@ -522,7 +523,7 @@ export function PointSheet(p: {
       />
       <p className="muted small mono">{pt.position.lat.toFixed(5)}, {pt.position.lon.toFixed(5)}</p>
       <div className="choices">
-        <button className="brand" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</button>
+        <Button role="primary" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</Button>
         <button
           disabled={p.index === p.route.points.length - 1}
           onClick={() => {
@@ -534,7 +535,7 @@ export function PointSheet(p: {
             p.onClose();
           }}
         >{T("nav.point.arrival")}</button>
-        <button onClick={() => { const before = p.route; p.onRoute(removePoint(p.route, p.index, now)); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); p.onClose(); }}>{T("nav.delete")}</button>
+        <Button onClick={() => { const before = p.route; p.onRoute(removePoint(p.route, p.index, now)); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); p.onClose(); }} role="danger" className="end">{T("nav.delete")}</Button>
       </div>
     </aside>
   );
@@ -573,7 +574,7 @@ export function DirectSheet(p: {
     <aside className="sheet directsheet" aria-label={T("direct.title")}>
       <header>
         <h2>{T("direct.title")}</h2>
-        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
+        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
       </header>
       <p className="muted small">{T("direct.help")}</p>
       {p.airfields.length > 0 && (

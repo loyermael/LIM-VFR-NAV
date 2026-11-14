@@ -25,7 +25,7 @@ export function ConfirmButton(p: {
   }, [armed]);
   if (!armed) {
     return (
-      <button ref={ref} className={p.className} aria-label={p.ariaLabel} disabled={p.disabled} onClick={() => { armedAt.current = Date.now(); setArmed(true); }}>
+      <button ref={ref} className={`btn-danger ${p.className ?? ""}`.trim()} aria-label={p.ariaLabel} disabled={p.disabled} onClick={() => { armedAt.current = Date.now(); setArmed(true); }}>
         {p.label}
       </button>
     );
@@ -33,7 +33,7 @@ export function ConfirmButton(p: {
   return (
     <button
       ref={ref}
-      className={`brand ${p.className ?? ""}`.trim()}
+      className={`btn-danger armed ${p.className ?? ""}`.trim()}
       onClick={() => {
         if (Date.now() - armedAt.current < 350) return;
         setArmed(false);

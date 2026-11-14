@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fitGeoref, georefFromRunway, georefMetrics, parseCoordinate, type Airfield, type ControlPoint } from "@lim/core";
@@ -139,7 +140,7 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; airfield: Airfield | null; 
               <select className="field" value={rwy} aria-label={T("as.runway")} onChange={(e) => setRwy(e.target.value)}>
                 {runways.map((r) => <option key={r.designator} value={r.designator}>{r.designator} · {Math.round(r.trueHeading as number)}°V · {Math.round(r.lengthM as number)} m</option>)}
               </select>
-              <button className="brand" onClick={() => { setStage("start"); setTaps({}); setErr(null); }}>{T("as.start")}</button>
+              <Button role="primary" onClick={() => { setStage("start"); setTaps({}); setErr(null); }}>{T("as.start")}</Button>
             </div>
           ) : (
             <div>
@@ -182,13 +183,13 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; airfield: Airfield | null; 
         <p className={fit.rmsError > 150 ? "error" : "muted small"}>{T("dc.cal.rms")} : {Math.round(fit.rmsError)} m{fit.rmsError > 150 ? ` — ${T("dc.cal.bad")}` : ""}</p>
       )}
       <div className="choices">
-        <button
-          className="brand"
+        <Button
+          role="primary"
           disabled={!fit}
           onClick={() => fit && p.onSave({ ...p.doc, georef: { points: pts, georef: fit.georef, width: p.r.width, height: p.r.height, rmsError: fit.rmsError, assisted, page: p.page, image: p.r.blob, pdf: { page: p.page, frame: [0, 0, p.r.width / RENDER_SCALE, p.r.height / RENDER_SCALE] } } })}
         >
           {T("dc.cal.save")}
-        </button>
+        </Button>
         <button onClick={p.onCancel}>{T("dc.cal.cancel")}</button>
       </div>
     </div>
@@ -267,7 +268,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
             ) : <p className="muted small">{T("dc.geo.none")}</p>}
             {autoMsg && <p className={autoMsg.error ? "error" : "muted small"} role="status">{autoMsg.text}</p>}
             <div className="choices">
-              {!g && isPdf(d) && <button className="brand" disabled={autoBusy} onClick={runAuto}>{autoBusy ? T("dp.checking") : T("va.auto")}</button>}
+              {!g && isPdf(d) && <button disabled={autoBusy} onClick={runAuto}>{autoBusy ? T("dp.checking") : T("va.auto")}</button>}
               <button className={g ? undefined : undefined} onClick={() => setMode("calibrate")}>{g ? T("dc.geo.redo") : T("dc.geo.start")}</button>
               {g && <button onClick={() => p.onPut({ ...d, georef: null })}>{T("dc.geo.remove")}</button>}
             </div>

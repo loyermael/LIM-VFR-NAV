@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { NotamCard } from "./NotamTab";
 import type { Notam } from "./notam";
 import { distance, formatQuantity, latestMetarByStation, latestTafByStation, unitLabel, type Airfield, type LatLon, type Metar, type Taf, type UnitPrefs } from "@lim/core";
@@ -84,9 +85,9 @@ export function AdInfo(p: {
     <aside className="sheet adinfo" aria-label={a.icao ?? a.name}>
       <header>
         <h2>{a.icao ? `${a.icao} · ` : ""}{a.name}</h2>
-        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
+        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
       </header>
-      <div className="choices"><button className="brand" onClick={p.onDirect}>{T("ad.direct")}</button></div>
+      <div className="choices"><Button role="primary" size="flight" onClick={p.onDirect}>{T("ad.direct")}</Button></div>
       <dl>
         {keys.map((k) => (
           <div key={k}><dt>{k}</dt><dd>{d[k]}</dd></div>

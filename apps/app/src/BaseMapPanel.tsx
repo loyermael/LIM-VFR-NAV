@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useRef, useState } from "react";
 import { bboxAround, type BBox, type LatLon } from "@lim/core";
@@ -93,10 +94,10 @@ export function BaseMapPanel(p: {
           <>
             <progress max={100} value={Math.floor((busy.done / Math.max(1, busy.total)) * 100)} aria-label="téléchargement" />
             <div className="mono small">{Math.floor((busy.done / Math.max(1, busy.total)) * 100)} % · {mo(busy.bytes)} {T("dp.mb")}{busy.failed > 0 ? ` · ${busy.failed} ${T("bm.failed")}` : ""}</div>
-            <div className="choices"><button className="brand" onClick={() => abort.current?.abort()}>{T("bm.cancel")}</button></div>
+            <div className="choices"><button onClick={() => abort.current?.abort()}>{T("bm.cancel")}</button></div>
           </>
         ) : (
-          <div className="choices"><button className="brand" disabled={!bbox || !est || est.tooBig} onClick={() => void start()}>{T("bm.download")}</button></div>
+          <div className="choices"><Button role="primary" disabled={!bbox || !est || est.tooBig} onClick={() => void start()}>{T("bm.download")}</Button></div>
         )}
         {msg && <p className={msg.error ? "error" : "muted small"} role={msg.error ? "alert" : "status"}>{msg.text}</p>}
       </div>

@@ -79,6 +79,14 @@
   /* Points de rupture (ne peuvent pas être des variables CSS dans @media) : ≤ 600 téléphone, ≥ 900 tablette, ≥ 1100 bureau. Les anciens 480 / 700 sont ramenés à 600. */
   --focus-ring: 3px solid var(--ink);
 
+  /* Hiérarchie des boutons : trois tailles nommées. vol = critique, une main, gants ; prépa = ordinaire ; compact = jamais en vol. */
+  --h-flight: 64px;
+  --h-prep: 48px;
+
+  /* Prudence : orange ambré, distinct du jaune de marque (réservé au bouton primaire). Texte toujours sombre (≥ 6:1). */
+  --caution: #e0820a;
+  --on-caution: #15191d;
+
   color-scheme: light;
 }
 
@@ -96,6 +104,7 @@
   --zone-good: #8cbf7b;
   --zone-warn: #e0b24a;
   --zone-bad: #e58c79;
+  --caution: #f0a030;
   /* Contraste sur --field (nuit) : 13,3:1 (le papier fait 16,4:1) */
   --data-figure: #c7dcff;
   --shadow-pop: 0 0 0 1px var(--ink), 4px 4px 0 rgba(0, 0, 0, 0.6);

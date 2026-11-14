@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
@@ -67,7 +68,7 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
             {!installed ? (
               <>
                 <p className="muted small">{items.map((d) => d.title).join(" · ")}</p>
-                <div className="choices"><button className="brand" onClick={() => k.chooseCountry(c.code)}>{T("dp.install")}</button></div>
+                <div className="choices"><Button role="primary" onClick={() => k.chooseCountry(c.code)}>{T("dp.install")}</Button></div>
               </>
             ) : (
               <>
@@ -76,7 +77,7 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
                 <div className="datarow soon"><b>{T("dp.soonVac")}</b><span className="muted small">{T("dp.soon")}</span></div>
                 <div className="choices">
                   {k.checking
-                    ? <button className="brand" onClick={k.cancel}>{T("dp.cancel")}</button>
+                    ? <button onClick={k.cancel}>{T("dp.cancel")}</button>
                     : <button onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</button>}
                   {!busy && <ConfirmButton label={T("dp.remove")} confirmLabel={T("dp.removeConfirm")} onConfirm={p.onRemovePackage} />}
                 </div>

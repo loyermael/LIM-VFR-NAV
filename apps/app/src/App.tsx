@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
@@ -972,9 +973,9 @@ export function App() {
         <div className="kicker">{T("warning.kicker")}</div>
         <h1>{T("warning.title")}</h1>
         <p>{T("warning.body")}</p>
-        <button className="brand" onClick={() => setAccepted(true)}>
+        <Button role="primary" onClick={() => setAccepted(true)}>
           {T("warning.accept")}
-        </button>
+        </Button>
         <button onClick={toggleLang}>{T("lang.switch")}</button>
       </main>
     );
@@ -1020,9 +1021,9 @@ export function App() {
   const mapActive = screen === "map" || split;
   const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
-  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean }[] = [
-    { label: "tb.direct", action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
-    { label: "tb.maps", action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
+  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean; critical?: boolean }[] = [
+    { label: "tb.direct", critical: true, action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
+    { label: "tb.maps", critical: true, action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
     { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
     { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
     { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
@@ -1068,7 +1069,7 @@ export function App() {
     <div className="app">
       <nav className="toolbar" aria-label={T("toolbar.aria")}>
         {toolbar.filter((b) => !(phone && b.more)).map((b) => (
-          <button key={b.label} className={b.sep ? "sep" : undefined} aria-pressed={b.pressed} onClick={b.action}>
+          <button key={b.label} className={[b.sep ? "sep" : "", b.critical ? "btn-critical" : ""].filter(Boolean).join(" ") || undefined} aria-pressed={b.pressed} onClick={b.action}>
             {T(b.label)}
           </button>
         ))}
@@ -1223,7 +1224,7 @@ export function App() {
           <aside className="sheet" aria-label={T("details.title")}>
             <header>
               <h2>{T("details.title")}</h2>
-              <button className="btn-inline" aria-label={T("close")} onClick={() => setDetails(null)}>✕</button>
+              <Button size="compact" aria-label={T("close")} onClick={() => setDetails(null)}>✕</Button>
             </header>
             {details.length === 0 ? (
               <p className="muted">{T("details.empty")}</p>
@@ -1267,7 +1268,7 @@ export function App() {
         {undo && (
           <div className="toast" role="status">
             <span>{undo.text}</span>
-            <button className="btn-inline" onClick={() => { undo.restore(); setUndo(null); }}>{T("undo")}</button>
+            <Button size="compact" onClick={() => { undo.restore(); setUndo(null); }}>{T("undo")}</Button>
           </div>
         )}
         {dupPrompt && mapActive && (
@@ -1275,7 +1276,7 @@ export function App() {
             <h2>{dupPrompt.name}</h2>
             <p>{T("route.dup.ask")}</p>
             <div className="choices">
-              <button className="brand" onClick={confirmDup}>{T("route.dup.yes")}</button>
+              <Button role="primary" onClick={confirmDup}>{T("route.dup.yes")}</Button>
               <button onClick={() => setDupPrompt(null)}>{T("route.dup.no")}</button>
             </div>
           </aside>
@@ -1317,7 +1318,7 @@ export function App() {
           <aside className="drawer" aria-label={T("layers.title")}>
             <header className="drawer-head">
               <h2>{T("layers.title")}</h2>
-              <button className="btn-inline" aria-label={T("close")} onClick={() => setDrawer(false)}>✕</button>
+              <Button size="compact" aria-label={T("close")} onClick={() => setDrawer(false)}>✕</Button>
             </header>
 
             <h3>{T("lay.base")}</h3>

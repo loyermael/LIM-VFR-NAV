@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
 import {
@@ -207,7 +208,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
           {a.envelope.length >= 3 && envelopeArea(a) < 1e-6 && <p className="error" role="alert">{T("ac.degenerate")}</p>}
         </>
       ))}
-      <div className="choices"><button className="brand" onClick={p.onDone}>{T("ac.done")}</button></div>
+      <div className="choices"><Button role="primary" onClick={p.onDone}>{T("ac.done")}</Button></div>
     </div>
   );
 }
@@ -248,7 +249,7 @@ export function AircraftTab(p: AircraftTabProps) {
             </button>
             {a?.id === x.id && (
               <div className="choices">
-                <button className="brand" onClick={() => setEditing(true)}>{T("ac.edit")}</button>
+                <button onClick={() => setEditing(true)}>{T("ac.edit")}</button>
                 <button onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>
                 <ConfirmButton label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
               </div>
@@ -285,14 +286,14 @@ export function BalanceTab(p: BalanceProps) {
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
-          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+          <div className="choices"><Button role="primary" onClick={p.onOpenSheet}>{T("ac.goSheet")}</Button></div>
         </>
       )}
       {a && <p className="muted small">{a.registration ? `${a.registration} · ` : ""}{a.name}</p>}
       {a && defects.length > 0 && (
         <>
           <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>
-          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+          <div className="choices"><Button role="primary" onClick={p.onOpenSheet}>{T("ac.goSheet")}</Button></div>
         </>
       )}
       {a && res && (
@@ -386,7 +387,7 @@ export function FuelTab(p: FuelProps) {
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
-          <div className="choices"><button className="brand" onClick={p.onOpenSheet}>{T("ac.goSheet")}</button></div>
+          <div className="choices"><Button role="primary" onClick={p.onOpenSheet}>{T("ac.goSheet")}</Button></div>
         </>
       )}
       {a && plan && (

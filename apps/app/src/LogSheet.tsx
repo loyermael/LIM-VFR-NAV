@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useEffect, useState } from "react";
 import { t, type Key, type Lang } from "./i18n";
 import { loadLogForm, saveLogForm, type LogModel } from "./logModel";
@@ -57,7 +58,7 @@ export function LogSheet(p: {
         <div className="ls-card">
           <span>Vp ({m.vpUnit})</span>
           <input className="ls-vp mono" inputMode="decimal" value={vpText} aria-label="Vp" onChange={(e) => setVpText(e.target.value)} onBlur={commitVp} onKeyDown={(e) => e.key === "Enter" && commitVp()} />
-          {p.vpEdited && <button className="btn-inline" onClick={() => p.onVp(null)}>{T("log.vpReset")}</button>}
+          {p.vpEdited && <Button size="compact" onClick={() => p.onVp(null)}>{T("log.vpReset")}</Button>}
         </div>
         <div className="ls-card"><span>Fb ({m.fbUnit})</span><b className="mono">{m.fb}</b></div>
         <div className="ls-card"><span>{T("log.fuelflow")} ({m.consoUnit})</span><b className="mono">{m.conso}</b></div>
@@ -69,7 +70,7 @@ export function LogSheet(p: {
         <div><i>FL20</i><b className="mono">{m.winds.fl20}</b></div>
         <div><i>FL50</i><b className="mono">{m.winds.fl50}</b></div>
         <div><i>FL100</i><b className="mono">{m.winds.fl100}</b></div>
-        <button className="btn-inline" disabled={p.windsBusy} onClick={p.onLoadWinds}>{p.windsBusy ? "…" : "↻"}</button>
+        <Button size="compact" disabled={p.windsBusy} onClick={p.onLoadWinds}>{p.windsBusy ? "…" : "↻"}</Button>
       </div>
       <div className="ls-table">
         <div className="lt-head lt-z" title={T("log.help.z")}><span>Z vol</span><span>Z min</span></div>
@@ -138,7 +139,7 @@ export function LogSheet(p: {
           </div>
         </section>
       </div>
-      <button className="brand" onClick={p.onPdf}>{T("log.pdf")}</button>
+      <Button role="primary" onClick={p.onPdf}>{T("log.pdf")}</Button>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useMemo, useState } from "react";
 import { ageMinutes, distance, formatQuantity, latestMetarByStation, latestTafByStation, METAR_STALE_MINUTES, nmToMeters, nauticalMiles, sigmetsAlongRoute, stationsNearRoute, tafPeriodsAt, tafStatus, unitLabel, type Conditions, type LatLon, type Metar, type Taf, type TafPeriod, type UnitPrefs, type Sigmet } from "@lim/core";
 import { t, type Key, type Lang } from "./i18n";
@@ -44,7 +45,7 @@ export function WxSource(p: WxCommon) {
       {sets.length === 0 ? (
         <>
           <p className="muted">{T("wxd.none")}</p>
-          <div className="choices"><button className="brand" onClick={p.onOpenData}>{T("wxd.goData")}</button></div>
+          <div className="choices"><Button role="primary" onClick={p.onOpenData}>{T("wxd.goData")}</Button></div>
         </>
       ) : (
         <div className="choices">

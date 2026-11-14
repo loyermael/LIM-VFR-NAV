@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
 import {
@@ -45,7 +46,7 @@ export function TimersTab(p: TimersProps) {
       <p className="muted small">{p.recording ? `${T("tm.recording")} · ${p.pointCount} ${T("tm.points")}` : T("tm.idle")}</p>
       <div className="choices">
         {p.recording
-          ? <button className="brand" onClick={p.onStopRec}>{T("tm.stopRec")}</button>
+          ? <Button role="primary" onClick={p.onStopRec}>{T("tm.stopRec")}</Button>
           : <button onClick={p.onStartRec}>{T("tm.startRec")}</button>}
       </div>
       <p className="muted small">{T("tm.autoNote")}</p>
@@ -55,7 +56,7 @@ export function TimersTab(p: TimersProps) {
       <div className="choices">
         {p.sw.startedAt === null
           ? <button onClick={() => p.onSw(swStart(p.sw, p.nowMs))}>{T("tm.start")}</button>
-          : <button className="brand" onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</button>}
+          : <Button role="primary" onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</Button>}
         <button onClick={() => p.onSw(STOPWATCH_ZERO)}>{T("tm.reset")}</button>
       </div>
 
@@ -68,7 +69,7 @@ export function TimersTab(p: TimersProps) {
       )}
       <div className="choices">
         {running
-          ? <button className="brand" onClick={() => p.onCd(cdCancel(p.cd))}>{T("tm.cancel")}</button>
+          ? <button onClick={() => p.onCd(cdCancel(p.cd))}>{T("tm.cancel")}</button>
           : <button disabled={p.cd.durationMs <= 0} onClick={() => p.onCd(cdStart(p.cd, p.nowMs))}>{T("tm.start")}</button>}
       </div>
       <p className="muted small">{T("tm.alarmNote")}</p>
@@ -111,7 +112,7 @@ export function ReplayBar(p: { lang: Lang; track: TrackRecord; replay: ReplaySta
   return (
     <div className="replaybar">
       <div className="choices">
-        <button className={r.playing ? "brand" : undefined} onClick={() => p.onChange({ ...r, playing: !r.playing, t: r.t >= last ? first : r.t })}>{r.playing ? T("tr.pause") : T("tr.play")}</button>
+        <button aria-pressed={r.playing} onClick={() => p.onChange({ ...r, playing: !r.playing, t: r.t >= last ? first : r.t })}>{r.playing ? T("tr.pause") : T("tr.play")}</button>
         {REPLAY_SPEEDS.map((s) => (
           <button key={s} aria-pressed={r.speed === s} onClick={() => p.onChange({ ...r, speed: s })}>×{s}</button>
         ))}
@@ -172,7 +173,7 @@ export function TracesTab(p: TracesProps) {
           <tr><td className="legname">{T("tr.maxGs")}</td><td>{st.maxGroundSpeed === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, st.maxGroundSpeed)} ${unitLabel("groundSpeed", p.prefs)}`}</td></tr>
         </tbody></table>
         <div className="choices">
-          <button className="brand" disabled={track.points.length < 2} onClick={() => { p.onReplay({ id: track.id, t: first, playing: true, speed: 4 }); p.onShowOnMap(); }}>{T("tr.replayMap")}</button>
+          <Button role="primary" disabled={track.points.length < 2} onClick={() => { p.onReplay({ id: track.id, t: first, playing: true, speed: 4 }); p.onShowOnMap(); }}>{T("tr.replayMap")}</Button>
         </div>
 
         {rp && (

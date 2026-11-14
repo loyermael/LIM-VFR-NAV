@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useMemo, useState } from "react";
 import {
   formatDuration, formatQuantity, legWindsFromForecasts, unitLabel,
@@ -74,9 +75,9 @@ export function WindsTab(p: WindsProps) {
       <p className="muted small">{T("wxw.model")}</p>
       {!fallback && <p className="muted">{T("wxw.noPoint")}</p>}
       <div className="choices">
-        <button className="brand" disabled={!fallback || p.busy} onClick={() => p.onLoad(allPoints())}>
+        <Button role="primary" disabled={!fallback || p.busy} onClick={() => p.onLoad(allPoints())}>
           {p.busy ? T("wxw.loading") : T("wxw.load")}
-        </button>
+        </Button>
       </div>
       {p.error && <p className="error" role="alert">{T("wxw.error")} — {p.error}</p>}
 

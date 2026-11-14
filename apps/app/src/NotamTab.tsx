@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
 import { airspacesAlongRoute, type Airfield, type Airspace } from "@lim/core";
@@ -119,7 +120,7 @@ export function NotamTab(p: {
         <p className="muted small">
           {items.length} NOTAM · {T("notam.source")} : {p.set.source} · {T("notam.received")} {utc(p.set.importedAtMs)} ({ageText(p.set.importedAtMs, p.nowMs)})
           {p.nowMs - p.set.importedAtMs > 24 * 3_600_000 ? ` — ${T("notam.stale")}` : ""}
-          {" "}<ConfirmButton className="btn-inline" label={T("notam.clear")} confirmLabel={T("tr.confirmDelete")} onConfirm={p.onClear} />
+          {" "}<ConfirmButton className="btn-compact" label={T("notam.clear")} confirmLabel={T("tr.confirmDelete")} onConfirm={p.onClear} />
         </p>
       )}
       {!p.set && <p className="muted small">{T("notam.noneImported")}</p>}
@@ -176,7 +177,7 @@ export function NotamTab(p: {
       <h3>{T("notam.import")}</h3>
       <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
       <div className="choices">
-        <button className="brand" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</button>
+        <Button role="primary" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</Button>
         <label className="filebtn">
           {T("notam.file")}
           <input type="file" hidden accept=".txt,.text,.notam" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run(async () => p.onImportText(await f.text(), f.name), T("notam.imported")); }} />

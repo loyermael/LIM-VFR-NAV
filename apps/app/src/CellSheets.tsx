@@ -1,3 +1,4 @@
+import { Button } from "./ui/Button";
 import { useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, SPEED_UNITS, STANDARD_QNH, UNIT_CHOICES, calibrationOffset, formatQuantity,
@@ -35,7 +36,7 @@ export function UnitSheet({ cell, lang, prefs, setUnit, onClose }: CommonProps &
     <aside className="sheet" aria-label={T(CELL_TITLE[cell])}>
       <header>
         <h2>{T(CELL_TITLE[cell])}</h2>
-        <button className="btn-inline" aria-label={T("close")} onClick={onClose}>✕</button>
+        <Button size="compact" aria-label={T("close")} onClick={onClose}>✕</Button>
       </header>
       <div className="choices">
         {UNIT_CHOICES[field].map((choice) => (
@@ -121,7 +122,7 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
     <aside className="sheet" aria-label={T("alt.title")}>
       <header>
         <h2>{T("alt.title")}</h2>
-        <button className="btn-inline" aria-label={T("close")} onClick={p.onClose}>✕</button>
+        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
       </header>
       {showQnh && (
         <>
@@ -193,9 +194,9 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
       {settings.offset !== 0 && (
         <p className="muted small">
           {T("alt.calib.current")} : {settings.offset > 0 ? "+" : "−"}{offsetShown} {unitLabel("altitude", prefs)}{" "}
-          <button className="btn-inline" onClick={() => p.onSettings({ ...settings, offset: meters(0) }, { offset: true })}>
+          <Button size="compact" onClick={() => p.onSettings({ ...settings, offset: meters(0) }, { offset: true })}>
             {T("alt.calib.reset")}
-          </button>
+          </Button>
         </p>
       )}
 
