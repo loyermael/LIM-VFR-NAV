@@ -130,19 +130,25 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
     <Section id={id} title={title} ok={ok[id]} open={open.has(id)} onToggle={toggle} okLabel={T("ac.secOk")} todoLabel={T("ac.secTodo")}>{children}</Section>
   );
   return (
-    <div className="navscreen">
-      <div className="choices"><button className="has-icon" onClick={p.onDone}><Icon name="arrow-left" size={20} />{T("ac.list")}</button></div>
-      <label className="numfield">
-        <span>{T("nav.name")}</span>
-        <input className="field" defaultValue={a.name} key={`${a.id}-n`} onBlur={(e) => e.target.value.trim() && set({ name: e.target.value.trim() })} />
-      </label>
-      <label className="numfield">
-        <span>{T("ac.registration")}</span>
-        <input className="field" defaultValue={a.registration} key={`${a.id}-r`} onBlur={(e) => set({ registration: e.target.value.trim().toUpperCase() })} />
-      </label>
-      <p className={todo.length === 0 ? "muted small" : "error"} role={todo.length === 0 ? undefined : "status"}>
-        {todo.length === 0 ? T("ac.ready") : `${T("ac.progress")} : ${order.length - todo.length} / ${order.length}`}
-      </p>
+    <div className="navscreen acform">
+      <div className="acbar">
+        <button className="has-icon" onClick={p.onDone}><Icon name="arrow-left" size={20} />{T("ac.list")}</button>
+        <h3 className="doctitle">{a.registration ? `${a.registration} · ` : ""}{a.name}</h3>
+      </div>
+      <div className="ac-id">
+        <label className="numfield">
+          <span>{T("nav.name")}</span>
+          <input className="field" defaultValue={a.name} key={`${a.id}-n`} onBlur={(e) => e.target.value.trim() && set({ name: e.target.value.trim() })} />
+        </label>
+        <label className="numfield">
+          <span>{T("ac.registration")}</span>
+          <input className="field" defaultValue={a.registration} key={`${a.id}-r`} onBlur={(e) => set({ registration: e.target.value.trim().toUpperCase() })} />
+        </label>
+      </div>
+      <div className="ac-progress" role="status">
+        <span className="ac-segs" aria-hidden="true">{order.map((k) => <i key={k} className={ok[k] ? "done" : ""} />)}</span>
+        <span className={todo.length === 0 ? "muted small" : "small"}>{todo.length === 0 ? T("ac.ready") : `${T("ac.progress")} : ${order.length - todo.length} / ${order.length}`}</span>
+      </div>
       <p className="muted small">{T("ac.warning")}</p>
 
       {sec("cruise", T("ac.cruise"), (

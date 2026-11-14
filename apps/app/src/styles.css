@@ -631,3 +631,27 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
   .pt-row { grid-template-columns: 36px minmax(0, 1fr) 132px auto; }
 }
 .pt-row .pt-name { min-height: var(--h-touch); height: var(--h-touch); }
+
+/* Fiche avion : barre unique (retour + titre), identité sur une ligne, progression en segments, paramètres en lignes « libellé | valeur » alignées. */
+.acbar { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.acbar button { flex: none; }
+.acbar .doctitle { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-id { display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 0.6fr); gap: var(--sp-3); }
+.ac-id .field { height: var(--h-touch); min-height: var(--h-touch); font-size: var(--fs-16); font-weight: 600; text-align: left; }
+.ac-progress { display: flex; align-items: center; gap: var(--sp-3); }
+.ac-segs { display: flex; gap: 4px; flex: 1; max-width: 220px; }
+.ac-segs i { flex: 1; height: 8px; background: var(--hair); }
+.ac-segs i.done { background: var(--ink); }
+.acform .sect { background: var(--field); }
+.acform .params { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.acform .params .numfield { grid-template-columns: minmax(0, 1fr) minmax(110px, 150px); align-items: center; gap: var(--sp-3); border-top: var(--rule-hair); min-height: var(--h-touch); padding: 2px 0; }
+.acform .params .numfield:first-child { border-top: 0; }
+.acform .params .numfield > span:first-child { font-size: var(--fs-14); font-weight: 600; color: var(--ink); }
+.acform .params .nf-row .field { height: var(--h-touch); min-height: var(--h-touch); font-size: var(--fs-16); font-weight: 600; text-align: right; background: transparent; border: 0; border-bottom: var(--rule-hair); border-radius: 0; padding: 0 var(--sp-1); }
+.acform .params .nf-row .field:focus-visible { border-bottom-color: var(--ink); }
+.acform .stationcard { border: 0; border-top: var(--rule-hair); padding: var(--sp-2) 0 0; margin: var(--sp-2) 0 0; }
+.acform .stationhead .field { height: var(--h-touch); min-height: var(--h-touch); font-size: var(--fs-16); font-weight: 600; }
+.acform .params .numfield { border-top: 0; }
+.acform .stationhead input.field { text-align: left; background: transparent; border: 0; border-bottom: var(--rule-hair); border-radius: 0; padding: 0 var(--sp-1); }
+.acform .stationhead input.field:focus-visible { border-bottom-color: var(--ink); }
+.acform .stationhead select.field { font-size: var(--fs-14); }
