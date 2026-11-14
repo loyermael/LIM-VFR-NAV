@@ -6,7 +6,7 @@ import {
   computeBalance, formatDuration, formatQuantity, fromSI, planFuel, toSI, unitLabel, validateAircraft,
   type Aircraft, type BalanceIssue, type BalanceState, type Loads, type StationKind, type UnitPrefs,
 } from "@lim/core";
-import { NumField } from "./NavScreen";
+import { MiniNum, NumField } from "./NavScreen";
 import { Section } from "./Section";
 import { t, type Key, type Lang } from "./i18n";
 import {
@@ -192,7 +192,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
               </div>
             </div>
           ))}
-          <div className="choices"><button onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</button></div>
+          <div className="choices"><Button icon="plus" onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</Button></div>
         </>
       ))}
 
@@ -200,17 +200,25 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
         <>
           <p className="muted small">{T("ac.envelopeHelp")}</p>
           <EnvelopeSketch aircraft={a} />
-          {a.envelope.map((v, i) => (
-            <div className="point-row" key={i} style={{ gridTemplateColumns: "28px 1fr 1fr auto" }}>
-              <b className="mono">{i + 1}</b>
-              <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={v[0]} onCommit={(x) => x !== null && p.onChange(patchVertex(a, i, x, v[1], now()))} />
-              <NumField label={`${T("ac.mass")} (kg)`} decimals={1} value={v[1]} onCommit={(m) => m !== null && p.onChange(patchVertex(a, i, v[0], m, now()))} />
-              <button aria-label={T("nav.delete")} title={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))}><Icon name="trash-2" size={20} /></button>
-            </div>
-          ))}
+          <div className="pt-list vx-list">
+            {a.envelope.map((v, i) => (
+              <div className="vx-row" key={i}>
+                <b className="pt-num mono">{i + 1}</b>
+                <div className="pt-alt">
+                  <span className="pt-alt-label" aria-hidden="true">{T("ac.arm").toLowerCase()} (m)</span>
+                  <MiniNum label={`${T("ac.arm")} (m)`} decimals={3} value={v[0]} onCommit={(x) => x !== null && p.onChange(patchVertex(a, i, x, v[1], now()))} />
+                </div>
+                <div className="pt-alt">
+                  <span className="pt-alt-label" aria-hidden="true">{T("ac.mass").toLowerCase()} (kg)</span>
+                  <MiniNum label={`${T("ac.mass")} (kg)`} decimals={1} value={v[1]} onCommit={(m) => m !== null && p.onChange(patchVertex(a, i, v[0], m, now()))} />
+                </div>
+                <Button size="touch" icon="trash-2" aria-label={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))} />
+              </div>
+            ))}
+          </div>
           <div className="choices">
-            <button onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</button>
-            <button disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</button>
+            <Button icon="plus" onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</Button>
+            <Button icon="arrow-left-right" disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</Button>
           </div>
           {a.envelope.length >= 3 && envelopeArea(a) < 1e-6 && <p className="error" role="alert">{T("ac.degenerate")}</p>}
         </>
@@ -248,21 +256,32 @@ export function AircraftTab(p: AircraftTabProps) {
       <h3>{T("ac.list")}</h3>
       {p.aircraft.length === 0 && <p className="muted">{T("ac.none")}</p>}
       <div className="route-list">
-        {p.aircraft.map((x) => (
-          <div className={a?.id === x.id ? "aircard active" : "aircard"} key={x.id}>
-            <button className="row" aria-pressed={a?.id === x.id} onClick={() => p.onSelect(x.id)}>
-              <b>{x.registration ? `${x.registration} · ` : ""}{x.name}</b>
-              <span className="muted small"> — {status(x)}</span>
-            </button>
-            {a?.id === x.id && (
-              <div className="choices">
-                <button onClick={() => setEditing(true)}>{T("ac.edit")}</button>
-                <button onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>
-                <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
-              </div>
-            )}
-          </div>
-        ))}
+        {p.aircraft.map((x) => {
+          const sel = a?.id === x.id;
+          const tas = x.tasMps === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, x.tasMps as never)} ${unitLabel("groundSpeed", p.prefs)}`;
+          const flow = x.fuelFlowLph === null ? "---" : `${fromSI("fuel", p.prefs, x.fuelFlowLph).toFixed(1)} ${unitLabel("fuel", p.prefs)}/h`;
+          const mtow = x.maxTakeoffMass > 0 ? `${x.maxTakeoffMass} kg` : "---";
+          const done = validateAircraft(x).length === 0;
+          return (
+            <div className={sel ? "air-card sel" : "air-card"} key={x.id}>
+              <button className="air-main" aria-current={sel ? "true" : undefined} onClick={() => p.onSelect(x.id)}>
+                <span className="air-top">
+                  {sel && <span className="route-badge"><Icon name="circle-check" size={16} />{T("ac.chosen")}</span>}
+                  <span className={done ? "stat-good" : "stat-caution"}><Icon name={done ? "circle-check" : "diamond-alert"} size={16} />{status(x)}</span>
+                </span>
+                <b>{x.registration ? `${x.registration} · ` : ""}{x.name}</b>
+                <span className="muted small">{T("nav.tas")} {tas} · {flow} · MTOW {mtow}</span>
+              </button>
+              {sel && (
+                <div className="air-actions">
+                  <Button size="touch" icon="pencil" onClick={() => setEditing(true)}>{T("ac.edit")}</Button>
+                  <Button size="touch" icon="copy" onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</Button>
+                  <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       <div className="choices"><Button role="primary" icon="plus" onClick={create}>{T("ac.new")}</Button></div>
       {a && validateAircraft(a).length === 0 && <p className="muted small">{T("ac.ready")}</p>}
