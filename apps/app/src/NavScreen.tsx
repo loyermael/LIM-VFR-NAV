@@ -350,7 +350,7 @@ export function NavScreen(p: NavProps) {
                   <div className="route-actions">
                     {isActive
                       ? <Button size="touch" icon="square" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
-                      : <Button role="primary" size="touch" icon="play" onClick={() => p.onActivate(r.id)}>{T("route.activate")}</Button>}
+                      : <Button size="touch" icon="play" onClick={() => p.onActivate(r.id)}>{T("route.activate")}</Button>}
                     <Button size="touch" icon="ellipsis" aria-label={T("route.manage")} aria-haspopup="true" aria-expanded={menuId === r.id} onClick={() => setMenuId(menuId === r.id ? null : r.id)} />
                   </div>
                   {menuId === r.id && (
