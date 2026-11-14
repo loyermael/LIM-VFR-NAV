@@ -21,10 +21,10 @@ export function AdMenu(p: {
   onClose: () => void;
 }) {
   const T = (k: Key) => t(p.lang, k);
-  const items: { key: string; label: string; icon: string; action: () => void; on?: boolean; off?: boolean }[] = [
-    { key: "direct", label: T("ad.direct"), icon: "➤", action: p.onDirect },
+  const items: { key: string; label: string; icon: string; action: () => void; on?: boolean; off?: boolean; primary?: boolean }[] = [
+    { key: "direct", label: T("ad.direct"), icon: "➤", action: p.onDirect, primary: true },
     { key: "info", label: T("ad.info"), icon: "i", action: p.onInfo },
-    { key: "vac", label: p.vacState === "shown" ? T("ad.vacHide") : T("ad.vac"), icon: "VAC", action: p.onVac, on: p.vacState === "shown", off: p.vacState === "none" },
+    { key: "vac", label: p.vacState === "none" ? T("ad.vacNoChart") : p.vacState === "shown" ? T("ad.vacHide") : T("ad.vac"), icon: "VAC", action: p.onVac, on: p.vacState === "shown", off: p.vacState === "none" },
     { key: "route", label: T("ad.route"), icon: "+", action: p.onAddToRoute },
   ];
   return (
@@ -34,7 +34,7 @@ export function AdMenu(p: {
         <button
           key={it.key}
           role="menuitem"
-          className={`adbtn adpos${i}${it.on ? " on" : ""}${it.off ? " dim" : ""}`}
+          className={`adbtn adpos${i}${it.on ? " on" : ""}${it.off ? " dim" : ""}${it.primary ? " adprimary" : ""}`}
           onClick={it.action}
         >
           <span className="adicon">{it.icon}</span>
@@ -85,12 +85,21 @@ export function AdInfo(p: {
     <aside className="sheet adinfo" aria-label={a.icao ?? a.name}>
       <header>
         <h2>{a.icao ? `${a.icao} · ` : ""}{a.name}</h2>
-        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        <div className="adhead-actions">
+          <Button role="primary" onClick={p.onDirect}>{T("ad.direct")}</Button>
+          <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        </div>
       </header>
-      <div className="choices"><Button role="primary" size="flight" onClick={p.onDirect}>{T("ad.direct")}</Button></div>
       <dl>
         {keys.map((k) => (
-          <div key={k} className={k === "Pistes" ? "kind-piste" : undefined}><dt>{k}</dt><dd>{d[k]}</dd></div>
+          <div key={k} className={k === "Pistes" ? "kind-piste" : undefined}>
+            <dt>{k}</dt>
+            <dd>
+              {k === "Pistes" || k === "Fréquences"
+                ? (d[k] ?? "").split(" · ").map((line, j) => <span key={j} className={line.includes("★") ? "dd-line dd-main" : "dd-line"}>{line}</span>)
+                : d[k]}
+            </dd>
+          </div>
         ))}
       </dl>
 
@@ -115,7 +124,7 @@ export function AdInfo(p: {
       {p.notams.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
       {p.notams.length === 0 && (
         <p className="muted small">
-          {p.notamReceivedMs === null ? T("ad.notamNone") : `${T("notam.noneAd")} (${T("notam.received")} ${new Date(p.notamReceivedMs).toISOString().slice(0, 16).replace("T", " ")}Z)`}
+          {p.notamReceivedMs === null ? T("notam.noneImported") : `${T("notam.noneAd")} (${T("notam.received")} ${new Date(p.notamReceivedMs).toISOString().slice(0, 16).replace("T", " ")}Z)`}
         </p>
       )}
 

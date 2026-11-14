@@ -164,6 +164,10 @@ describe("alerte d'espace devant", () => {
     expect(r!.seconds).toBeGreaterThan(200);
     expect(r!.seconds).toBeLessThan(240);
   });
+  it("ignore les zones réservées aux drones", () => {
+    const D = parseOpenAipAirspaces([rawAsp({ _id: "D", name: "ZRT DRONE HNO-B V2" })]).items[0]!;
+    expect(airspaceAhead({ lat: 45.7, lon: 2 }, 0 as TrueDeg, fast, meters(1000), [D])).toBeNull();
+  });
   it("rien si déjà dedans, si on s'éloigne, ou sans vitesse / cap", () => {
     expect(airspaceAhead({ lat: 46, lon: 2 }, 0 as TrueDeg, fast, meters(1000), [A])).toBeNull();
     expect(airspaceAhead({ lat: 45.7, lon: 2 }, 180 as TrueDeg, fast, meters(1000), [A])).toBeNull();

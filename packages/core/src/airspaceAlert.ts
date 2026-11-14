@@ -18,6 +18,9 @@ export interface AirspaceAhead {
 
 /** Groupes pour lesquels une pénétration involontaire compte : contrôlés et réglementés / dangereux / interdits. */
 const WATCHED = new Set<Airspace["group"]>(["controlled", "restricted"]);
+/** Zones réservées aux drones (ZRT DRONE…) : elles ne concernent pas un aéronef habité, on ne les annonce pas. */
+const DRONE = /\b(drones?|uas|uav|rpas)\b/i;
+const forAircraft = (a: Airspace): boolean => WATCHED.has(a.group) && !DRONE.test(a.name) && !DRONE.test(a.remarks ?? "");
 
 export function airspaceAhead(
   position: LatLon,
@@ -28,7 +31,7 @@ export function airspaceAhead(
   horizonS = 300,
 ): AirspaceAhead | null {
   if (track === null || groundSpeedMps === null || !(groundSpeedMps > 1)) return null;
-  const watched = airspaces.filter((a) => WATCHED.has(a.group));
+  const watched = airspaces.filter(forAircraft);
   const inside = new Set(airspacesAt(position, altitude, watched).map((h) => h.airspace.id));
   const stepS = Math.max(2, Math.min(10, 500 / groundSpeedMps));
   for (let s = stepS; s <= horizonS + 1e-9; s += stepS) {

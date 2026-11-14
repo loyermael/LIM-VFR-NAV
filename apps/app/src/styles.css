@@ -514,3 +514,21 @@ button.row { text-align: left; }
 /* États de données : OK (vert + ✓) ou à vérifier (ambre foncé + ◆), toujours avec le texte. */
 .stat-good { font-family: var(--font-mono); font-weight: 600; color: var(--zone-good); }
 .stat-caution { font-family: var(--font-mono); font-weight: 600; color: var(--zone-warn); }
+
+/* Menu rond : « Direct » porte l'action principale (jaune) ; le centre n'est qu'un repère neutre. */
+.admenu .adcenter { background: var(--field); color: var(--ink); border: 3px solid var(--ink); }
+.admenu .adprimary { background: var(--brand); color: var(--on-brand); border-color: var(--ink); }
+.admenu .adbtn.dim { cursor: not-allowed; }
+
+/* Feuille Infos : Direct dans l'en-tête, pistes et fréquences une par ligne, radio principale en plus grand. */
+.adhead-actions { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.sheet dd .dd-line { display: block; }
+.sheet dd .dd-main { font-size: var(--fs-20); }
+
+/* Écran Vol : temps de vol en grand, chrono et compte à rebours plus discrets. */
+.bigtime.sub { font-size: var(--fs-28); padding: var(--sp-1) 0; }
+.tabs button { min-height: var(--h-control); }
+
+@media (max-width: 600px) {
+  .banner.alert { font-size: var(--fs-16); }
+}

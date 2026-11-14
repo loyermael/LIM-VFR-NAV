@@ -83,6 +83,13 @@ const UNIT_LABELS: Record<string, string> = Object.fromEntries(
   ),
 );
 
+/** Nom court d'un espace pour le bandeau : « ZR LFR 55 », « TMA LYON 4 » (le type n'est répété que s'il n'est pas déjà dans le nom). */
+const ASP_SHORT: Record<string, string> = { "Zone réglementée": "ZR", "Zone dangereuse": "ZD", "Zone interdite": "ZI" };
+function aspLabel(a: { name: string; typeLabel: string }): string {
+  const ty = ASP_SHORT[a.typeLabel] ?? a.typeLabel;
+  return a.name.toUpperCase().includes(ty.toUpperCase()) ? a.name : `${ty} ${a.name}`;
+}
+
 /** `?sim` ou `?sim=loss` dans l'adresse : simulateur de position (démonstration). */
 /** Phrase d'alerte trafic : « Trafic FGABC 0.8 NM, 12 h, +200 ft ». */
 function trafficText(x: { label: string; distanceM: number; bearing: number; relAltM: number | null }, track: number | null, prefs: UnitPrefs, lead: string): string {
@@ -452,7 +459,11 @@ export function App() {
     setFollow(false); // la carte ne bouge plus : le menu reste accroché au terrain
     setDetails(null);
     setCellSheet(null);
-    setAdMenu({ airfield: af, x: h.x, y: h.y });
+    // Le menu rond déborde de 88 px à gauche / droite et de 78 px en haut / bas : on le recentre pour qu'aucun bouton ne sorte de la carte.
+    const box = document.querySelector(".stage")?.getBoundingClientRect();
+    const mx = box ? Math.min(Math.max(h.x, 140), Math.max(140, box.width - 140)) : h.x;
+    const my = box ? Math.min(Math.max(h.y, 120), Math.max(120, box.height - 120)) : h.y;
+    setAdMenu({ airfield: af, x: mx, y: my });
   };
   const addAirfieldToRoute = (af: Airfield) => {
     const r = route ?? createRoute();
@@ -1054,7 +1065,7 @@ export function App() {
     const when = sec < 90 ? `${sec} s` : `${Math.round(sec / 60)} min`;
     const f = aspAhead.airspace.frequencies.find((x) => x.primary) ?? aspAhead.airspace.frequencies[0];
     candidates.push({
-      text: `${aspAhead.airspace.typeLabel} ${aspAhead.airspace.name} ${T("asp.in")} ${when}${f ? ` · ${f.mhz}` : ""}${aspAhead.vertical === "unknown" ? ` · ${T("asp.levelUnknown")}` : ""}`,
+      text: `${aspLabel(aspAhead.airspace)} ${T("asp.in")} ${when}${f ? ` · ${f.mhz}` : ""}${aspAhead.vertical === "unknown" ? ` · ${T("asp.levelUnknown")}` : ""}`,
       sev: aspAhead.seconds <= 120 ? "alert" : "caution",
     });
   }

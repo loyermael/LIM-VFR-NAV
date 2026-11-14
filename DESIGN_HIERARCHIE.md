@@ -130,3 +130,11 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 - **Catégories** : liseré + symbole dans les fiches NOTAM (◆), météo (☁), pistes (▬). Information neutre (source, cycle AIRAC) : barre bleue + « ■ i ».
 - **Part colorée hors carte, mesurée dans l'aperçu (fenêtre ~800×685)** : carte 5 % · Route liste 8 % · Docs 8 % · Données 6 % · Réglages 5 % · Log / NOTAM / Avion / Météo ≈ 1 %. Vol 13,5 % avant correction (« Arrêter l'enregistrement » en jaune) : le primaire est maintenant « Démarrer l'enregistrement », l'arrêt est secondaire.
 - **Pas vérifié** : écrans avec données réelles (NOTAM, fiches terrain, SIGMET) ; la deutéranopie n'a été simulée que sur le nuancier.
+
+## 6. Revue écran Vol et fiche terrain (corrigé)
+
+- **Alerte d'espace** : zones drone (ZRT DRONE…) ignorées (test ajouté) ; texte court (« ZR LFR 55 dans 30 s ») ; bandeau d'alerte en 16 px sur téléphone.
+- **Menu rond** : « Direct » en jaune (primaire), centre neutre ; menu recentré pour que « + Route » ne sorte plus de la carte ; « VAC » grisé devient « Aucune VAC ».
+- **Écran Vol** : temps de vol en grand, puis compte à rebours (raccourcis 5 / 10 / 15 / 30 min), puis chrono, plus discrets ; un primaire « Démarrer » par bloc, les « Arrêter » sont neutres ; onglets Chrono / Traces à 56 px.
+- **Fiche Infos** : « Direct » dans l'en-tête à côté de ✕ (56 px) ; pistes et fréquences une par ligne, radio principale (★) en 20 px ; NOTAM sans import : « Aucun NOTAM importé pour l'instant ».
+- **Pas vérifié** : le bandeau d'alerte sur téléphone réel ; l'écran Vol en portrait (non ouvert dans l'aperçu étroit).

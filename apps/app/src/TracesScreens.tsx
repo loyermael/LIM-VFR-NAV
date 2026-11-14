@@ -51,28 +51,35 @@ export function TimersTab(p: TimersProps) {
       </div>
       <p className="muted small">{T("tm.autoNote")}</p>
 
-      <h3>{T("tm.stopwatch")}</h3>
-      <div className="bigtime">{hms(swElapsed(p.sw, p.nowMs))}</div>
-      <div className="choices">
-        {p.sw.startedAt === null
-          ? <button onClick={() => p.onSw(swStart(p.sw, p.nowMs))}>{T("tm.start")}</button>
-          : <Button role="primary" onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</Button>}
-        <button onClick={() => p.onSw(STOPWATCH_ZERO)}>{T("tm.reset")}</button>
-      </div>
-
       <h3>{T("tm.countdown")}</h3>
-      <div className="bigtime" role="timer">{hms(cdRemaining(p.cd, p.nowMs))}</div>
+      <div className="bigtime sub" role="timer">{hms(cdRemaining(p.cd, p.nowMs))}</div>
       {!running && (
-        <div className="params">
-          <NumField label={`${T("tm.minutes")}`} decimals={0} value={minutes} onCommit={(v) => { setMinutes(v); p.onCd({ ...p.cd, durationMs: v !== null && v > 0 ? Math.round(v * 60000) : 0 }); }} />
-        </div>
+        <>
+          <div className="choices" role="group" aria-label={T("tm.minutes")}>
+            {[5, 10, 15, 30].map((n) => (
+              <button key={n} aria-pressed={minutes === n} onClick={() => { setMinutes(n); p.onCd({ ...p.cd, durationMs: n * 60000 }); }}>{n} min</button>
+            ))}
+          </div>
+          <div className="params">
+            <NumField label={`${T("tm.minutes")}`} decimals={0} value={minutes} onCommit={(v) => { setMinutes(v); p.onCd({ ...p.cd, durationMs: v !== null && v > 0 ? Math.round(v * 60000) : 0 }); }} />
+          </div>
+        </>
       )}
       <div className="choices">
         {running
           ? <button onClick={() => p.onCd(cdCancel(p.cd))}>{T("tm.cancel")}</button>
-          : <button disabled={p.cd.durationMs <= 0} onClick={() => p.onCd(cdStart(p.cd, p.nowMs))}>{T("tm.start")}</button>}
+          : <Button role="primary" disabled={p.cd.durationMs <= 0} onClick={() => p.onCd(cdStart(p.cd, p.nowMs))}>{T("tm.start")}</Button>}
       </div>
       <p className="muted small">{T("tm.alarmNote")}</p>
+
+      <h3>{T("tm.stopwatch")}</h3>
+      <div className="bigtime sub">{hms(swElapsed(p.sw, p.nowMs))}</div>
+      <div className="choices">
+        {p.sw.startedAt === null
+          ? <Button role="primary" onClick={() => p.onSw(swStart(p.sw, p.nowMs))}>{T("tm.start")}</Button>
+          : <button onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</button>}
+        <button onClick={() => p.onSw(STOPWATCH_ZERO)}>{T("tm.reset")}</button>
+      </div>
     </div>
   );
 }
