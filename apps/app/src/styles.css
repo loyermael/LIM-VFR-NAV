@@ -441,7 +441,10 @@ button.row { text-align: left; }
 .morepop { position: absolute; right: var(--sp-2); top: calc(var(--h-control) + var(--sp-4) + 3px + env(safe-area-inset-top)); z-index: 7; display: grid; gap: var(--sp-2); padding: var(--sp-2); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); min-width: 200px; }
 .morepop button { width: 100%; text-align: left; }
 @media (max-width: 600px) {
-  .toolbar { gap: var(--sp-1); }
+  /* Téléphone : barre basse (≈ 56 px au lieu de 83) pour rendre sa place à la carte ; Direct reste le plus grand (48), cible ≥ 44 px partout. */
+  .toolbar { gap: var(--sp-1); padding-top: calc(var(--sp-1) + env(safe-area-inset-top)); padding-bottom: var(--sp-1); }
+  .toolbar button { min-height: var(--h-touch); }
+  .toolbar .btn-critical { min-height: var(--h-prep); }
   .toolbar button { padding: 0 var(--sp-3); font-size: var(--fs-16); }
   .toolbar button.sep { margin-left: var(--sp-3); }
   .toolbar button.sep::before { left: calc(-1 * var(--sp-2) - 1px); }
