@@ -55,7 +55,7 @@ button[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 /* Avion : seul élément en rouge signal avec les alertes (règle de la DA) */
 .plane svg { display: block; fill: var(--signal); stroke: var(--paper); stroke-width: 2; stroke-linejoin: round; }
 .bubble { width: 26px; height: 26px; display: grid; place-items: center; border: 2px solid var(--signal); background: var(--paper); color: var(--ink); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-14); border-radius: 50%; pointer-events: none; }
-.banner { position: absolute; left: 50%; top: calc(var(--sp-3) + 44px); transform: translateX(-50%); z-index: 3; max-width: calc(100% - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-4); background: var(--field); color: var(--ink); border: var(--rule-line); border-radius: var(--r); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-16); text-align: center; box-shadow: var(--shadow-pop); }
+.banner { position: absolute; left: 50%; top: calc(var(--sp-3) + var(--h-control) + var(--sp-2)); transform: translateX(-50%); z-index: 3; max-width: calc(100% - 2 * var(--sp-3)); padding: var(--sp-2) var(--sp-4); background: var(--field); color: var(--ink); border: var(--rule-line); border-radius: var(--r); font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-16); text-align: center; box-shadow: var(--shadow-pop); }
 .banner.caution { background: var(--caution); color: var(--on-caution); border-color: var(--ink); }
 .banner.info { background: var(--field); color: var(--ink); border-color: var(--ink); }
 .banner-more { margin-left: var(--sp-3); padding: 0 var(--sp-2); border: var(--rule-line); font-size: var(--fs-12); }
@@ -471,3 +471,7 @@ button.row { text-align: left; }
 /* Un primaire dans une rangée d'actions occupe la largeur ; un destructif se range à l'écart, en fin de rangée. */
 .choices > .btn-primary { flex: 1 1 auto; }
 .choices > .end { margin-left: auto; }
+
+/* Calques : commande de carte en haut à droite (même famille que +, −, ◎, N). En écran partagé, elle se range à gauche du panneau de route. */
+.layersbtn { position: absolute; right: calc(var(--sp-3) + env(safe-area-inset-right)); top: var(--sp-3); z-index: 2; width: var(--h-control); min-height: var(--h-control); padding: 0; display: grid; place-items: center; box-shadow: var(--shadow-pop); }
+.stage.split .layersbtn { right: calc(600px + var(--sp-3)); }

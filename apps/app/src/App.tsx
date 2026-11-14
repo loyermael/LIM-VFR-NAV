@@ -1023,7 +1023,6 @@ export function App() {
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
   const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean; critical?: boolean }[] = [
     { label: "tb.direct", critical: true, action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
-    { label: "tb.maps", critical: true, action: () => { if (screen !== "map") open("map"); setDrawer(!drawer); }, pressed: drawer },
     { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
     { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
     { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
@@ -1208,6 +1207,9 @@ export function App() {
 
         {mapActive && (
           <>
+            <button className="layersbtn" aria-pressed={drawer} aria-label={T("layers.title")} aria-expanded={drawer} onClick={() => setDrawer((d) => !d)}>
+              <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z" /><path d="m3 12.5 9 5 9-5" /><path d="m3 17 9 5 9-5" /></svg>
+            </button>
             <div className="mapctl">
               <button aria-label={T("map.zoomIn")} onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
               <button aria-label={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
