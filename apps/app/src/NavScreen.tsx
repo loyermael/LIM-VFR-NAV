@@ -435,9 +435,10 @@ export function NavScreen(p: NavProps) {
 
               <h3>{T("nav.points")} <span className="muted small">· {T("nav.point.alt")} ({altUnit})</span></h3>
               {route.points.length === 0 && <p className="muted small">{T("nav.pointsNone")}</p>}
+              <div className="pt-list">
               {route.points.map((pt, i) => (
                 <div className="pt-row" key={pt.id}>
-                  <b className="pt-num mono">{i + 1}</b>
+                  <b className={p.targetIndex === i ? "pt-num mono target" : "pt-num mono"} aria-label={`${T("nav.points")} ${i + 1}${p.targetIndex === i ? " (visé)" : ""}`}>{i + 1}</b>
                   <input
                     className="field pt-name"
                     defaultValue={pt.name}
@@ -460,6 +461,7 @@ export function NavScreen(p: NavProps) {
                   </div>
                 </div>
               ))}
+              </div>
 
               </div>
               <div className="col">

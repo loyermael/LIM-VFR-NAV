@@ -334,12 +334,6 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .dupsheet h2 { margin: 0; }
 
 /* Points de la route : une carte par point (numéro, nom, suppression ; puis altitude et déplacements). */
-.pt-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 96px; grid-template-areas: "n name alt" ". actions actions"; gap: var(--sp-2); align-items: center; border: var(--rule-line); background: var(--field); padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); }
-.pt-num { grid-area: n; font-size: var(--fs-20); text-align: center; }
-.pt-name { grid-area: name; text-align: left; font-size: var(--fs-16); min-width: 0; width: 100%; height: var(--h-touch); }
-.pt-alt { grid-area: alt; }
-.pt-actions { grid-area: actions; display: flex; gap: var(--sp-2); justify-content: flex-end; }
-.pt-actions button { min-width: var(--h-touch); padding: 0 var(--sp-3); }
 
 /* Log : en-tête (Vp, Fb, conso, vents), total, carburant, arrivée et performances. */
 .lgsheet { --H: 92px; display: grid; gap: var(--sp-3); }
@@ -605,3 +599,19 @@ button.icon-only.btn-prep { min-width: var(--h-prep); }
 
 /* Texte atténué dans un bouton actif (fond encre) : il reprend la couleur du bouton (contraste ≥ 7:1) au lieu du gris, illisible sur l'encre. */
 button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: inherit; opacity: 0.85; }
+
+/* Points de la route : un seul panneau, une ligne par point (repère rond comme sur la carte, nom, altitude, actions) ; les actions passent sous le nom sur un panneau étroit. */
+.pt-list { container-type: inline-size; border: var(--rule-line); background: var(--field); }
+.pt-row { display: grid; grid-template-columns: 36px minmax(0, 1fr) 92px; grid-template-areas: "n name alt" ". actions actions"; gap: var(--sp-1) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); }
+.pt-row + .pt-row { border-top: var(--rule-hair); }
+.pt-num { grid-area: n; width: 32px; height: 32px; display: grid; place-items: center; border: 3px solid var(--ink); border-radius: 50%; background: var(--paper); color: var(--ink); font-size: var(--fs-14); }
+.pt-num.target { background: var(--zone-good); color: var(--on-ink); }
+.pt-row .pt-name { grid-area: name; min-width: 0; width: 100%; height: var(--h-touch); padding: 0 var(--sp-1); text-align: left; font-size: var(--fs-16); font-weight: 600; background: transparent; border: 0; border-bottom: var(--rule-hair); border-radius: 0; }
+.pt-row .pt-name:focus-visible, .pt-row input.mini:focus-visible { border-bottom-color: var(--ink); }
+.pt-alt { grid-area: alt; }
+.pt-row input.mini { height: var(--h-touch); padding: 0 var(--sp-1); background: transparent; border: 0; border-bottom: var(--rule-hair); border-radius: 0; font-family: var(--font-mono); font-weight: 600; text-align: right; }
+.pt-actions { grid-area: actions; display: flex; gap: var(--sp-2); justify-content: flex-end; }
+.pt-actions button { min-width: var(--h-touch); padding: 0 var(--sp-3); }
+@container (min-width: 520px) {
+  .pt-row { grid-template-columns: 36px minmax(0, 1fr) 92px auto; grid-template-areas: "n name alt actions"; }
+}
