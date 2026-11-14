@@ -591,3 +591,9 @@ button.icon-only.btn-prep { min-width: var(--h-prep); }
 .stat { display: flex; align-items: center; gap: var(--sp-1); }
 .cat { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .dd-line .icon { display: inline-block; vertical-align: -2px; }
+
+/* Haut gauche de la carte : pastille GPS et pastille de route dans une même rangée (elles ne peuvent plus se chevaucher, quelle que soit la largeur du texte GPS) ; la route passe à la ligne si la place manque. */
+.maptop { position: absolute; z-index: 2; top: var(--sp-3); left: calc(var(--sp-3) + env(safe-area-inset-left)); right: calc(var(--sp-3) + var(--h-control) + var(--sp-2) + env(safe-area-inset-right)); display: flex; align-items: flex-start; gap: var(--sp-2); pointer-events: none; min-width: 0; }
+.maptop > * { pointer-events: auto; }
+.maptop .gps-chip { position: static; flex: none; }
+.maptop .routechip-wrap { position: static; flex: 1 1 0; min-width: 0; }

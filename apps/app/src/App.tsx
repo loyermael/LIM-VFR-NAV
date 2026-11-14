@@ -1263,9 +1263,25 @@ export function App() {
         />
 
         {mapActive && (
+          <div className="maptop">
           <div className={`gps-chip gps-${status === "ok" ? "ok" : status === "lost" ? "lost" : status === "none" ? "none" : "weak"}`}>
             <span className="dot" aria-hidden="true" />
             {T(status === "ok" ? "gps.chip.ok" : status === "lost" ? "gps.chip.lost" : status === "none" ? "gps.chip.none" : "gps.chip.weak")}
+          </div>
+            {!isPreview && activeRoute && (
+          <div className="routechip-wrap">
+            <button className="routechip" aria-haspopup="menu" aria-expanded={chipOpen} onClick={() => setChipOpen((o) => !o)}>
+              <Icon name="route" size={16} /> <span className="routechip-name">{activeRoute.name}</span> <Icon name="chevron-down" size={16} />
+            </button>
+            {chipOpen && (
+              <div className="routechip-menu" role="menu">
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); openRoute(activeRoute.id); setTab(0); setRouteView("detail"); open("nav"); }}><Icon name="eye" size={20} />{T("route.open")}</button>
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); setTab(0); setRouteView("list"); open("nav"); }}><Icon name="list" size={20} />{T("route.change")}</button>
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); deactivate(); }}><Icon name="square" size={20} />{T("route.deactivate")}</button>
+              </div>
+            )}
+          </div>
+            )}
           </div>
         )}
 
@@ -1326,20 +1342,6 @@ export function App() {
             <ReplayBar lang={lang} track={replayTrack} replay={replay} onChange={setReplay} onClose={() => setReplay(null)} />
           </div>
         )}
-        {mapActive && !isPreview && activeRoute && (
-          <div className="routechip-wrap">
-            <button className="routechip" aria-haspopup="menu" aria-expanded={chipOpen} onClick={() => setChipOpen((o) => !o)}>
-              <Icon name="route" size={16} /> <span className="routechip-name">{activeRoute.name}</span> <Icon name="chevron-down" size={16} />
-            </button>
-            {chipOpen && (
-              <div className="routechip-menu" role="menu">
-                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); openRoute(activeRoute.id); setTab(0); setRouteView("detail"); open("nav"); }}><Icon name="eye" size={20} />{T("route.open")}</button>
-                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); setTab(0); setRouteView("list"); open("nav"); }}><Icon name="list" size={20} />{T("route.change")}</button>
-                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); deactivate(); }}><Icon name="square" size={20} />{T("route.deactivate")}</button>
-              </div>
-            )}
-          </div>
-        )}
         {mapActive && isPreview && route && (
           <div className="routebar" role="status">
             <span className="routebar-name"><Icon name="eye" size={16} /> <b>{T("route.preview")}</b> · {route.name}</span>
@@ -1375,7 +1377,7 @@ export function App() {
               <button aria-label={T("map.zoomOut")} title={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}><Icon name="minus" size={24} /></button>
               <button aria-pressed={follow} aria-label={T("tb.center")} title={T("tb.center")} onClick={() => setFollow(true)}><Icon name="locate-fixed" size={24} /></button>
               <button aria-pressed={editMode} aria-label={T("tool.draw")} title={T("tool.draw")} onClick={() => setEditMode((v) => !v)}><Icon name="pencil" size={24} /></button>
-              <button aria-pressed={orientation === "track"} aria-label={T(orientation === "north" ? "map.northUp" : "map.trackUp")} title={T(orientation === "north" ? "map.northUp" : "map.trackUp")} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}><Icon name="compass" size={24} /></button>
+              <button aria-pressed={orientation === "track"} aria-label={T(orientation === "north" ? "map.northUp" : "map.trackUp")} title={T(orientation === "north" ? "map.northUp" : "map.trackUp")} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}><Icon name={orientation === "north" ? "north-up" : "track-up"} size={24} /></button>
             </div>
           </>
         )}

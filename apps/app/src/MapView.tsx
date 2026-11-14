@@ -296,7 +296,7 @@ function navIcons(): Map<string, ImageData> {
     const cv = document.createElement("canvas"); cv.width = 32; cv.height = 32;
     const c = cv.getContext("2d");
     if (c) {
-      c.fillStyle = "rgba(255,255,255,0.78)"; c.fillRect(0, 0, 32, 32);
+      // pas de fond : le cadre est transparent (comme sur la carte papier), le halo du texte suffit pour la lisibilité et rien n'est masqué dessous
       c.strokeStyle = OACI_BLUE; c.lineWidth = 3; c.lineCap = "square";
       c.beginPath();
       for (const [x, y, dx, dy] of [[1.5, 1.5, 1, 1], [30.5, 1.5, -1, 1], [1.5, 30.5, 1, -1], [30.5, 30.5, -1, -1]] as const) { c.moveTo(x + dx * 9, y); c.lineTo(x, y); c.lineTo(x, y + dy * 9); }
@@ -751,10 +751,10 @@ export function MapView(props: MapViewProps) {
       }, before);
       // Espaces contrôlés (TMA, CTA, CTR, LTA) : carré de la classe, nom, plafond, plancher et fréquence dans un cadre à coins, comme l'OACI.
       m.addLayer({
-        id: "asp-ctl", type: "symbol", source: "asp", minzoom: 6.6, filter: ["all", ["has", "ctllbl"], ["!=", ["get", "ctllbl"], ""]] as never,
+        id: "asp-ctl", type: "symbol", source: "asp", minzoom: 7.5, filter: ["all", ["has", "ctllbl"], ["!=", ["get", "ctllbl"], ""]] as never,
         layout: {
           "text-field": ["format", ["image", ["get", "cls"]], {}, "\n", {}, ["get", "ctllbl"], { "text-color": OACI_BLUE }],
-          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 6.6, 10.5, 12, 14], "text-justify": "center", "text-padding": 6, "text-optional": false, "text-line-height": 1.15,
+          "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.5, 9.5, 12, 14], "text-justify": "center", "text-padding": 14, "text-optional": false, "text-line-height": 1.15, "symbol-sort-key": ["get", "floorM"],
           "icon-image": "ctl-frame", "icon-text-fit": "both", "icon-text-fit-padding": [2, 3, 2, 3],
         } as never,
         paint: { "text-color": OACI_BLUE, "text-halo-color": "#ffffff", "text-halo-width": 2.2 },

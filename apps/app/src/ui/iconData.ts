@@ -1,6 +1,6 @@
 /**
  * Icônes de l'interface : copie des chemins SVG de Lucide (https://lucide.dev, licence ISC), limitée aux icônes utilisées.
- * Grille 24 px, trait réglé par le composant `Icon`. `diamond-alert` et `runway` sont dessinées ici dans le même style (absentes de Lucide).
+ * Grille 24 px, trait réglé par le composant `Icon`. `diamond-alert`, `runway`, `north-up` et `track-up` sont dessinées ici dans le même style (absentes de Lucide).
  * Généré à partir de lucide-static 0.468.0 ; ne pas modifier à la main sauf pour ajouter une icône.
  */
 export type IconNode = readonly (readonly [string, Readonly<Record<string, string>>])[];
@@ -65,6 +65,8 @@ export const ICON_NODES = {
   "ruler": [["path", {"d": "M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z"}], ["path", {"d": "m14.5 12.5 2-2"}], ["path", {"d": "m11.5 9.5 2-2"}], ["path", {"d": "m8.5 6.5 2-2"}], ["path", {"d": "m17.5 15.5 2-2"}]],
   "diamond-alert": [["path", {"d": "M12 2 22 12 12 22 2 12Z"}], ["path", {"d": "M12 8v5"}], ["path", {"d": "M12 16h.01"}]],
   "runway": [["path", {"d": "M9 3 5 21"}], ["path", {"d": "M15 3l4 18"}], ["path", {"d": "M12 5v2"}], ["path", {"d": "M12 11v2"}], ["path", {"d": "M12 17v2"}]],
+  "north-up": [["path", {"d": "M9 5l3-3 3 3"}], ["path", {"d": "M12 2v6"}], ["path", {"d": "M7 22V12l10 10V12"}]],
+  "track-up": [["circle", {"cx": "12", "cy": "12", "r": "10"}], ["path", {"d": "M12 6 16 17 12 14.5 8 17Z"}]],
 } as const satisfies Record<string, IconNode>;
 
 export type IconName = keyof typeof ICON_NODES;
