@@ -449,7 +449,7 @@ button.row { text-align: left; }
 .toast .btn-compact { background: var(--brand); color: var(--on-brand); border-color: var(--on-ink); }
 
 /* Menu « Plus » du téléphone : liste verticale de boutons de 56 px sous la barre, mêmes jetons que le reste. */
-.morepop { position: absolute; right: var(--sp-2); top: calc(var(--h-control) + var(--sp-4) + 3px + env(safe-area-inset-top)); z-index: 7; display: grid; gap: var(--sp-2); padding: var(--sp-2); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); min-width: 200px; }
+.morepop { position: absolute; right: var(--sp-2); top: calc(var(--h-prep) + 2 * var(--sp-1) + 3px + env(safe-area-inset-top)); z-index: 7; display: grid; gap: var(--sp-2); padding: var(--sp-2); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); min-width: 200px; }
 .morepop button { width: 100%; text-align: left; }
 @media (max-width: 600px) {
   /* Téléphone : barre basse (≈ 56 px au lieu de 83) pour rendre sa place à la carte ; Direct reste le plus grand (48), cible ≥ 44 px partout. */
