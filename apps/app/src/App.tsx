@@ -13,7 +13,7 @@ import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
 import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, navToGeoJSON, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
-import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
+import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, reverseRoute, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
 import { FormatError, airspaceAhead, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
@@ -257,28 +257,86 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const route = routes.find((r) => r.id === activeRouteId) ?? null;
+  /** Aperçu : route qu'on regarde ou prépare sans la suivre (jamais enregistré comme actif). */
+  const [previewRouteId, setPreviewRouteId] = useState<string | null>(null);
+  const [replaceAsk, setReplaceAsk] = useState<string | null>(null);
+  const [chipOpen, setChipOpen] = useState(false);
+  /** Route active : la seule qui pilote le guidage (point visé, avance automatique). */
+  const activeRoute = routes.find((r) => r.id === activeRouteId) ?? null;
+  const previewRoute = previewRouteId !== null ? (routes.find((r) => r.id === previewRouteId) ?? null) : null;
+  /** Route affichée : aperçu s'il y en a un, sinon la route active. C'est elle que l'écran Route, le Log, les NOTAM, la météo, le dossier et le tracé (✎) modifient ou lisent. */
+  const route = previewRoute ?? activeRoute;
+  const isPreview = previewRoute !== null && previewRoute.id !== activeRouteId;
   const uid = () => crypto.randomUUID();
   const putRoute = (next: RouteRecord) => {
     setRoutes((prev) => (prev.some((r) => r.id === next.id) ? prev.map((r) => (r.id === next.id ? next : r)) : [...prev, next]));
     void saveRoute(next).catch(() => undefined);
   };
-  const selectRoute = (id: string | null) => {
+  /** Ouvre une route en aperçu : ne change ni la route active, ni le point visé, ni le suivi GPS. */
+  const openRoute = (id: string | null) => {
+    setPreviewRouteId(id);
+    setSelectedPoint(null);
+  };
+  /** Rend une route active : le guidage vise son premier point, la carte se recentre, et on peut annuler pendant 6 s. */
+  const activate = (id: string) => {
+    const r = routes.find((x) => x.id === id);
+    if (!r) return;
+    const prev = { id: activeRouteId, target: targetIndex, adhoc };
     setActiveRouteId(id);
     saveActiveRouteId(id);
-    setTargetIndex(null);
+    setPreviewRouteId(null);
+    setTargetIndex(r.points.length > 0 ? 0 : null);
     setAdhoc(null);
     setSelectedPoint(null);
-    if (id !== null) {
-      setFollow(false);
-      setFit((f) => ({ nonce: f.nonce + 1, force: true }));
-    }
+    setFollow(false);
+    setFit((f) => ({ nonce: f.nonce + 1, force: true }));
+    offerUndo(`${t(lang, "route.activated")} : ${r.name}`, () => {
+      setActiveRouteId(prev.id);
+      saveActiveRouteId(prev.id);
+      setTargetIndex(prev.target);
+      setAdhoc(prev.adhoc);
+    });
   };
+  /** Activation demandée par l'utilisateur : en vol, remplacer une autre route active demande une confirmation. */
+  const requestActivate = (id: string) => {
+    if (id === activeRouteId) return;
+    if (activeRouteId !== null && inFlight) setReplaceAsk(id);
+    else activate(id);
+  };
+  const deactivate = () => {
+    const prev = { id: activeRouteId, target: targetIndex, adhoc };
+    if (prev.id === null) return;
+    setActiveRouteId(null);
+    saveActiveRouteId(null);
+    setTargetIndex(null);
+    setAdhoc(null);
+    offerUndo(t(lang, "route.deactivated"), () => {
+      setActiveRouteId(prev.id);
+      saveActiveRouteId(prev.id);
+      setTargetIndex(prev.target);
+      setAdhoc(prev.adhoc);
+    });
+  };
+  /** Nouvelle route : créée et ouverte en aperçu, jamais activée d'office. */
   const createRoute = () => {
     const r = newRoute(uid(), `${t(lang, "nav.new")} ${routes.length + 1}`, Date.now());
     putRoute(r);
-    selectRoute(r.id);
+    openRoute(r.id);
     return r;
+  };
+  const duplicateRoute = (id: string) => {
+    const r = routes.find((x) => x.id === id);
+    if (!r) return;
+    const copy = { ...r, id: uid(), name: `${t(lang, "route.copyOf")} ${r.name}`, updatedAt: Date.now() };
+    putRoute(copy);
+    openRoute(copy.id);
+    setRouteView("detail");
+  };
+  const reverseRouteById = (id: string) => {
+    const r = routes.find((x) => x.id === id);
+    if (!r) return;
+    putRoute(reverseRoute(r, Date.now()));
+    if (id === activeRouteId) setTargetIndex(r.points.length > 0 ? 0 : null);
   };
   /** Points auxquels le tracé s'accroche : points déjà dans la route, terrains, balises, points de report. */
   const snapCandidates = useMemo<SnapCandidate[]>(() => {
@@ -305,7 +363,7 @@ export function App() {
     const label = snap?.name ?? placeName; // terrain, balise ou report accroché, sinon nom de la ville ou du village sous le doigt
     if (label) next = renamePoint(next, next.points.length - 1, label, Date.now());
     putRoute(next);
-    if (targetIndex === null) setTargetIndex(0);
+    if (!isPreview && route?.id === activeRouteId && targetIndex === null) setTargetIndex(0);
   };
   /** Fin du déplacement d'un point : aimantation sur un terrain, une balise, un report ou un autre point de la route ; un nom automatique (WPTnn) devient celui du lieu. */
   const onPointMove = (i: number, lat: number, lon: number, mpp: number, placeName: string | null) => {
@@ -331,16 +389,36 @@ export function App() {
       const rf = importRoute(file.name, await file.text());
       const r = fromRouteFile(rf, uid, Date.now());
       putRoute(r);
-      selectRoute(r.id);
-      setTargetIndex(0);
+      openRoute(r.id);
+      setRouteView("detail");
     } catch (e) {
       setRouteImportError(`${file.name} : ${e instanceof FormatError || e instanceof Error ? e.message : String(e)}`);
     }
   };
+  /** Supprime une route (l'écran Route demande une confirmation pour la route active) ; annulable pendant 6 s. */
   const removeRoute = (id: string) => {
+    const rec = routes.find((r) => r.id === id);
+    if (!rec) return;
+    const wasActive = id === activeRouteId;
+    const prevTarget = targetIndex;
     void deleteRoute(id);
     setRoutes((prev) => prev.filter((r) => r.id !== id));
-    if (id === activeRouteId) selectRoute(null);
+    if (wasActive) {
+      setActiveRouteId(null);
+      saveActiveRouteId(null);
+      setTargetIndex(null);
+      setAdhoc(null);
+    }
+    if (previewRouteId === id) setPreviewRouteId(null);
+    setSelectedPoint(null);
+    offerUndo(`${t(lang, "route.deleted")} : ${rec.name}`, () => {
+      putRoute(rec);
+      if (wasActive) {
+        setActiveRouteId(id);
+        saveActiveRouteId(id);
+        setTargetIndex(prevTarget);
+      }
+    });
   };
   const loadWinds = async (points: LatLon[]) => {
     setWindBusy(true);
@@ -444,7 +522,17 @@ export function App() {
       return e instanceof Error ? e.message : String(e);
     }
   };
+  /** « Direct » sur un point de la route affichée : route active = point visé ; aperçu = direct libre vers ce point (la route suivie ne change pas). */
   const pickRoutePoint = (i: number) => {
+    if (isPreview && route) {
+      const pt = route.points[i];
+      if (pt) setAdhoc({ name: pt.name, position: pt.position });
+      return;
+    }
+    setAdhoc(null);
+    setTargetIndex(i);
+  };
+  const pickActivePoint = (i: number) => {
     setAdhoc(null);
     setTargetIndex(i);
   };
@@ -469,7 +557,7 @@ export function App() {
     const r = route ?? createRoute();
     const withPoint = addPoint(r, af.position.lat, af.position.lon, uid(), Date.now());
     putRoute(renamePoint(withPoint, withPoint.points.length - 1, af.icao ?? af.name, Date.now()));
-    if (targetIndex === null) setTargetIndex(0);
+    if (!isPreview && route?.id === activeRouteId && targetIndex === null) setTargetIndex(0);
   };
   /** Double-tap : les espaces et terrains sont remplacés par leur fiche complète. */
   const onDoubleTap = (found: TappedFeature[]) => {
@@ -644,7 +732,7 @@ export function App() {
   }, [accepted, sim]);
 
   // Mode simulation : la route active, sous forme de chaîne stable, pour que le vol simulé la suive (et ne redémarre que si elle change).
-  const simRouteKey = useMemo(() => (sim !== null && route && route.points.length >= 2 ? JSON.stringify(route.points.map((p) => p.position)) : ""), [sim, route]);
+  const simRouteKey = useMemo(() => (sim !== null && activeRoute && activeRoute.points.length >= 2 ? JSON.stringify(activeRoute.points.map((p) => p.position)) : ""), [sim, activeRoute]);
 
   // Source de position + écran toujours allumé + horloge pour détecter la perte de signal.
   useEffect(() => {
@@ -683,7 +771,7 @@ export function App() {
   }, [accepted, gpsAltRef, extOwn, sim, simRouteKey]);
 
   const status = gpsStatus(fix, now);
-  const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : route && targetIndex !== null ? (route.points[targetIndex] ?? null) : null;
+  const targetPoint = adhoc ? { name: adhoc.name, position: adhoc.position } : activeRoute && targetIndex !== null ? (activeRoute.points[targetIndex] ?? null) : null;
   const fv = useMemo(() => (fix ? flightValues(fix, geoid, new Date(fix.timeMs)) : null), [fix, geoid]);
   const airspaceGeo = useMemo(() => (aspSet ? airspacesToGeoJSON(aspSet.items) : null), [aspSet]);
   const spotGeo = useMemo(() => (spotSet ? spotsToGeoJSON(spotSet) : null), [spotSet]);
@@ -779,7 +867,7 @@ export function App() {
   // (préparation d'un autre vol), et changer de route ne la réécrit pas.
   useEffect(() => {
     if (recorder.takeoffMs === null || Date.now() - recorder.takeoffMs > 12 * 3_600_000) return;
-    if (route && route.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(route, recorder.takeoffMs, Date.now()));
+    if (activeRoute && activeRoute.departureMs !== recorder.takeoffMs) putRoute(setDepartureMs(activeRoute, recorder.takeoffMs, Date.now()));
   }, [recorder.takeoffMs]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sw, setSw] = useState<Stopwatch>(STOPWATCH_ZERO);
   const [cd, setCd] = useState<Countdown>({ durationMs: 0, endsAt: null, fired: false });
@@ -858,23 +946,25 @@ export function App() {
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
-    if (!fix || !route || targetIndex === null || adhoc !== null || status === "lost") return;
-    const tp = route.points[targetIndex];
+    if (!fix || !activeRoute || targetIndex === null || adhoc !== null || status === "lost") return;
+    const tp = activeRoute.points[targetIndex];
     if (!tp) return;
     if (hasReachedPoint(distance(fix.position, tp.position), fix.groundSpeed)) {
-      setTargetIndex(targetIndex + 1 < route.points.length ? targetIndex + 1 : null);
+      setTargetIndex(targetIndex + 1 < activeRoute.points.length ? targetIndex + 1 : null);
     }
-  }, [fix, route, targetIndex, status, adhoc]);
+  }, [fix, activeRoute, targetIndex, status, adhoc]);
   // Au lancement, on vise le premier point de la route active (une seule fois : après l'arrivée au dernier point, on ne revise pas le premier).
   const initialTargetDone = useRef(false);
   useEffect(() => {
-    if (initialTargetDone.current || !route) return;
+    if (initialTargetDone.current || !activeRoute) return;
     initialTargetDone.current = true;
-    if (route.points.length > 0) {
+    if (activeRoute.points.length > 0) {
       setTargetIndex(0);
       setFit((f) => ({ nonce: f.nonce + 1, force: false }));
     }
-  }, [route]);
+  }, [activeRoute]);
+  /** « En vol » : vitesse sol d'au moins 40 kt, ou enregistrement en cours depuis un décollage détecté avec une vitesse sol d'au moins 20 kt. */
+  const inFlight = status !== "lost" && ((fv?.groundSpeed ?? 0) >= 20.58 || (recorder.takeoffMs !== null && recorder.recording && (fv?.groundSpeed ?? 0) >= 10.29));
   const direct = useMemo(
     () => (fix && targetPoint && status !== "lost" ? directTo(fix.position, targetPoint.position, fix.groundSpeed, new Date(fix.timeMs)) : null),
     [fix, targetPoint, status],
@@ -884,6 +974,14 @@ export function App() {
   const T = (k: Key) => t(lang, k);
   const toggleLang = () => setLang(lang === "fr" ? "en" : "fr");
   const toggleTheme = () => setTheme(theme === "day" ? "night" : "day");
+  useEffect(() => {
+    if (!chipOpen) return;
+    const away = (e: Event) => { if (!(e.target as Element).closest(".routechip-wrap")) setChipOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setChipOpen(false); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [chipOpen]);
   useEffect(() => {
     if (!moreOpen) return;
     const away = (e: Event) => { if (!(e.target as Element).closest(".morepop, .toolbar")) setMoreOpen(false); };
@@ -1130,7 +1228,8 @@ export function App() {
           visibleGroups={visibleGroups}
           adhocTarget={adhoc?.position ?? null}
           route={route}
-          targetIndex={targetIndex}
+          routePreview={isPreview}
+          targetIndex={isPreview ? null : targetIndex}
           selectedIndex={selectedPoint}
           editMode={editMode}
           lang={lang}
@@ -1215,6 +1314,37 @@ export function App() {
           <div className="replaydock">
             <ReplayBar lang={lang} track={replayTrack} replay={replay} onChange={setReplay} onClose={() => setReplay(null)} />
           </div>
+        )}
+        {mapActive && !isPreview && activeRoute && (
+          <div className="routechip-wrap">
+            <button className="routechip" aria-haspopup="menu" aria-expanded={chipOpen} onClick={() => setChipOpen((o) => !o)}>
+              <span aria-hidden="true">◆</span> <span className="routechip-name">{activeRoute.name}</span> <span aria-hidden="true">▾</span>
+            </button>
+            {chipOpen && (
+              <div className="routechip-menu" role="menu">
+                <button role="menuitem" onClick={() => { setChipOpen(false); openRoute(activeRoute.id); setTab(0); setRouteView("detail"); open("nav"); }}>{T("route.open")}</button>
+                <button role="menuitem" onClick={() => { setChipOpen(false); setTab(0); setRouteView("list"); open("nav"); }}>{T("route.change")}</button>
+                <button role="menuitem" onClick={() => { setChipOpen(false); deactivate(); }}>{T("route.deactivate")}</button>
+              </div>
+            )}
+          </div>
+        )}
+        {mapActive && isPreview && route && (
+          <div className="routebar" role="status">
+            <span className="routebar-name"><b>{T("route.preview")}</b> · {route.name}</span>
+            <Button role="primary" size="touch" onClick={() => requestActivate(route.id)}>{T("route.activate")}</Button>
+            <Button size="touch" aria-label={T("close")} onClick={() => setPreviewRouteId(null)}>✕</Button>
+          </div>
+        )}
+        {replaceAsk && (
+          <aside className="sheet dupsheet" role="alertdialog" aria-label={T("route.replace.title")}>
+            <h2>{T("route.replace.title")}</h2>
+            <p>{T("route.replace.ask").replaceAll("{old}", activeRoute?.name ?? "").replaceAll("{new}", routes.find((r) => r.id === replaceAsk)?.name ?? "")}</p>
+            <div className="choices">
+              <Button role="primary" onClick={() => { const id = replaceAsk; setReplaceAsk(null); activate(id); }}>{T("route.replace.yes")}</Button>
+              <button onClick={() => setReplaceAsk(null)}>{T("route.replace.no")}</button>
+            </div>
+          </aside>
         )}
         {banner && (
           <div className={`banner ${banner.sev}`} role={banner.onClick ? "button" : banner.alert ? "alert" : "status"} tabIndex={banner.onClick ? 0 : undefined} onClick={banner.onClick} onKeyDown={(e) => e.key === "Enter" && banner.onClick?.()} style={banner.onClick ? { cursor: "pointer" } : undefined}>
@@ -1305,11 +1435,11 @@ export function App() {
           <DirectSheet
             lang={lang}
             prefs={prefs}
-            route={route}
+            route={activeRoute}
             targetIndex={adhoc ? null : targetIndex}
             airfields={aptSet?.items ?? []}
             position={fix && status !== "lost" ? fix.position : null}
-            onPick={pickRoutePoint}
+            onPick={pickActivePoint}
             onPickAirfield={pickAirfield}
             onClose={() => setDirectOpen(false)}
           />
@@ -1622,15 +1752,21 @@ export function App() {
                 importError={routeImportError}
                 onPerf={(p2) => { setPerf(p2); savePerf(p2); }}
                 onRoute={putRoute}
-                onNewRoute={() => { createRoute(); }}
-                onSelectRoute={(id) => { selectRoute(id); setTargetIndex(0); }}
+                onNewRoute={() => { createRoute(); setRouteView("detail"); }}
+                activeRouteId={activeRouteId}
+                isPreview={isPreview}
+                onOpenRoute={(id) => { openRoute(id); setRouteView("detail"); }}
+                onActivate={requestActivate}
+                onDeactivate={deactivate}
+                onDuplicate={duplicateRoute}
+                onReverseRoute={reverseRouteById}
                 onDeleteRoute={removeRoute}
                 onImportFile={(f) => void importRouteFile(f)}
                 onDirect={(i) => { pickRoutePoint(i); if (!wide) open("map"); }}
                 airspaces={visibleAirspaces}
                 hasAero={aspSet !== null}
                 airfields={aptSet?.items ?? []}
-                targetIndex={adhoc ? null : targetIndex}
+                targetIndex={adhoc || isPreview ? null : targetIndex}
                 onDrawOnMap={() => { if (!wide) open("map"); setEditMode(true); }}
                 onDossier={() => void makeDossier()}
                 onShowRoute={() => { setFollow(false); setFit((f) => ({ nonce: f.nonce + 1, force: true })); if (!wide) open("map"); }}

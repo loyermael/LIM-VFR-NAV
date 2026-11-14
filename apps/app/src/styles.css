@@ -554,3 +554,25 @@ button.row { text-align: left; }
 
 /* Fiche d'un point : nom (large) et altitude (étroite) sur une ligne. */
 .ptsheet-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-3); align-items: end; }
+
+/* Routes : ligne riche (nom + départ → arrivée · distance · temps · âge), actions à droite, menu « Gérer ». */
+.route-card { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2); align-items: stretch; border: var(--rule-line); background: var(--field); padding: var(--sp-2); }
+.route-card.active { border-width: 3px; border-color: var(--route-ink); }
+.route-main { display: grid; gap: var(--sp-1); text-align: left; justify-items: start; background: transparent; border: 0; padding: var(--sp-1) var(--sp-2); min-height: var(--h-control); white-space: normal; font-family: var(--font-text); font-stretch: normal; text-transform: none; letter-spacing: 0; font-weight: 600; font-size: var(--fs-16); }
+.route-main b { font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 800; font-size: var(--fs-20); text-transform: uppercase; }
+.route-main .route-badge { margin: 0; }
+.route-actions { display: flex; gap: var(--sp-2); align-items: center; }
+.route-menu { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--sp-2); padding-top: var(--sp-2); border-top: var(--rule-hair); }
+.route-menu .end { margin-left: auto; }
+.route-search { margin-bottom: var(--sp-2); }
+.route-head { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+
+/* Carte : rappel de la route active (en haut, à droite de la pastille GPS) et barre d'aperçu (en bas, à droite des commandes). */
+.routechip-wrap { position: absolute; z-index: 2; top: var(--sp-3); left: calc(var(--sp-3) + 116px + env(safe-area-inset-left)); right: calc(var(--sp-3) + var(--h-control) + var(--sp-2) + env(safe-area-inset-right)); display: flex; flex-direction: column; align-items: flex-start; pointer-events: none; }
+.routechip-wrap > * { pointer-events: auto; }
+.routechip { max-width: 100%; min-height: 36px; padding: var(--sp-1) var(--sp-3); display: flex; align-items: center; gap: var(--sp-2); background: var(--field); color: var(--route-ink); border: 2px solid var(--route-ink); font-family: var(--font-mono); font-size: var(--fs-14); font-weight: 700; text-transform: none; letter-spacing: 0; box-shadow: var(--shadow-pop); }
+.routechip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.routechip-menu { margin-top: var(--sp-1); display: grid; gap: var(--sp-1); padding: var(--sp-2); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); min-width: 220px; }
+.routechip-menu button { text-align: left; width: 100%; }
+.routebar { position: absolute; z-index: 3; bottom: var(--sp-3); left: calc(var(--sp-3) + var(--h-control) + var(--sp-2) + env(safe-area-inset-left)); right: var(--sp-3); display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); }
+.routebar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-14); }

@@ -60,6 +60,8 @@ export interface MapViewProps {
   adhocTarget: { lat: number; lon: number } | null;
   /** Indice du point visé (ligne « direct » depuis l'avion), ou null. */
   targetIndex: number | null;
+  /** Route en aperçu (non suivie) : tracé encre en tirets au lieu du magenta de la route active. */
+  routePreview?: boolean;
   selectedIndex: number | null;
   /** Mode tracé : un appui sur la carte ajoute un point, les points se déplacent au doigt. */
   editMode: boolean;
@@ -1215,6 +1217,17 @@ export function MapView(props: MapViewProps) {
     }
     if (planeMarker.current) planeMarker.current.getElement().dataset.theme = props.theme;
   }, [props.theme]);
+  // Route en aperçu : encre en tirets (le magenta est réservé à la route active).
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !loaded.current || !m.getLayer("route-line")) return;
+    const tk = tokens();
+    const pv = props.routePreview === true;
+    m.setPaintProperty("route-line", "line-color", pv ? tk.ink : tk.route);
+    m.setPaintProperty("route-line", "line-dasharray", pv ? [2, 1.6] : undefined);
+    m.setLayoutProperty("route-line", "line-cap", pv ? "butt" : "round");
+    m.setPaintProperty("route-casing", "line-color", pv ? tk.paper : tk.routeCasing);
+  }, [props.routePreview, props.theme, props.route]);
 
   // Avion, vecteur vitesse, bulles de temps et suivi.
   useEffect(() => {

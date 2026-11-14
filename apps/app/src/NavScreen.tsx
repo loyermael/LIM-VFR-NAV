@@ -1,10 +1,11 @@
 import { Button } from "./ui/Button";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
   exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type Loads, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
+import { ageText, filterRoutes, orderRoutes, summarizeRoute } from "./routeList";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { LogSheet, useLogForm } from "./LogSheet";
 import { buildAutoFields, buildLogModel, vpKey } from "./logModel";
@@ -107,7 +108,16 @@ interface NavProps {
   onPerf: (p: StoredPerf) => void;
   onRoute: (next: RouteRecord) => void;
   onNewRoute: () => void;
-  onSelectRoute: (id: string) => void;
+  /** Route suivie (une seule) ; l'aperçu est une route affichée qui n'est pas la route suivie. */
+  activeRouteId: string | null;
+  isPreview: boolean;
+  /** Ouvre la route en aperçu : n'active rien. */
+  onOpenRoute: (id: string) => void;
+  onActivate: (id: string) => void;
+  onDeactivate: () => void;
+  onDuplicate: (id: string) => void;
+  onReverseRoute: (id: string) => void;
+  /** Supprime (annulable) ; l'écran demande une confirmation pour la route active. */
   onDeleteRoute: (id: string) => void;
   onImportFile: (file: File) => void;
   onDirect: (index: number) => void;
@@ -178,6 +188,24 @@ export function NavScreen(p: NavProps) {
     try { if (mps === null) localStorage.removeItem(vpKey(p.route.id)); else localStorage.setItem(vpKey(p.route.id), String(mps)); } catch { /* stockage bloqué */ }
   };
   const { prefs, route } = p;
+  const [routeQuery, setRouteQuery] = useState("");
+  const [menuId, setMenuId] = useState<string | null>(null);
+  const [wantRename, setWantRename] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const holdFired = useRef(false);
+  useEffect(() => {
+    if (!menuId) return;
+    const away = (e: Event) => { if (!(e.target as Element).closest(".route-card")) setMenuId(null); };
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") setMenuId(null); };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("pointerdown", away); document.removeEventListener("keydown", esc); };
+  }, [menuId]);
+  useEffect(() => {
+    if (wantRename && view === "detail" && nameRef.current) { nameRef.current.focus(); nameRef.current.select(); setWantRename(false); }
+  });
+  const isActiveRoute = !!route && route.id === p.activeRouteId;
   const now = () => Date.now();
   const speedUnit = unitLabel("groundSpeed", prefs);
   const fuelUnit = unitLabel("fuel", prefs);
@@ -192,6 +220,20 @@ export function NavScreen(p: NavProps) {
     if (!route || tas === null) return null;
     return computeNavLog(route, { tas: tas as never, fuelFlow: litersPerHour(flow ?? 0) }, toWindPlan(route), p.date, route.departureMs);
   }, [route, tas, flow, p.date]);
+
+  const routeItems = useMemo(
+    () => orderRoutes(filterRoutes(p.routes.map((r) => summarizeRoute(r, p.airfields, ac?.tasMps ?? null, p.date)), routeQuery), p.activeRouteId),
+    [p.routes, p.airfields, ac?.tasMps, p.date, routeQuery, p.activeRouteId],
+  );
+  const startHold = (id: string) => {
+    holdFired.current = false;
+    holdTimer.current = setTimeout(() => { holdFired.current = true; setMenuId(id); }, 500);
+  };
+  const endHold = () => { if (holdTimer.current) clearTimeout(holdTimer.current); holdTimer.current = null; };
+  const exportById = (id: string, f: RouteFormat) => {
+    const r = p.routes.find((x) => x.id === id);
+    if (r) download(`${r.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(r)));
+  };
 
   const depPoint = route?.points[0]?.position ?? null;
   const depForecast = depPoint ? (p.windForecasts.get(windKey(depPoint.lat, depPoint.lon)) ?? null) : null;
@@ -280,24 +322,77 @@ export function NavScreen(p: NavProps) {
       {p.tab === 0 && view === "list" && (
         <>
           <h3>{T("nav.routes")}</h3>
+          {p.routes.length > 6 && (
+            <input className="field route-search" type="search" placeholder={T("route.search")} aria-label={T("route.search")} value={routeQuery} onChange={(e) => setRouteQuery(e.target.value)} />
+          )}
           <div className="route-list">
-            {p.routes.map((r) => (
-              <div key={r.id} className="route-item">
-                <button className="row" aria-pressed={route?.id === r.id} onClick={() => { p.onSelectRoute(r.id); setView("detail"); }}>
-                  {r.name} · {r.points.length}{route?.id === r.id && <span className="route-badge">{T("nav.active")}</span>}
-                </button>
-                <ConfirmButton label="✕" ariaLabel={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onDeleteRoute(r.id)} />
-              </div>
-            ))}
-            {p.routes.length === 0 && <p className="muted small">{T("nav.none")}</p>}
+            {routeItems.map((r) => {
+              const isActive = r.id === p.activeRouteId;
+              const km = formatQuantity("distance", prefs, r.distanceM as never);
+              return (
+                <div key={r.id} className={isActive ? "route-card active" : "route-card"}>
+                  <button
+                    className="route-main"
+                    onPointerDown={() => startHold(r.id)}
+                    onPointerUp={endHold}
+                    onPointerLeave={endHold}
+                    onPointerCancel={endHold}
+                    onContextMenu={(e) => e.preventDefault()}
+                    onClick={() => { if (holdFired.current) { holdFired.current = false; return; } p.onOpenRoute(r.id); }}
+                  >
+                    {isActive && <span className="route-badge">{T("nav.active")}</span>}
+                    <b>{r.name}</b>
+                    <span className="muted small">
+                      {r.label ? `${r.label} · ` : ""}{km} {distUnit}{r.timeSec !== null ? ` · ${formatDuration(r.timeSec as never)}` : ""} · {ageText(r.updatedAt, Date.now(), p.lang)}
+                    </span>
+                  </button>
+                  <div className="route-actions">
+                    {isActive
+                      ? <Button size="touch" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
+                      : <Button role="primary" size="touch" onClick={() => p.onActivate(r.id)}>{T("route.activate")}</Button>}
+                    <Button size="touch" aria-label={T("route.manage")} aria-haspopup="true" aria-expanded={menuId === r.id} onClick={() => setMenuId(menuId === r.id ? null : r.id)}>⋯</Button>
+                  </div>
+                  {menuId === r.id && (
+                    <div className="route-menu">
+                      <Button size="touch" onClick={() => { setMenuId(null); setWantRename(true); p.onOpenRoute(r.id); }}>{T("route.rename")}</Button>
+                      <Button size="touch" onClick={() => { setMenuId(null); p.onDuplicate(r.id); }}>{T("route.duplicate")}</Button>
+                      <Button size="touch" disabled={r.pointCount < 2} onClick={() => { setMenuId(null); p.onReverseRoute(r.id); }}>{T("nav.reverse")}</Button>
+                      {(["gpx", "kml", "fpl", "pln"] as const).map((f) => (
+                        <Button key={f} size="touch" disabled={r.pointCount === 0} aria-label={`${T("route.export")} ${f.toUpperCase()}`} onClick={() => { setMenuId(null); exportById(r.id, f); }}>{f.toUpperCase()}</Button>
+                      ))}
+                      {isActive
+                        ? <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => { setMenuId(null); p.onDeleteRoute(r.id); }} />
+                        : <Button size="touch" role="danger" className="end" onClick={() => { setMenuId(null); p.onDeleteRoute(r.id); }}>{T("nav.delete")}</Button>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {p.routes.length === 0 && (
+              <>
+                <p className="muted">{T("route.empty")}</p>
+                <div className="choices"><Button role="primary" onClick={() => p.onNewRoute()}>{T("route.create")}</Button></div>
+              </>
+            )}
+            {p.routes.length > 0 && routeItems.length === 0 && <p className="muted small">{T("route.noMatch")}</p>}
           </div>
-          <div className="choices">
-            <Button role="primary" onClick={() => { p.onNewRoute(); setView("detail"); }}>{T("nav.new")}</Button>
-            <label className="filebtn">
-              {T("nav.import")}
-              <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
-            </label>
-          </div>
+          {p.routes.length > 0 && (
+            <div className="choices">
+              <Button onClick={() => p.onNewRoute()}>{T("nav.new")}</Button>
+              <label className="filebtn">
+                {T("nav.import")}
+                <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
+          {p.routes.length === 0 && (
+            <div className="choices">
+              <label className="filebtn">
+                {T("nav.import")}
+                <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
+              </label>
+            </div>
+          )}
           {p.importError && <p className="error" role="alert">{T("nav.import.error")} — {p.importError}</p>}
         </>
       )}
@@ -308,9 +403,23 @@ export function NavScreen(p: NavProps) {
           {route && (
             <div className="cols">
               <div className="col">
+              <div className="route-head">
+                {isActiveRoute ? (
+                  <>
+                    <span className="route-badge">{T("nav.active")}</span>
+                    <Button size="touch" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button role="primary" onClick={() => p.onActivate(route.id)}>{T("route.activate")}</Button>
+                    <span className="muted small">{T("route.previewNote")}</span>
+                  </>
+                )}
+              </div>
               <label className="numfield">
                 <span>{T("nav.name")}</span>
                 <input
+                  ref={nameRef}
                   className="field"
                   defaultValue={route.name}
                   key={route.id}
@@ -405,7 +514,7 @@ export function NavScreen(p: NavProps) {
                 {(["gpx", "kml", "fpl", "pln"] as RouteFormat[]).map((f) => (
                   <Button key={f} size="compact" disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</Button>
                 ))}
-                <Button role="primary" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</Button>
+                <Button {...(isActiveRoute ? { role: "primary" as const } : {})} disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</Button>
               </div>
               </div>
             </div>
