@@ -433,7 +433,7 @@ export function NavScreen(p: NavProps) {
                 <Button icon="arrow-left-right" onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</Button>
               </div>
 
-              <h3>{T("nav.points")} <span className="muted small">· {T("nav.point.alt")} ({altUnit})</span></h3>
+              <h3>{T("nav.points")}</h3>
               {route.points.length === 0 && <p className="muted small">{T("nav.pointsNone")}</p>}
               <div className="pt-list">
               {route.points.map((pt, i) => (
@@ -447,6 +447,7 @@ export function NavScreen(p: NavProps) {
                     onBlur={(e) => edit((r) => renamePoint(r, i, e.target.value, now()))}
                   />
                   <div className="pt-alt">
+                    <span className="pt-alt-label" aria-hidden="true">{T("nav.point.altShort")} ({altUnit})</span>
                     <MiniNum
                       label={`${T("nav.point.alt")} (${altUnit})`}
                       value={pt.altitude === null ? null : fromSI("altitude", prefs, pt.altitude)}

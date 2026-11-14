@@ -615,3 +615,19 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 @container (min-width: 520px) {
   .pt-row { grid-template-columns: 36px minmax(0, 1fr) 92px auto; grid-template-areas: "n name alt actions"; }
 }
+
+/* Points : nom et altitude alignés sur la même ligne de base ; l'altitude porte son étiquette « alt (ft) » dans la case. */
+.pt-row { align-items: end; }
+.pt-num { align-self: center; }
+.pt-actions { align-self: center; }
+.pt-row .pt-name { height: var(--h-touch); }
+.pt-alt { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); height: var(--h-touch); border-bottom: var(--rule-hair); }
+.pt-alt:focus-within { border-bottom-color: var(--ink); }
+.pt-alt-label { flex: none; align-self: center; font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); white-space: nowrap; }
+.pt-alt > * { min-width: 0; }
+.pt-row .pt-alt input.mini { flex: 1; height: 100%; border: 0; width: 0; min-width: 3ch; padding: 0 var(--sp-1); }
+.pt-row { grid-template-columns: 36px minmax(0, 1fr) 132px; }
+@container (min-width: 520px) {
+  .pt-row { grid-template-columns: 36px minmax(0, 1fr) 132px auto; }
+}
+.pt-row .pt-name { min-height: var(--h-touch); height: var(--h-touch); }
