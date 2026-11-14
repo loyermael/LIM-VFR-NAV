@@ -157,6 +157,8 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
 
       <p className="muted small">{T(settings.source === "baro" && p.baroPressure !== null ? "alt.estimate.baro" : "alt.estimate")}</p>
 
+      <details className="foldsec rawbox">
+        <summary>{T("dp.advanced")}</summary>
       <h3>{T("alt.source")}</h3>
       {p.baroAvailable ? (
         <>
@@ -215,6 +217,7 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
           </button>
         ))}
       </div>
+      </details>
     </aside>
   );
 }

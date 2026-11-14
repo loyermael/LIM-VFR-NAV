@@ -525,20 +525,24 @@ export function PointSheet(p: {
     <aside className="sheet" aria-label={T("nav.points")}>
       <header>
         <h2>{p.index + 1} · {pt.name}</h2>
-        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        <div className="adhead-actions">
+          <Button role="primary" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</Button>
+          <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        </div>
       </header>
-      <label className="numfield">
-        <span>{T("nav.name")}</span>
-        <input className="field" defaultValue={pt.name} key={pt.id} onBlur={(e) => p.onRoute(renamePoint(p.route, p.index, e.target.value, now))} />
-      </label>
-      <NumField
-        label={`${T("nav.point.alt")} (${unitLabel("altitude", p.prefs)})`}
-        value={pt.altitude === null ? null : fromSI("altitude", p.prefs, pt.altitude)}
-        onCommit={(v) => p.onRoute(setPointAltitude(p.route, p.index, v === null ? null : meters(toSI("altitude", p.prefs, v)), now))}
-      />
+      <div className="ptsheet-fields">
+        <label className="numfield">
+          <span>{T("nav.name")}</span>
+          <input className="field" defaultValue={pt.name} key={pt.id} onBlur={(e) => p.onRoute(renamePoint(p.route, p.index, e.target.value, now))} />
+        </label>
+        <NumField
+          label={`${T("nav.point.alt")} (${unitLabel("altitude", p.prefs)})`}
+          value={pt.altitude === null ? null : fromSI("altitude", p.prefs, pt.altitude)}
+          onCommit={(v) => p.onRoute(setPointAltitude(p.route, p.index, v === null ? null : meters(toSI("altitude", p.prefs, v)), now))}
+        />
+      </div>
       <p className="muted small mono">{pt.position.lat.toFixed(5)}, {pt.position.lon.toFixed(5)}</p>
       <div className="choices">
-        <Button role="primary" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</Button>
         <button
           disabled={p.index === p.route.points.length - 1}
           onClick={() => {

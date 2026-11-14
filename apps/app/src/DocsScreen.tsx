@@ -224,8 +224,10 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
   const metrics = g ? georefMetrics(g.georef, g.width, g.height) : null;
   return (
     <div className="navscreen">
-      <div className="choices"><button onClick={p.onBack}>← {T("dc.back")}</button></div>
-      <h3 className="doctitle">{d.icao ? `${d.icao} · ` : ""}{d.name}</h3>
+      <div className="docbar">
+        <button onClick={p.onBack}>← {T("dc.back")}</button>
+        <h3 className="doctitle">{d.icao ? `${d.icao} · ` : ""}{d.name}</h3>
+      </div>
       <p className="muted small">{T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""}{g ? ` · ${T("dc.geo.badge")}` : ""}</p>
 
       {error && <p className="error" role="alert">{T("dc.renderError")} : {error}</p>}

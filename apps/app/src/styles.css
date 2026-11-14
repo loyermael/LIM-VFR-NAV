@@ -544,3 +544,13 @@ button.row { text-align: left; }
 .bigval { font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-28); line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--data-figure); margin: 0 0 var(--sp-1); }
 .notam-empty { margin: 0; padding: var(--sp-1) 0 var(--sp-1) var(--sp-2); border-top: var(--rule-hair); border-left: 6px solid var(--hair); }
 .filebtn.btn-primary { background: var(--brand); color: var(--on-brand); border-color: var(--ink); min-height: var(--h-control); font-size: var(--fs-20); }
+
+/* Écrans de lecture (document, trace) : une seule barre en haut (retour + titre) ; l'en-tête d'écran et les onglets disparaissent pour laisser la place au contenu. */
+.docbar { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.docbar button { flex: none; }
+.docbar .doctitle { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.screen:has(.docbar) > .screen-head { display: none; }
+.screen:has(.docbar) .tabs { display: none; }
+
+/* Fiche d'un point : nom (large) et altitude (étroite) sur une ligne. */
+.ptsheet-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-3); align-items: end; }

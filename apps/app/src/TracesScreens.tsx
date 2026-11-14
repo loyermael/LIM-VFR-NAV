@@ -166,8 +166,10 @@ export function TracesTab(p: TracesProps) {
     const isOpen = (id: string) => open.has(id) || (id === "replay" && rp !== null);
     return (
       <div className="navscreen">
-        <div className="choices"><button onClick={() => { setSel(null); }}>← {T("tr.back")}</button></div>
-        <h3 className="doctitle">{track.name}</h3>
+        <div className="docbar">
+          <button onClick={() => { setSel(null); }}>← {T("tr.back")}</button>
+          <h3 className="doctitle">{track.name}</h3>
+        </div>
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}
         {track.interrupted && <p className="error" role="alert">{T("tr.interrupted")}</p>}
         {(track.resumes ?? 0) > 0 && <p className="muted small">{T("tr.resumed")} : {track.resumes} × ({Math.round((track.gapSeconds ?? 0))} s {T("tr.gapUnit")})</p>}
@@ -224,11 +226,6 @@ export function TracesTab(p: TracesProps) {
   return (
     <div className="navscreen">
       {sorted.length === 0 && <p className="muted">{T("tr.none")}</p>}
-      {short.length > 0 && (
-        <div className="choices">
-          <ConfirmButton label={`${T("tr.clean")} (${short.length})`} confirmLabel={`${T("tr.cleanConfirm")} (${short.length})`} onConfirm={() => short.forEach((x) => p.onRemove(x.id))} />
-        </div>
-      )}
       {[...groups.entries()].map(([m, list]) => (
         <div key={m}>
           <h3>{m}</h3>
@@ -246,6 +243,11 @@ export function TracesTab(p: TracesProps) {
         </div>
       ))}
       <p className="muted small">{T("tr.note")}</p>
+      {short.length > 0 && (
+        <div className="choices">
+          <ConfirmButton className="end" label={`${T("tr.clean")} (${short.length})`} confirmLabel={`${T("tr.cleanConfirm")} (${short.length})`} onConfirm={() => short.forEach((x) => p.onRemove(x.id))} />
+        </div>
+      )}
     </div>
   );
 }

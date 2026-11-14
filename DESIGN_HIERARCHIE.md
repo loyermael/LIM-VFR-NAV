@@ -155,3 +155,11 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 - **NOTAM** : un terrain ou une zone sans NOTAM tient sur une ligne (« LFHV VILLEFRANCHE TARARE · Aucun NOTAM ») ; l'écran passe de ~1280 à ~1100 px dans le cas testé.
 - **Calques** : le plafond (FL 195) s'affiche en 28 px au-dessus du curseur.
 - **Pas vérifié** : Docs avec liste vide (import primaire jaune) ; Avion et Calques seulement mesurés, pas regardés en capture.
+
+## 9. Revue Traces / cases de données / visionneuse VAC / fiche point (corrigé)
+
+- **Visionneuse de document et détail de trace** : une seule barre en haut (retour à la liste + titre), l'en-tête d'écran et les onglets disparaissent pendant la lecture (CSS `:has(.docbar)`). Le document commence plus haut ; c'est le même retour pour les traces (plus de double « Retour »).
+- **Fiche d'un point (✎)** : « Direct » dans l'en-tête à côté de ✕ ; nom et altitude sur une ligne. Contenu 237 px (avant 309) : plus rien de coupé.
+- **Traces** : « Supprimer les traces de moins de 2 min » descend en fin de liste, à droite.
+- **Feuille Altitude** : QNH et affichage restent visibles ; source, calage, référence d'altitude GPS et unités passent dans « Avancé » (379 px au lieu de 821).
+- **Pas vérifié** : `:has()` sur de vieux WebView Android (< 105) : l'en-tête et les onglets resteraient visibles, sans casse ; rien non plus sur un vrai téléphone.
