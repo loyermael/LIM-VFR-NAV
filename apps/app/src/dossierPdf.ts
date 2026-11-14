@@ -8,6 +8,7 @@ import {
   computeBalance, isDroneZone, formatAngle, formatDuration, formatQuantity, planFuel, unitLabel, validateAircraft,
   type Aircraft, type Loads, type Metar, type NavLog, type RouteHit, type Taf, type UnitPrefs,
 } from "@lim/core";
+import { notamSubject, type NotamRole, type RelevantNotam } from "./notam";
 import type { RouteRecord } from "./routeEdit";
 import type { FuelPlanParams } from "./aircraftStore";
 import type { Lang } from "./i18n";
@@ -29,6 +30,8 @@ export interface DossierInput {
   /** Messages météo des stations proches de la route, dans l'ordre de rencontre. */
   readonly metars: readonly Metar[];
   readonly tafs: readonly Taf[];
+  /** NOTAM pertinents pour ce vol (déjà filtrés par `notamsForFlight`), ou null si aucun jeu de NOTAM n'est importé. */
+  readonly notams?: readonly RelevantNotam[] | null;
 }
 
 const TXT = {
@@ -50,6 +53,9 @@ const TXT = {
     airspaceNote: "Source openAIP (non officielle). Vérifier dans l'AIP, les SUP AIP et les NOTAM.",
     weather: "Météo près de la route", noWx: "Aucun METAR/TAF importé près de la route.", metar: "METAR", taf: "TAF",
     wxNote: "Aide à la préparation, non officielle : briefing officiel Météo-France / SOFIA, NOTAM au SIA.",
+    notamTitle: "NOTAM pertinents", notamWarn: "Extrait des NOTAM importés par l'utilisateur (non officiel) : il ne remplace pas le briefing officiel (SIA : NOTAMWEB, SOFIA).",
+    noNotamSet: "Aucun NOTAM importé : section non renseignée.", noNotam: "Aucun NOTAM importé ne concerne ce vol (départ, arrivée, étapes, dégagements, couloir de 10 NM, pendant l'horaire du vol).",
+    role: { dep: "Départ", arr: "Arrivée", via: "Étapes", alt: "Dégagements probables", route: "Sur la route", other: "Autres" } as Record<NotamRole, string>, perm: "permanent",
     page: "Page", cruise: "Croisière",
   },
   en: {
@@ -70,6 +76,9 @@ const TXT = {
     airspaceNote: "Source openAIP (unofficial). Check AIP, AIP SUP and NOTAM.",
     weather: "Weather near the route", noWx: "No METAR/TAF imported near the route.", metar: "METAR", taf: "TAF",
     wxNote: "Planning aid, unofficial: official briefing via Météo-France / SOFIA, NOTAM from SIA.",
+    notamTitle: "Relevant NOTAM", notamWarn: "Extract of the NOTAM imported by the user (unofficial): it does not replace the official briefing (SIA: NOTAMWEB, SOFIA).",
+    noNotamSet: "No NOTAM imported: section not filled.", noNotam: "No imported NOTAM concerns this flight (departure, arrival, stops, alternates, 10 NM corridor, during the flight window).",
+    role: { dep: "Departure", arr: "Arrival", via: "Stops", alt: "Likely alternates", route: "En route", other: "Other" } as Record<NotamRole, string>, perm: "permanent",
     page: "Page", cruise: "Cruise",
   },
 } as const;
@@ -350,6 +359,24 @@ export async function buildDossier(inp: DossierInput): Promise<Uint8Array> {
   for (const m of inp.metars) w.text(/^(METAR|SPECI)\b/.test(m.raw) ? `(${hhmm(m.observedAt)}Z) ${m.raw}` : `${L.metar} ${m.station} (${hhmm(m.observedAt)}Z) ${m.raw}`, { font: mono, size: 8, gap: 3 });
   for (const f of inp.tafs) w.text(/^TAF\b/.test(f.raw) ? f.raw : `${L.taf} ${f.station} ${f.raw}`, { font: mono, size: 8, gap: 3 });
   w.text(L.wxNote, { size: 8, color: MUTED });
+
+  // NOTAM pertinents (jeu importé par l'utilisateur, filtré par rôle et fenêtre de vol)
+  w.heading(L.notamTitle);
+  w.text(L.notamWarn, { size: 8, color: BAD });
+  if (inp.notams == null) w.text(L.noNotamSet, { color: MUTED });
+  else if (inp.notams.length === 0) w.text(L.noNotam, { color: MUTED });
+  else {
+    const utc = (ms: number) => `${new Date(ms).toISOString().slice(0, 16).replace("T", " ")}Z`;
+    let role: NotamRole | null = null;
+    for (const r of inp.notams) {
+      if (r.role !== role) { role = r.role; w.text(L.role[r.role], { font: bold, color: NAVY, gap: 1 }); }
+      const n = r.notam;
+      w.text(`${n.id} - ${n.locations.join(" ") || n.fir} - ${notamSubject(n.qcode)}`, { font: bold, size: 9, gap: 0 });
+      const lim = n.lowerText || n.upperText ? ` - ${n.lowerText || "SFC"} -> ${n.upperText || "UNL"}` : "";
+      w.text(`${n.fromMs !== null ? utc(n.fromMs) : "---"} -> ${n.toMs === null ? L.perm : utc(n.toMs)}${n.estimated ? " (EST)" : ""}${n.schedule ? ` - ${n.schedule}` : ""}${lim}`, { size: 8, color: MUTED, gap: 0 });
+      w.text(n.text, { font: mono, size: 8, gap: 4 });
+    }
+  }
 
   return doc.save();
 }

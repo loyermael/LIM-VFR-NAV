@@ -49,7 +49,7 @@ import { SAME_PLACE_M, SNAP_PIXELS, isInRoute, snapTap, type SnapCandidate } fro
 import { WindsTab } from "./WxScreen";
 import { NotamTab } from "./NotamTab";
 import { ConfirmButton } from "./ui/ConfirmButton";
-import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, notamsAtAirfield, parseNotams, saveNotams, type NotamSet } from "./notam";
+import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, notamsAtAirfield, notamsForFlight, parseNotams, saveNotams, type NotamSet } from "./notam";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
 import { fetchWinds, loadWindCache, windKey } from "./windClient";
@@ -826,6 +826,12 @@ export function App() {
       : null),
     [route, perf.tasMps, perf.fuelFlowLph, now],
   );
+  /** Fenêtre de vol (départ prévu, ou maintenant ; durée = distance / vitesse propre, sinon 3 h) pour filtrer les NOTAM. */
+  const flightWindow = (r: RouteRecord): { startMs: number; endMs: number } => {
+    const startMs = r.departureMs ?? Date.now();
+    const m = r.points.reduce((acc, pt, i, arr) => (i === 0 ? 0 : acc + distance((arr[i - 1] as typeof pt).position, pt.position)), 0);
+    return { startMs, endMs: startMs + (perf.tasMps ? Math.max(1, m) / perf.tasMps : 3 * 3600) * 1000 };
+  };
   const makeDossier = async () => {
     if (!route) return;
     try {
@@ -836,6 +842,7 @@ export function App() {
       const bytes = await buildDossier({
         lang, prefs, nowMs: Date.now(), route, navLog, aircraft: ac.active, loads: ac.loads, fuelPlan: ac.plan, tripLiters,
         crossed, hasAeroData: aspSet !== null, metars, tafs,
+        notams: notamSet ? notamsForFlight(notamSet.items, route.points, aptSet?.items ?? [], flightWindow(route)) : null,
       });
       const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
       const a = document.createElement("a");

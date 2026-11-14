@@ -4,6 +4,7 @@ import { DEFAULT_UNIT_PREFS, computeNavLog, litersPerHour, type Aircraft } from 
 import { buildDossier, sanitize, type DossierInput } from "./dossierPdf";
 import { addPoint, newRoute, setDefaultWind, toWindPlan } from "./routeEdit";
 import { DEFAULT_FUEL_PLAN } from "./aircraftStore";
+import { parseNotams, type RelevantNotam } from "./notam";
 
 // Avion FICTIF de test (aucune donnée d'un appareil réel).
 const aircraft: Aircraft = {
@@ -58,5 +59,22 @@ describe("dossier PDF", () => {
   it("fiche d'avion incomplète : le dossier se génère quand même", async () => {
     const bytes = await buildDossier(input({ aircraft: { ...aircraft, emptyMass: 0, envelope: [] } }));
     expect(bytes.length).toBeGreaterThan(1000);
+  });
+});
+
+describe("dossier PDF : section NOTAM", () => {
+  // NOTAM FICTIF (numéro et texte d'essai) : aucune donnée réelle.
+  const fake: RelevantNotam[] = parseNotams(`(A0001/26 NOTAMN
+Q) LFFF/QMRLC/IV/NBO/A/000/999/4709N00200E005
+A) LFXX B) 2601011200 C) 2601011800
+E) ESSAI SEULEMENT : texte fictif.
+F) SFC G) UNL)`).map((n) => ({ notam: n, role: "dep" as const, during: true }));
+  it("se génère avec : aucun jeu importé (null), jeu sans NOTAM pertinent, et un NOTAM pertinent", async () => {
+    const a = await buildDossier(input({ notams: null }));
+    const b = await buildDossier(input({ notams: [] }));
+    const c = await buildDossier(input({ notams: fake }));
+    expect(fake).toHaveLength(1);
+    for (const x of [a, b, c]) expect(Buffer.from(x.slice(0, 5)).toString("latin1")).toBe("%PDF-");
+    if (process.env["LIM_PDF_OUT"]) writeFileSync(`${process.env["LIM_PDF_OUT"]}/dossier-notam.pdf`, c);
   });
 });

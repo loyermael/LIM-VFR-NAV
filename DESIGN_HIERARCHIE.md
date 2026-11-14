@@ -168,4 +168,10 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 
 - **Espaces traversés** : zones drone écartées ; « dans les limites » et « à vérifier » détaillés, les autres regroupés en une ligne (« 5 espaces hors limites verticales : CTA LYON, … »). Vérifié sur le PDF régénéré : le dossier de test passe de 2 pages à 1.
 - **Météo** : le type (« METAR », « TAF ») n'est plus écrit deux fois.
-- **Non fait** : section NOTAM dans le dossier (nouvelle fonction, à décider) ; les zones drone restent affichées dans l'écran Log (non demandé).
+- **Section NOTAM ajoutée** (voir 11) ; les zones drone restent affichées dans l'écran Log (non demandé).
+
+## 11. Section « NOTAM pertinents » du dossier de vol
+
+- **Contenu** : les NOTAM importés par l'utilisateur, filtrés comme dans l'onglet NOTAM (départ, arrivée, étapes, dégagements probables, couloir de 10 NM) et sur la fenêtre de vol (départ prévu, durée = distance / vitesse propre, sinon 3 h). Groupés par rôle ; pour chacun : numéro, lieu, sujet, validité (UTC), limites, texte.
+- **Cas vides** : « Aucun NOTAM importé : section non renseignée » (aucun jeu) ; « Aucun NOTAM importé ne concerne ce vol… » (jeu sans NOTAM pertinent). Avertissement rouge « non officiel, ne remplace pas le briefing officiel ».
+- **Vérifié** : test (NOTAM fictif A0001/26) + rendu du PDF. Pas vérifié avec de vrais NOTAM importés dans l'appli.
