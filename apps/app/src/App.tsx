@@ -1,4 +1,5 @@
 import { Button } from "./ui/Button";
+import { Icon, type IconName } from "./ui/Icon";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALTITUDE_UNITS, DISTANCE_UNITS, Geoid, PRESSURE_UNITS, SPEED_UNITS, SPEED_VECTOR_MINUTES, UNIT_CHOICES,
@@ -65,6 +66,14 @@ const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircr
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
 const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.documents"];
+/** Icône de chaque onglet (icône au-dessus du texte). Une icône = un sens : « route » = la route, etc. */
+const TAB_ICON: Partial<Record<Key, IconName>> = {
+  "nav.tabRoutes": "route", "nav.log": "clipboard-list", "wx.notam": "scroll-text",
+  "ac.tabSheet": "id-card", "nav.wb": "scale", "nav.fuel": "fuel",
+  "wx.briefing": "newspaper", "wx.metar": "cloud", "wx.taf": "calendar-clock", "wx.sigmet": "cloud-lightning", "wx.winds": "wind",
+  "tm.tabTimers": "timer", "tm.tabTraces": "history", "docs.documents": "file-text",
+  "set.tabDisplay": "sun-moon", "set.tabUnits": "ruler", "set.tabLinks": "radio", "set.tabBackup": "file-down",
+};
 
 /** Une ligne de réglage par information : libellé + choix d'unité. */
 const UNIT_ROWS: { field: keyof UnitPrefs; label: Key }[] = [
@@ -1137,15 +1146,15 @@ export function App() {
   const mapActive = screen === "map" || split;
   const toggle = (sc: Screen) => open(screen === sc ? "map" : sc);
   /** Barre d'outils : actions sur la carte | préparer et voler | bibliothèque | réglages (`sep` = séparateur visuel avant). */
-  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean; critical?: boolean }[] = [
-    { label: "tb.direct", critical: true, action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
-    { label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
-    { label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
-    { label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
-    { label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces", more: true },
-    { label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true, more: true },
-    { label: "tb.data", action: () => toggle("data"), pressed: screen === "data", more: true },
-    { label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true },
+  const toolbar: { label: Key; action: () => void; pressed?: boolean; sep?: boolean; more?: boolean; critical?: boolean; icon: IconName }[] = [
+    { icon: "navigation", label: "tb.direct", critical: true, action: () => { open("map"); setCellSheet(null); setDetails(null); setDirectOpen((v) => !v); } },
+    { icon: "route", label: "tb.route", action: () => toggle("nav"), pressed: screen === "nav", sep: true },
+    { icon: "plane", label: "tb.aircraft", action: () => toggle("aircraft"), pressed: screen === "aircraft", more: true },
+    { icon: "cloud-sun", label: "tb.weather", action: () => toggle("wx"), pressed: screen === "wx", more: true },
+    { icon: "timer", label: "tb.timer", action: () => toggle("traces"), pressed: screen === "traces", more: true },
+    { icon: "file-text", label: "tb.docs", action: () => toggle("docs"), pressed: screen === "docs", sep: true, more: true },
+    { icon: "database", label: "tb.data", action: () => toggle("data"), pressed: screen === "data", more: true },
+    { icon: "settings", label: "tb.settings", action: () => toggle("settings"), pressed: screen === "settings", sep: true, more: true },
   ];
 
   /**
@@ -1184,12 +1193,14 @@ export function App() {
     <div className="app">
       <nav className="toolbar" aria-label={T("toolbar.aria")}>
         {toolbar.filter((b) => !(phone && b.more)).map((b) => (
-          <button key={b.label} className={[b.sep ? "sep" : "", b.critical ? "btn-critical" : ""].filter(Boolean).join(" ") || undefined} aria-pressed={b.pressed} onClick={b.action}>
+          <button key={b.label} className={["has-icon", b.sep ? "sep" : "", b.critical ? "btn-critical" : ""].filter(Boolean).join(" ")} aria-pressed={b.pressed} onClick={b.action}>
+            <Icon name={b.icon} size={20} />
             {T(b.label)}
           </button>
         ))}
         {phone && (
-          <button className="sep" aria-haspopup="menu" aria-expanded={moreOpen} aria-pressed={toolbar.some((b) => b.more && b.pressed)} onClick={() => setMoreOpen((o) => !o)}>
+          <button className="sep has-icon" aria-haspopup="menu" aria-expanded={moreOpen} aria-pressed={toolbar.some((b) => b.more && b.pressed)} onClick={() => setMoreOpen((o) => !o)}>
+            <Icon name="ellipsis" size={20} />
             {T("tb.more")}
           </button>
         )}
@@ -1197,7 +1208,7 @@ export function App() {
       {phone && moreOpen && (
         <div className="morepop" role="menu">
           {toolbar.filter((b) => b.more).map((b) => (
-            <button key={b.label} role="menuitem" aria-pressed={b.pressed} onClick={() => { setMoreOpen(false); b.action(); }}>{T(b.label)}</button>
+            <button key={b.label} className="has-icon" role="menuitem" aria-pressed={b.pressed} onClick={() => { setMoreOpen(false); b.action(); }}><Icon name={b.icon} size={20} />{T(b.label)}</button>
           ))}
         </div>
       )}
@@ -1318,22 +1329,22 @@ export function App() {
         {mapActive && !isPreview && activeRoute && (
           <div className="routechip-wrap">
             <button className="routechip" aria-haspopup="menu" aria-expanded={chipOpen} onClick={() => setChipOpen((o) => !o)}>
-              <span aria-hidden="true">◆</span> <span className="routechip-name">{activeRoute.name}</span> <span aria-hidden="true">▾</span>
+              <Icon name="route" size={16} /> <span className="routechip-name">{activeRoute.name}</span> <Icon name="chevron-down" size={16} />
             </button>
             {chipOpen && (
               <div className="routechip-menu" role="menu">
-                <button role="menuitem" onClick={() => { setChipOpen(false); openRoute(activeRoute.id); setTab(0); setRouteView("detail"); open("nav"); }}>{T("route.open")}</button>
-                <button role="menuitem" onClick={() => { setChipOpen(false); setTab(0); setRouteView("list"); open("nav"); }}>{T("route.change")}</button>
-                <button role="menuitem" onClick={() => { setChipOpen(false); deactivate(); }}>{T("route.deactivate")}</button>
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); openRoute(activeRoute.id); setTab(0); setRouteView("detail"); open("nav"); }}><Icon name="eye" size={20} />{T("route.open")}</button>
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); setTab(0); setRouteView("list"); open("nav"); }}><Icon name="list" size={20} />{T("route.change")}</button>
+                <button className="has-icon" role="menuitem" onClick={() => { setChipOpen(false); deactivate(); }}><Icon name="square" size={20} />{T("route.deactivate")}</button>
               </div>
             )}
           </div>
         )}
         {mapActive && isPreview && route && (
           <div className="routebar" role="status">
-            <span className="routebar-name"><b>{T("route.preview")}</b> · {route.name}</span>
-            <Button role="primary" size="touch" onClick={() => requestActivate(route.id)}>{T("route.activate")}</Button>
-            <Button size="touch" aria-label={T("close")} onClick={() => setPreviewRouteId(null)}>✕</Button>
+            <span className="routebar-name"><Icon name="eye" size={16} /> <b>{T("route.preview")}</b> · {route.name}</span>
+            <Button role="primary" size="touch" icon="play" onClick={() => requestActivate(route.id)}>{T("route.activate")}</Button>
+            <Button size="touch" icon="x" aria-label={T("close")} onClick={() => setPreviewRouteId(null)} />
           </div>
         )}
         {replaceAsk && (
@@ -1341,31 +1352,30 @@ export function App() {
             <h2>{T("route.replace.title")}</h2>
             <p>{T("route.replace.ask").replaceAll("{old}", activeRoute?.name ?? "").replaceAll("{new}", routes.find((r) => r.id === replaceAsk)?.name ?? "")}</p>
             <div className="choices">
-              <Button role="primary" onClick={() => { const id = replaceAsk; setReplaceAsk(null); activate(id); }}>{T("route.replace.yes")}</Button>
+              <Button role="primary" icon="play" onClick={() => { const id = replaceAsk; setReplaceAsk(null); activate(id); }}>{T("route.replace.yes")}</Button>
               <button onClick={() => setReplaceAsk(null)}>{T("route.replace.no")}</button>
             </div>
           </aside>
         )}
         {banner && (
           <div className={`banner ${banner.sev}`} role={banner.onClick ? "button" : banner.alert ? "alert" : "status"} tabIndex={banner.onClick ? 0 : undefined} onClick={banner.onClick} onKeyDown={(e) => e.key === "Enter" && banner.onClick?.()} style={banner.onClick ? { cursor: "pointer" } : undefined}>
-            {banner.text}
+            <Icon name={banner.sev === "alert" ? "triangle-alert" : banner.sev === "caution" ? "diamond-alert" : "info"} size={20} />
+            <span>{banner.text}</span>
             {banner.more > 0 && <span className="banner-more">+{banner.more}</span>}
           </div>
         )}
 
         {mapActive && (
           <>
-            <button className="layersbtn" aria-pressed={drawer} aria-label={T("layers.title")} aria-expanded={drawer} onClick={() => setDrawer((d) => !d)}>
-              <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5Z" /><path d="m3 12.5 9 5 9-5" /><path d="m3 17 9 5 9-5" /></svg>
+            <button className="layersbtn" aria-pressed={drawer} aria-label={T("layers.title")} title={T("layers.title")} aria-expanded={drawer} onClick={() => setDrawer((d) => !d)}>
+              <Icon name="layers" size={24} />
             </button>
             <div className="mapctl">
-              <button aria-label={T("map.zoomIn")} onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}>+</button>
-              <button aria-label={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}>−</button>
-              <button aria-pressed={follow} aria-label={T("tb.center")} onClick={() => setFollow(true)}>◎</button>
-              <button aria-pressed={editMode} aria-label={T("tool.draw")} onClick={() => setEditMode((v) => !v)}>✎</button>
-              <button aria-pressed={orientation === "track"} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}>
-                {orientation === "north" ? "N" : "↑"}
-              </button>
+              <button aria-label={T("map.zoomIn")} title={T("map.zoomIn")} onClick={() => setZoomCommand((z) => ({ delta: 1, nonce: z.nonce + 1 }))}><Icon name="plus" size={24} /></button>
+              <button aria-label={T("map.zoomOut")} title={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}><Icon name="minus" size={24} /></button>
+              <button aria-pressed={follow} aria-label={T("tb.center")} title={T("tb.center")} onClick={() => setFollow(true)}><Icon name="locate-fixed" size={24} /></button>
+              <button aria-pressed={editMode} aria-label={T("tool.draw")} title={T("tool.draw")} onClick={() => setEditMode((v) => !v)}><Icon name="pencil" size={24} /></button>
+              <button aria-pressed={orientation === "track"} aria-label={T(orientation === "north" ? "map.northUp" : "map.trackUp")} title={T(orientation === "north" ? "map.northUp" : "map.trackUp")} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}><Icon name="compass" size={24} /></button>
             </div>
           </>
         )}
@@ -1374,7 +1384,7 @@ export function App() {
           <aside className="sheet" aria-label={T("details.title")}>
             <header>
               <h2>{T("details.title")}</h2>
-              <Button size="compact" aria-label={T("close")} onClick={() => setDetails(null)}>✕</Button>
+              <Button size="compact" icon="x" aria-label={T("close")} onClick={() => setDetails(null)} />
             </header>
             {details.length === 0 ? (
               <p className="muted">{T("details.empty")}</p>
@@ -1468,7 +1478,7 @@ export function App() {
           <aside className="drawer" aria-label={T("layers.title")}>
             <header className="drawer-head">
               <h2>{T("layers.title")}</h2>
-              <Button size="compact" aria-label={T("close")} onClick={() => setDrawer(false)}>✕</Button>
+              <Button size="compact" icon="x" aria-label={T("close")} onClick={() => setDrawer(false)} />
             </header>
 
             <h3>{T("lay.base")}</h3>
@@ -1525,7 +1535,7 @@ export function App() {
         {screen !== "map" && (
           <section className="screen">
             <header className="screen-head">
-              <button onClick={goBack}>← {T("back")}</button>
+              <Button icon="arrow-left" aria-label={T("back")} onClick={goBack} />
               <h2>
                 {screen === "soon" ? T(soonTitle) : T(SCREEN_TITLE[screen] ?? "soon")}
               </h2>
@@ -1609,15 +1619,15 @@ export function App() {
                 </button>
                 <div className="stepper">
                   <span>{T("chart.zoomFrom")}</span>
-                  <button aria-label="−" onClick={() => updateChart(c.id, { showFromZoom: Math.max(0, c.showFromZoom - 1) })}>−</button>
+                  <button aria-label="−" title="−" onClick={() => updateChart(c.id, { showFromZoom: Math.max(0, c.showFromZoom - 1) })}><Icon name="minus" size={20} /></button>
                   <b className="mono">{c.showFromZoom}</b>
-                  <button aria-label="+" onClick={() => updateChart(c.id, { showFromZoom: Math.min(MAX_ZOOM, c.showFromZoom + 1) })}>+</button>
+                  <button aria-label="+" title="+" onClick={() => updateChart(c.id, { showFromZoom: Math.min(MAX_ZOOM, c.showFromZoom + 1) })}><Icon name="plus" size={20} /></button>
                 </div>
                 <div className="stepper">
                   <span>{T("chart.zoomTo")}</span>
-                  <button aria-label="−" onClick={() => updateChart(c.id, { showToZoom: Math.max(0, c.showToZoom - 1) })}>−</button>
+                  <button aria-label="−" title="−" onClick={() => updateChart(c.id, { showToZoom: Math.max(0, c.showToZoom - 1) })}><Icon name="minus" size={20} /></button>
                   <b className="mono">{c.showToZoom}</b>
-                  <button aria-label="+" onClick={() => updateChart(c.id, { showToZoom: Math.min(MAX_ZOOM, c.showToZoom + 1) })}>+</button>
+                  <button aria-label="+" title="+" onClick={() => updateChart(c.id, { showToZoom: Math.min(MAX_ZOOM, c.showToZoom + 1) })}><Icon name="plus" size={20} /></button>
                 </div>
               </div>
             ))}
@@ -1642,10 +1652,10 @@ export function App() {
             {aspSet && (
               <>
                 <p className="muted small infonote">
-                  {T("aero.airac")} : {airacCycleAt(new Date(now)).id}
+                  <Icon name="info" size={16} />{T("aero.airac")} : {airacCycleAt(new Date(now)).id}
                 </p>
                 {freshnessWarnings(datasetFreshness(new Date(aspSet.meta.exportedAtMs), new Date(now))).map((w, i) => (
-                  <p className={i === 0 ? "muted small infonote" : "error"} key={i}>{w}</p>
+                  <p className={i === 0 ? "muted small infonote" : "error"} key={i}>{i === 0 ? <Icon name="info" size={16} /> : null}{w}</p>
                 ))}
               </>
             )}
@@ -1839,8 +1849,9 @@ export function App() {
             {tabs && (
               <nav className="tabs">
                 {tabs.map((k, i) => (
-                  <button key={k} aria-current={tab === i ? "page" : undefined} onClick={() => setTab(i)}>
-                    {T(k)}
+                  <button key={k} className="tabbtn" aria-current={tab === i ? "page" : undefined} onClick={() => setTab(i)}>
+                    {TAB_ICON[k] && <Icon name={TAB_ICON[k] as IconName} size={20} />}
+                    <span>{T(k)}</span>
                   </button>
                 ))}
               </nav>

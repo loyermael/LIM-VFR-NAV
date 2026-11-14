@@ -96,7 +96,7 @@ export function BaseMapPanel(p: {
             <div className="choices"><button onClick={() => abort.current?.abort()}>{T("bm.cancel")}</button></div>
           </>
         ) : (
-          <div className="choices"><Button role="primary" disabled={!bbox || !est || est.tooBig} onClick={() => void start()}>{T("bm.download")}</Button></div>
+          <div className="choices"><Button role="primary" icon="download" disabled={!bbox || !est || est.tooBig} onClick={() => void start()}>{T("bm.download")}</Button></div>
         )}
         {msg && <p className={msg.error ? "error" : "muted small"} role={msg.error ? "alert" : "status"}>{msg.text}</p>}
       </div>

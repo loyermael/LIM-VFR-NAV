@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { useMemo, useState } from "react";
 import { ageMinutes, distance, formatQuantity, latestMetarByStation, latestTafByStation, METAR_STALE_MINUTES, nmToMeters, nauticalMiles, sigmetsAlongRoute, stationsNearRoute, tafPeriodsAt, tafStatus, unitLabel, type Conditions, type LatLon, type Metar, type Taf, type TafPeriod, type UnitPrefs, type Sigmet } from "@lim/core";
@@ -32,7 +33,11 @@ export interface WxCommon {
   onOpenData: () => void;
 }
 
-const Category = ({ c }: { c: Conditions["category"] }) => <span className={`cat cat-${c ?? "none"}`}>{c ?? "?"}</span>;
+const CAT_ICON = { VFR: "circle-check", MVFR: "diamond-alert", IFR: "triangle-alert", LIFR: "triangle-alert" } as const;
+/** Catégorie de vol : forme + couleur + mot (VFR ● vert, MVFR ◆ orange, IFR ▲ rouge). */
+export const Category = ({ c }: { c: Conditions["category"] }) => (
+  <span className={`cat cat-${c ?? "none"}`}>{c && c in CAT_ICON && <Icon name={CAT_ICON[c as keyof typeof CAT_ICON]} size={16} />}{c ?? "?"}</span>
+);
 
 /** État des données météo (âge, actualisation) ; l'import de fichiers n'est plus qu'un secours replié. */
 export function WxSource(p: WxCommon) {
@@ -52,7 +57,7 @@ export function WxSource(p: WxCommon) {
           <span className={age !== null && age > DATASET_STALE_MIN ? "error" : "muted small"}>
             {T("wxd.fetched")} {age === null ? "" : ageText(age)}{age !== null && age > DATASET_STALE_MIN ? ` — ${T("wxd.stale")}` : ""}
           </span>
-          <Button role="primary" disabled={p.refreshing} aria-busy={p.refreshing} onClick={p.onRefresh}>{p.refreshing ? T("dp.checking") : T("wxd.refresh")}</Button>
+          <Button role="primary" icon="refresh-cw" disabled={p.refreshing} aria-busy={p.refreshing} onClick={p.onRefresh}>{p.refreshing ? T("dp.checking") : T("wxd.refresh")}</Button>
         </div>
       )}
       <details className="rawbox">
@@ -241,6 +246,7 @@ export function SigmetTab(p: WxCommon) {
           {shown.map((s) => (
             <div className={`wx-card kind-meteo${routeIds.has(s.id) ? " onroute" : ""}`} key={s.id}>
               <div className="wx-head">
+                <Icon name="cloud-lightning" size={16} className="kind-icon" />
                 <b>{hazardLabel(s.hazard)}</b>{s.qualifier ? ` ${s.qualifier}` : ""} <span className="muted small">{s.firName}</span>
                 {routeIds.has(s.id) && <span className="badge">{T("wxs.onroute")}</span>}
               </div>
@@ -293,6 +299,7 @@ export function BriefingTab(p: WxCommon) {
             return (
               <div className="wx-card kind-meteo" key={m.station}>
                 <div className="wx-head">
+                  <Icon name="cloud" size={16} className="kind-icon" />
                   <b>{m.station}</b> <span className="muted small">{m.name}</span>
                   <Category c={m.conditions.category} />
                 </div>

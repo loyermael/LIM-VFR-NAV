@@ -1,4 +1,6 @@
 import { Button } from "./ui/Button";
+import { Icon, type IconName } from "./ui/Icon";
+import { Category } from "./WxTabs";
 import { NotamCard } from "./NotamTab";
 import type { Notam } from "./notam";
 import { distance, formatQuantity, latestMetarByStation, latestTafByStation, unitLabel, type Airfield, type LatLon, type Metar, type Taf, type UnitPrefs } from "@lim/core";
@@ -21,11 +23,11 @@ export function AdMenu(p: {
   onClose: () => void;
 }) {
   const T = (k: Key) => t(p.lang, k);
-  const items: { key: string; label: string; icon: string; action: () => void; on?: boolean; off?: boolean; primary?: boolean }[] = [
-    { key: "direct", label: T("ad.direct"), icon: "➤", action: p.onDirect, primary: true },
-    { key: "info", label: T("ad.info"), icon: "i", action: p.onInfo },
-    { key: "vac", label: p.vacState === "none" ? T("ad.vacNoChart") : p.vacState === "shown" ? T("ad.vacHide") : T("ad.vac"), icon: "VAC", action: p.onVac, on: p.vacState === "shown", off: p.vacState === "none" },
-    { key: "route", label: T("ad.route"), icon: "+", action: p.onAddToRoute },
+  const items: { key: string; label: string; icon: IconName; action: () => void; on?: boolean; off?: boolean; primary?: boolean }[] = [
+    { key: "direct", label: T("ad.direct"), icon: "navigation", action: p.onDirect, primary: true },
+    { key: "info", label: T("ad.info"), icon: "info", action: p.onInfo },
+    { key: "vac", label: p.vacState === "none" ? T("ad.vacNoChart") : p.vacState === "shown" ? T("ad.vacHide") : T("ad.vac"), icon: "map", action: p.onVac, on: p.vacState === "shown", off: p.vacState === "none" },
+    { key: "route", label: T("ad.route"), icon: "map-pin-plus", action: p.onAddToRoute },
   ];
   return (
     <div className="admenu" style={{ left: p.x, top: p.y }} role="menu" aria-label={`${p.airfield.icao ?? p.airfield.name}`}>
@@ -37,7 +39,7 @@ export function AdMenu(p: {
           className={`adbtn adpos${i}${it.on ? " on" : ""}${it.off ? " dim" : ""}${it.primary ? " adprimary" : ""}`}
           onClick={it.action}
         >
-          <span className="adicon">{it.icon}</span>
+          <span className="adicon"><Icon name={it.icon} size={24} /></span>
           <span className="adlabel">{it.label}</span>
         </button>
       ))}
@@ -86,24 +88,24 @@ export function AdInfo(p: {
       <header>
         <h2>{a.icao ? `${a.icao} · ` : ""}{a.name}</h2>
         <div className="adhead-actions">
-          <Button role="primary" onClick={p.onDirect}>{T("ad.direct")}</Button>
-          <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+          <Button role="primary" icon="navigation" onClick={p.onDirect}>{T("ad.direct")}</Button>
+          <Button size="compact" icon="x" aria-label={T("close")} onClick={p.onClose} />
         </div>
       </header>
       <dl>
         {keys.map((k) => (
           <div key={k} className={k === "Pistes" ? "kind-piste" : undefined}>
-            <dt>{k}</dt>
+            <dt>{k === "Pistes" ? <Icon name="runway" size={16} /> : k === "Fréquences" ? <Icon name="radio" size={16} /> : k === "Altitude" ? <Icon name="mountain" size={16} /> : null}{k}</dt>
             <dd>
               {k === "Pistes" || k === "Fréquences"
-                ? (d[k] ?? "").split(" · ").map((line, j) => <span key={j} className={line.includes("★") ? "dd-line dd-main" : "dd-line"}>{line}</span>)
+                ? (d[k] ?? "").split(" · ").map((line, j) => <span key={j} className={line.includes("★") ? "dd-line dd-main" : "dd-line"}>{line.includes("★") ? <>{line.replace("★", "").trim()} <Icon name="star" size={16} filled /></> : line}</span>)
                 : d[k]}
             </dd>
           </div>
         ))}
       </dl>
 
-      <h3>{T("ad.weather")}</h3>
+      <h3 className="h-icon"><Icon name="cloud" size={16} />{T("ad.weather")}</h3>
       {near ? (
         <>
           <p className="muted small">
@@ -112,7 +114,7 @@ export function AdInfo(p: {
           <div className="mono small">
             {windText(near.s.conditions, p.prefs)} · {visibilityText(near.s.conditions.visibility)} · {cloudsText(near.s.conditions.clouds)} · {temperatureText(near.s.temperature, near.s.dewpoint)}
           </div>
-          <span className={`cat cat-${near.s.conditions.category ?? "none"}`}>{near.s.conditions.category ?? "?"}</span>
+          <Category c={near.s.conditions.category} />
           <details className="rawbox"><summary>{T("wx.raw")}</summary><pre className="wx-raw">{near.s.raw}</pre></details>
         </>
       ) : (
@@ -120,7 +122,7 @@ export function AdInfo(p: {
       )}
       {taf && <details className="rawbox"><summary>TAF</summary><pre className="wx-raw">{taf.raw}</pre></details>}
 
-      <h3>NOTAM{p.notams.length > 0 ? ` (${p.notams.length})` : ""}</h3>
+      <h3 className="h-icon"><Icon name="scroll-text" size={16} />NOTAM{p.notams.length > 0 ? ` (${p.notams.length})` : ""}</h3>
       {p.notams.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
       {p.notams.length === 0 && (
         <p className="muted small">
@@ -128,7 +130,7 @@ export function AdInfo(p: {
         </p>
       )}
 
-      <h3>{T("ad.vacTitle")}</h3>
+      <h3 className="h-icon"><Icon name="map" size={16} />{T("ad.vacTitle")}</h3>
       {docs.length === 0 && <p className="muted small">{T("ad.noVac")}</p>}
       {docs.map((x) => (
         <button className="row" key={x.id} onClick={() => p.onOpenDoc(x.id)}>

@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
@@ -46,8 +47,8 @@ export function TimersTab(p: TimersProps) {
       <p className="muted small">{p.recording ? `${T("tm.recording")} · ${p.pointCount} ${T("tm.points")}` : T("tm.idle")}</p>
       <div className="choices">
         {p.recording
-          ? <Button onClick={p.onStopRec}>{T("tm.stopRec")}</Button>
-          : <Button role="primary" onClick={p.onStartRec}>{T("tm.startRec")}</Button>}
+          ? <Button icon="square" onClick={p.onStopRec}>{T("tm.stopRec")}</Button>
+          : <Button role="primary" icon="play" onClick={p.onStartRec}>{T("tm.startRec")}</Button>}
       </div>
       <p className="muted small">{T("tm.autoNote")}</p>
 
@@ -67,8 +68,8 @@ export function TimersTab(p: TimersProps) {
       )}
       <div className="choices">
         {running
-          ? <button onClick={() => p.onCd(cdCancel(p.cd))}>{T("tm.cancel")}</button>
-          : <Button role="primary" disabled={p.cd.durationMs <= 0} onClick={() => p.onCd(cdStart(p.cd, p.nowMs))}>{T("tm.start")}</Button>}
+          ? <Button icon="square" onClick={() => p.onCd(cdCancel(p.cd))}>{T("tm.cancel")}</Button>
+          : <Button role="primary" icon="play" disabled={p.cd.durationMs <= 0} onClick={() => p.onCd(cdStart(p.cd, p.nowMs))}>{T("tm.start")}</Button>}
       </div>
       <p className="muted small">{T("tm.alarmNote")}</p>
 
@@ -76,8 +77,8 @@ export function TimersTab(p: TimersProps) {
       <div className="bigtime sub">{hms(swElapsed(p.sw, p.nowMs))}</div>
       <div className="choices">
         {p.sw.startedAt === null
-          ? <Button role="primary" onClick={() => p.onSw(swStart(p.sw, p.nowMs))}>{T("tm.start")}</Button>
-          : <button onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</button>}
+          ? <Button role="primary" icon="play" onClick={() => p.onSw(swStart(p.sw, p.nowMs))}>{T("tm.start")}</Button>
+          : <Button icon="square" onClick={() => p.onSw(swStop(p.sw, p.nowMs))}>{T("tm.stop")}</Button>}
         <button onClick={() => p.onSw(STOPWATCH_ZERO)}>{T("tm.reset")}</button>
       </div>
     </div>
@@ -167,7 +168,7 @@ export function TracesTab(p: TracesProps) {
     return (
       <div className="navscreen">
         <div className="docbar">
-          <button onClick={() => { setSel(null); }}>← {T("tr.back")}</button>
+          <button className="has-icon" onClick={() => { setSel(null); }}><Icon name="arrow-left" size={20} />{T("tr.back")}</button>
           <h3 className="doctitle">{track.name}</h3>
         </div>
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}

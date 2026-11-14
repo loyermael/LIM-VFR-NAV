@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
@@ -130,7 +131,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
   );
   return (
     <div className="navscreen">
-      <div className="choices"><button onClick={p.onDone}>← {T("ac.list")}</button></div>
+      <div className="choices"><button className="has-icon" onClick={p.onDone}><Icon name="arrow-left" size={20} />{T("ac.list")}</button></div>
       <label className="numfield">
         <span>{T("nav.name")}</span>
         <input className="field" defaultValue={a.name} key={`${a.id}-n`} onBlur={(e) => e.target.value.trim() && set({ name: e.target.value.trim() })} />
@@ -177,7 +178,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
                 <select className="field" value={s.kind} aria-label={T("ac.kindLabel")} onChange={(e) => p.onChange(patchStation(a, i, { kind: e.target.value as StationKind }, now()))}>
                   {KINDS.map((k) => <option key={k} value={k}>{T(`ac.kind.${k}` as Key)}</option>)}
                 </select>
-                <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeStation(a, i, now()))}>✕</button>
+                <button aria-label={T("nav.delete")} title={T("nav.delete")} onClick={() => p.onChange(removeStation(a, i, now()))}><Icon name="trash-2" size={20} /></button>
               </div>
               <div className="params">
                 <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={s.arm || null} onCommit={(v) => p.onChange(patchStation(a, i, { arm: v ?? 0 }, now()))} />
@@ -198,7 +199,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
               <b className="mono">{i + 1}</b>
               <NumField label={`${T("ac.arm")} (m)`} decimals={3} value={v[0]} onCommit={(x) => x !== null && p.onChange(patchVertex(a, i, x, v[1], now()))} />
               <NumField label={`${T("ac.mass")} (kg)`} decimals={1} value={v[1]} onCommit={(m) => m !== null && p.onChange(patchVertex(a, i, v[0], m, now()))} />
-              <button aria-label={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))}>✕</button>
+              <button aria-label={T("nav.delete")} title={T("nav.delete")} onClick={() => p.onChange(removeVertex(a, i, now()))}><Icon name="trash-2" size={20} /></button>
             </div>
           ))}
           <div className="choices">
@@ -208,7 +209,7 @@ export function AircraftEditor(p: { lang: Lang; prefs: UnitPrefs; aircraft: Airc
           {a.envelope.length >= 3 && envelopeArea(a) < 1e-6 && <p className="error" role="alert">{T("ac.degenerate")}</p>}
         </>
       ))}
-      <div className="choices"><Button role="primary" onClick={p.onDone}>{T("ac.done")}</Button></div>
+      <div className="choices"><Button role="primary" icon="circle-check" onClick={p.onDone}>{T("ac.done")}</Button></div>
     </div>
   );
 }
@@ -257,7 +258,7 @@ export function AircraftTab(p: AircraftTabProps) {
           </div>
         ))}
       </div>
-      <div className="choices"><Button role="primary" onClick={create}>{T("ac.new")}</Button></div>
+      <div className="choices"><Button role="primary" icon="plus" onClick={create}>{T("ac.new")}</Button></div>
       {a && validateAircraft(a).length === 0 && <p className="muted small">{T("ac.ready")}</p>}
       <p className="muted small">{T("ac.warning")}</p>
     </div>

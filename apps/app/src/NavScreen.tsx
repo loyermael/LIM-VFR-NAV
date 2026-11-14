@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -340,7 +341,7 @@ export function NavScreen(p: NavProps) {
                     onContextMenu={(e) => e.preventDefault()}
                     onClick={() => { if (holdFired.current) { holdFired.current = false; return; } p.onOpenRoute(r.id); }}
                   >
-                    {isActive && <span className="route-badge">{T("nav.active")}</span>}
+                    {isActive && <span className="route-badge"><Icon name="route" size={16} />{T("nav.active")}</span>}
                     <b>{r.name}</b>
                     <span className="muted small">
                       {r.label ? `${r.label} · ` : ""}{km} {distUnit}{r.timeSec !== null ? ` · ${formatDuration(r.timeSec as never)}` : ""} · {ageText(r.updatedAt, Date.now(), p.lang)}
@@ -348,21 +349,21 @@ export function NavScreen(p: NavProps) {
                   </button>
                   <div className="route-actions">
                     {isActive
-                      ? <Button size="touch" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
-                      : <Button role="primary" size="touch" onClick={() => p.onActivate(r.id)}>{T("route.activate")}</Button>}
-                    <Button size="touch" aria-label={T("route.manage")} aria-haspopup="true" aria-expanded={menuId === r.id} onClick={() => setMenuId(menuId === r.id ? null : r.id)}>⋯</Button>
+                      ? <Button size="touch" icon="square" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
+                      : <Button role="primary" size="touch" icon="play" onClick={() => p.onActivate(r.id)}>{T("route.activate")}</Button>}
+                    <Button size="touch" icon="ellipsis" aria-label={T("route.manage")} aria-haspopup="true" aria-expanded={menuId === r.id} onClick={() => setMenuId(menuId === r.id ? null : r.id)} />
                   </div>
                   {menuId === r.id && (
                     <div className="route-menu">
-                      <Button size="touch" onClick={() => { setMenuId(null); setWantRename(true); p.onOpenRoute(r.id); }}>{T("route.rename")}</Button>
-                      <Button size="touch" onClick={() => { setMenuId(null); p.onDuplicate(r.id); }}>{T("route.duplicate")}</Button>
-                      <Button size="touch" disabled={r.pointCount < 2} onClick={() => { setMenuId(null); p.onReverseRoute(r.id); }}>{T("nav.reverse")}</Button>
+                      <Button size="touch" icon="text-cursor-input" onClick={() => { setMenuId(null); setWantRename(true); p.onOpenRoute(r.id); }}>{T("route.rename")}</Button>
+                      <Button size="touch" icon="copy" onClick={() => { setMenuId(null); p.onDuplicate(r.id); }}>{T("route.duplicate")}</Button>
+                      <Button size="touch" icon="arrow-left-right" disabled={r.pointCount < 2} onClick={() => { setMenuId(null); p.onReverseRoute(r.id); }}>{T("nav.reverse")}</Button>
                       {(["gpx", "kml", "fpl", "pln"] as const).map((f) => (
-                        <Button key={f} size="touch" disabled={r.pointCount === 0} aria-label={`${T("route.export")} ${f.toUpperCase()}`} onClick={() => { setMenuId(null); exportById(r.id, f); }}>{f.toUpperCase()}</Button>
+                        <Button key={f} size="touch" disabled={r.pointCount === 0} icon="download" aria-label={`${T("route.export")} ${f.toUpperCase()}`} onClick={() => { setMenuId(null); exportById(r.id, f); }}>{f.toUpperCase()}</Button>
                       ))}
                       {isActive
                         ? <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => { setMenuId(null); p.onDeleteRoute(r.id); }} />
-                        : <Button size="touch" role="danger" className="end" onClick={() => { setMenuId(null); p.onDeleteRoute(r.id); }}>{T("nav.delete")}</Button>}
+                        : <Button size="touch" role="danger" icon="trash-2" className="end" onClick={() => { setMenuId(null); p.onDeleteRoute(r.id); }}>{T("nav.delete")}</Button>}
                     </div>
                   )}
                 </div>
@@ -371,24 +372,24 @@ export function NavScreen(p: NavProps) {
             {p.routes.length === 0 && (
               <>
                 <p className="muted">{T("route.empty")}</p>
-                <div className="choices"><Button role="primary" onClick={() => p.onNewRoute()}>{T("route.create")}</Button></div>
+                <div className="choices"><Button role="primary" icon="plus" onClick={() => p.onNewRoute()}>{T("route.create")}</Button></div>
               </>
             )}
             {p.routes.length > 0 && routeItems.length === 0 && <p className="muted small">{T("route.noMatch")}</p>}
           </div>
           {p.routes.length > 0 && (
             <div className="choices">
-              <Button onClick={() => p.onNewRoute()}>{T("nav.new")}</Button>
-              <label className="filebtn">
-                {T("nav.import")}
+              <Button icon="plus" onClick={() => p.onNewRoute()}>{T("nav.new")}</Button>
+              <label className="filebtn has-icon">
+                <Icon name="upload" size={20} />{T("nav.import")}
                 <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
               </label>
             </div>
           )}
           {p.routes.length === 0 && (
             <div className="choices">
-              <label className="filebtn">
-                {T("nav.import")}
+              <label className="filebtn has-icon">
+                <Icon name="upload" size={20} />{T("nav.import")}
                 <input type="file" hidden accept=".gpx,.kml,.fpl,.pln" onChange={(e) => { const f = e.target.files?.[0]; if (f) p.onImportFile(f); e.target.value = ""; }} />
               </label>
             </div>
@@ -406,12 +407,12 @@ export function NavScreen(p: NavProps) {
               <div className="route-head">
                 {isActiveRoute ? (
                   <>
-                    <span className="route-badge">{T("nav.active")}</span>
-                    <Button size="touch" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
+                    <span className="route-badge"><Icon name="route" size={16} />{T("nav.active")}</span>
+                    <Button size="touch" icon="square" onClick={p.onDeactivate}>{T("route.deactivate")}</Button>
                   </>
                 ) : (
                   <>
-                    <Button role="primary" onClick={() => p.onActivate(route.id)}>{T("route.activate")}</Button>
+                    <Button role="primary" icon="play" onClick={() => p.onActivate(route.id)}>{T("route.activate")}</Button>
                     <span className="muted small">{T("route.previewNote")}</span>
                   </>
                 )}
@@ -427,9 +428,9 @@ export function NavScreen(p: NavProps) {
                 />
               </label>
               <div className="choices">
-                <button onClick={p.onDrawOnMap}>{T("nav.draw")}</button>
-                <button disabled={route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</button>
-                <button onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</button>
+                <Button icon="pencil" onClick={p.onDrawOnMap}>{T("nav.draw")}</Button>
+                <Button icon="eye" disabled={route.points.length === 0} onClick={p.onShowRoute}>{T("nav.show")}</Button>
+                <Button icon="arrow-left-right" onClick={() => edit((r) => reverseRoute(r, now()))}>{T("nav.reverse")}</Button>
               </div>
 
               <h3>{T("nav.points")} <span className="muted small">· {T("nav.point.alt")} ({altUnit})</span></h3>
@@ -452,10 +453,10 @@ export function NavScreen(p: NavProps) {
                     />
                   </div>
                   <div className="pt-actions">
-                    <Button size="touch" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</Button>
-                    <Button size="touch" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</Button>
-                    <Button size="touch" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</Button>
-                    <Button size="touch" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</Button>
+                    <Button size="touch" icon="chevron-up" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))} />
+                    <Button size="touch" icon="chevron-down" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))} />
+                    <Button size="touch" icon="navigation" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</Button>
+                    <Button size="touch" icon="trash-2" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }} />
                   </div>
                 </div>
               ))}
@@ -502,7 +503,7 @@ export function NavScreen(p: NavProps) {
                         <span className="wg-n" title={`${route.points[k]?.name ?? ""} → ${pt.name}`}>{T("nav.wind.leg")} {k + 1}</span>
                         <MiniNum label={`${T("nav.wind.dir")} ${k + 1}`} value={w?.directionDeg ?? null} onCommit={(d) => { setAutoOff(); commitWind(d, windSpeedShown(w), (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
                         <MiniNum label={`${T("nav.wind.speed")} ${k + 1}`} value={windSpeedShown(w)} onCommit={(sp) => { setAutoOff(); commitWind(w?.directionDeg ?? null, sp, (x) => edit((r) => setLegWind(r, k, x, now()))); }} />
-                        <Button size="compact" className="wg-reset" aria-label={T("nav.legwind.reset")} title={T("nav.legwind.reset")} disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))}>↺</Button>
+                        <Button size="compact" className="wg-reset" aria-label={T("nav.legwind.reset")} title={T("nav.legwind.reset")} icon="rotate-ccw" disabled={!own} onClick={() => edit((r) => setLegWind(r, k, undefined, now()))} />
                       </div>
                     );
                   })}
@@ -514,7 +515,7 @@ export function NavScreen(p: NavProps) {
                 {(["gpx", "kml", "fpl", "pln"] as RouteFormat[]).map((f) => (
                   <Button key={f} size="compact" disabled={route.points.length === 0} onClick={() => download(`${route.name.replace(/[\\/:*?"<>|]/g, "_")}.${f}`, exportRoute(f, toRouteFile(route)))}>{f.toUpperCase()}</Button>
                 ))}
-                <Button {...(isActiveRoute ? { role: "primary" as const } : {})} disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</Button>
+                <Button {...(isActiveRoute ? { role: "primary" as const } : {})} icon="file-down" disabled={route.points.length < 2} onClick={p.onDossier}>{T("nav.dossier")}</Button>
               </div>
               </div>
             </div>
@@ -581,7 +582,7 @@ export function NavScreen(p: NavProps) {
               <div className={`crossed ${h.vertical}`} key={h.airspace.id}>
                 <div className="crossed-head">
                   <b>{h.airspace.name}</b>
-                  <span className="badge">{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
+                  <span className="badge">{h.vertical !== "outside" && <Icon name={h.vertical === "inside" ? "triangle-alert" : "diamond-alert"} size={16} />}{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
                 </div>
                 <div className="muted small">
                   {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {distUnit}
@@ -635,8 +636,8 @@ export function PointSheet(p: {
       <header>
         <h2>{p.index + 1} · {pt.name}</h2>
         <div className="adhead-actions">
-          <Button role="primary" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</Button>
-          <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+          <Button role="primary" icon="navigation" onClick={() => { p.onDirect(p.index); p.onClose(); }}>{T("nav.point.direct")}</Button>
+          <Button size="compact" icon="x" aria-label={T("close")} onClick={p.onClose} />
         </div>
       </header>
       <div className="ptsheet-fields">
@@ -710,7 +711,7 @@ export function DirectSheet(p: {
     <aside className="sheet directsheet" aria-label={T("direct.title")}>
       <header>
         <h2>{T("direct.title")}</h2>
-        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        <Button size="compact" icon="x" aria-label={T("close")} onClick={p.onClose} />
       </header>
       <p className="muted small">{T("direct.help")}</p>
       {p.airfields.length > 0 && (

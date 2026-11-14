@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { useState } from "react";
 import {
@@ -36,7 +37,7 @@ export function UnitSheet({ cell, lang, prefs, setUnit, onClose }: CommonProps &
     <aside className="sheet" aria-label={T(CELL_TITLE[cell])}>
       <header>
         <h2>{T(CELL_TITLE[cell])}</h2>
-        <Button size="compact" aria-label={T("close")} onClick={onClose}>✕</Button>
+        <Button size="compact" icon="x" aria-label={T("close")} onClick={onClose} />
       </header>
       <div className="choices">
         {UNIT_CHOICES[field].map((choice) => (
@@ -122,14 +123,14 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
     <aside className="sheet" aria-label={T("alt.title")}>
       <header>
         <h2>{T("alt.title")}</h2>
-        <Button size="compact" aria-label={T("close")} onClick={p.onClose}>✕</Button>
+        <Button size="compact" icon="x" aria-label={T("close")} onClick={p.onClose} />
       </header>
       {showQnh && (
         <>
           <h3>{T("alt.qnh")} · {unitLabel("pressure", prefs)}</h3>
           {p.qnhExpired && <p className="error" role="alert">{T("alt.qnh.expired")}</p>}
           <div className="stepper">
-            <button aria-label="QNH −" onClick={() => setQnh(stepFrom(settings.qnh) - stepPa)}>−</button>
+            <button aria-label="QNH −" title="QNH −" onClick={() => setQnh(stepFrom(settings.qnh) - stepPa)}><Icon name="minus" size={20} /></button>
             <input
               className="field mono"
               inputMode="decimal"
@@ -139,7 +140,7 @@ export function AltitudeSheet(p: AltitudeSheetProps) {
               onBlur={typedQnh}
               onKeyDown={(e) => e.key === "Enter" && typedQnh()}
             />
-            <button aria-label="QNH +" onClick={() => setQnh(stepFrom(settings.qnh) + stepPa)}>+</button>
+            <button aria-label="QNH +" title="QNH +" onClick={() => setQnh(stepFrom(settings.qnh) + stepPa)}><Icon name="plus" size={20} /></button>
             <button onClick={() => setQnh(STANDARD_QNH)}>{T("alt.qnh.std")}</button>
           </div>
           {qnhBad && <p className="error" role="alert">{T("alt.qnh.invalid")}</p>}

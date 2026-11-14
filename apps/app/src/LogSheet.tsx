@@ -70,7 +70,7 @@ export function LogSheet(p: {
         <div><i>FL20</i><b className="mono">{m.winds.fl20}</b></div>
         <div><i>FL50</i><b className="mono">{m.winds.fl50}</b></div>
         <div><i>FL100</i><b className="mono">{m.winds.fl100}</b></div>
-        <Button size="compact" disabled={p.windsBusy} onClick={p.onLoadWinds}>{p.windsBusy ? "…" : "↻"}</Button>
+        <Button size="compact" icon="refresh-cw" aria-label={T("log.winds.reload")} aria-busy={p.windsBusy} disabled={p.windsBusy} onClick={p.onLoadWinds} />
       </div>
       <div className="ls-table">
         <div className="lt-head lt-z" title={T("log.help.z")}><span>Z vol</span><span>Z min</span></div>
@@ -139,7 +139,7 @@ export function LogSheet(p: {
           </div>
         </section>
       </div>
-      <Button role="primary" onClick={p.onPdf}>{T("log.pdf")}</Button>
+      <Button role="primary" icon="file-down" onClick={p.onPdf}>{T("log.pdf")}</Button>
     </div>
   );
 }

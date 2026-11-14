@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useMemo, useState } from "react";
@@ -20,6 +21,7 @@ export function NotamCard({ lang, n, role }: { lang: Lang; n: Notam; role: Notam
   return (
     <div className="wx-card kind-notam">
       <div className="wx-head">
+        <Icon name="scroll-text" size={16} className="kind-icon" />
         <b>{n.id}</b> <span className="muted small">{n.locations.join(" ") || n.fir}</span>
         {role && <span className="badge">{T(roleLabel[role])}</span>}
       </div>
@@ -177,7 +179,7 @@ export function NotamTab(p: {
       <h3>{T("notam.import")}</h3>
       <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
       <div className="choices">
-        <Button role="primary" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</Button>
+        <Button role="primary" icon="scroll-text" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</Button>
         <label className="filebtn">
           {T("notam.file")}
           <input type="file" hidden accept=".txt,.text,.notam" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run(async () => p.onImportText(await f.text(), f.name), T("notam.imported")); }} />

@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -76,8 +77,8 @@ function ChartImage(p: { r: Rendered; zoom: number; marks?: readonly Mark[]; onP
 function ZoomBar(p: { zoom: number; onZoom: (z: number) => void }) {
   return (
     <div className="choices">
-      <button aria-label="zoom −" onClick={() => p.onZoom(Math.max(1, p.zoom / 1.5))}>−</button>
-      <button aria-label="zoom +" onClick={() => p.onZoom(Math.min(6, p.zoom * 1.5))}>+</button>
+      <button aria-label="zoom −" title="zoom −" onClick={() => p.onZoom(Math.max(1, p.zoom / 1.5))}><Icon name="minus" size={20} /></button>
+      <button aria-label="zoom +" title="zoom +" onClick={() => p.onZoom(Math.min(6, p.zoom * 1.5))}><Icon name="plus" size={20} /></button>
       <button onClick={() => p.onZoom(1)}>1:1</button>
     </div>
   );
@@ -173,7 +174,7 @@ function Calibrator(p: { lang: Lang; doc: DocRecord; airfield: Airfield | null; 
           <b className="mono">{i + 1}</b>
           <span className="mono small">{q.lat.toFixed(5)}, {q.lon.toFixed(5)}</span>
           <span className="mono small">{fit && pts.length >= 3 && !assisted ? `±${Math.round(fit.residuals[i] as number)} m` : ""}</span>
-          <button aria-label={T("nav.delete")} onClick={() => setPts(pts.filter((_, j) => j !== i))}>✕</button>
+          <button aria-label={T("nav.delete")} title={T("nav.delete")} onClick={() => setPts(pts.filter((_, j) => j !== i))}><Icon name="trash-2" size={20} /></button>
         </div>
       ))}
       {pts.length < 2 && <p className="muted small">{T("dc.cal.min")}</p>}
@@ -225,7 +226,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
   return (
     <div className="navscreen">
       <div className="docbar">
-        <button onClick={p.onBack}>← {T("dc.back")}</button>
+        <button className="has-icon" onClick={p.onBack}><Icon name="arrow-left" size={20} />{T("dc.back")}</button>
         <h3 className="doctitle">{d.icao ? `${d.icao} · ` : ""}{d.name}</h3>
       </div>
       <p className="muted small">{T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""}{g ? ` · ${T("dc.geo.badge")}` : ""}</p>
@@ -237,9 +238,9 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
           <div className="choices">
             {r.pages > 1 && (
               <>
-                <button disabled={page <= 1} aria-label="‹" onClick={() => setPage(page - 1)}>‹</button>
+                <button disabled={page <= 1} aria-label={T("pager.prev")} title={T("pager.prev")} onClick={() => setPage(page - 1)}><Icon name="chevron-left" size={20} /></button>
                 <span className="mono">{page} / {r.pages}</span>
-                <button disabled={page >= r.pages} aria-label="›" onClick={() => setPage(page + 1)}>›</button>
+                <button disabled={page >= r.pages} aria-label={T("pager.next")} title={T("pager.next")} onClick={() => setPage(page + 1)}><Icon name="chevron-right" size={20} /></button>
               </>
             )}
             <ZoomBar zoom={zoom} onZoom={setZoom} />
@@ -326,8 +327,8 @@ export function DocsTab(p: DocsProps) {
   };
   return (
     <div className="navscreen">
-      <label className={p.docs.length === 0 ? "filebtn btn-primary" : "filebtn"}>
-        {T("dc.import")}
+      <label className={p.docs.length === 0 ? "filebtn has-icon btn-primary" : "filebtn has-icon"}>
+        <Icon name="upload" size={20} />{T("dc.import")}
         <input type="file" accept=".pdf,application/pdf,image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
       </label>
       {importError && <p className="error" role="alert">{importError}</p>}

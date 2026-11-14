@@ -1,3 +1,4 @@
+import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { useState } from "react";
@@ -36,7 +37,13 @@ function Row(p: { lang: Lang; pack: PackHook; ds: PackDataset; nowMs: number }) 
       {st?.state === "installing" && (<><progress aria-label={T("dp.installing")} /><div className="mono small">{T("dp.installing")}</div></>)}
       {st?.state === "error" && <div className="error" role="alert">{T("dp.error")} : {st.message}</div>}
       {st?.state !== "downloading" && st?.state !== "installing" && st?.state !== "error" && (
-        <div className={`small ${have ? ((p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "stat-caution" : "stat-good") : p.pack.checking ? "muted" : "stat-caution"}`}>{have ? `${(p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "◆" : "✓"} ${ageText(have.updatedAt, p.nowMs, p.lang)}` : p.pack.checking ? T("dp.waiting") : `◆ ${T("dp.missing")}`}</div>
+        <div className={`small stat ${have ? ((p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "stat-caution" : "stat-good") : p.pack.checking ? "muted" : "stat-caution"}`}>
+          {have ? (
+            <><Icon name={(p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "diamond-alert" : "circle-check"} size={16} />{ageText(have.updatedAt, p.nowMs, p.lang)}</>
+          ) : p.pack.checking ? T("dp.waiting") : (
+            <><Icon name="diamond-alert" size={16} />{T("dp.missing")}</>
+          )}
+        </div>
       )}
     </div>
   );
@@ -68,14 +75,14 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
             {!installed ? (
               <>
                 <p className="muted small">{items.map((d) => d.title).join(" · ")}</p>
-                <div className="choices"><Button role="primary" onClick={() => k.chooseCountry(c.code)}>{T("dp.install")}</Button></div>
+                <div className="choices"><Button role="primary" icon="download" onClick={() => k.chooseCountry(c.code)}>{T("dp.install")}</Button></div>
               </>
             ) : (
               <>
                 <div className="choices">
                   {k.checking
                     ? <button onClick={k.cancel}>{T("dp.cancel")}</button>
-                    : <Button role="primary" onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</Button>}
+                    : <Button role="primary" icon="refresh-cw" onClick={k.refresh}>{Object.values(k.status).some((s) => s.state === "error") ? T("dp.retry") : T("dp.refresh")}</Button>}
                 </div>
                 <div className="datalist">{items.map((d) => <Row key={d.id} lang={p.lang} pack={k} ds={d} nowMs={p.nowMs} />)}</div>
                 <div className="datarow soon"><b>{T("dp.soonMaps")}</b><span className="muted small">{T("dp.soon")}</span></div>

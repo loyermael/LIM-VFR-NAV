@@ -59,9 +59,6 @@ button[aria-busy='true'] { cursor: progress; opacity: 0.7; }
 .banner.caution { background: var(--caution); color: var(--on-caution); border-color: var(--ink); }
 .banner.info { background: var(--field); color: var(--ink); border-color: var(--ink); }
 /* Gravité = forme + libellé, jamais la couleur seule (▲ alerte, ◆ prudence, ■ information). */
-.banner.alert::before { content: "▲"; margin-right: var(--sp-2); }
-.banner.caution::before { content: "◆"; margin-right: var(--sp-2); }
-.banner.info::before { content: "■"; margin-right: var(--sp-2); color: var(--info); }
 .banner-more { margin-left: var(--sp-3); padding: 0 var(--sp-2); border: var(--rule-line); font-size: var(--fs-12); }
 .banner.alert { background: var(--signal); color: var(--on-signal); border-color: var(--ink); font-size: var(--fs-20); letter-spacing: 0.04em; }
 .mapctl { position: absolute; left: calc(var(--sp-3) + env(safe-area-inset-left)); bottom: var(--sp-3); z-index: 2; display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -213,9 +210,7 @@ button:disabled { opacity: 0.45; cursor: default; }
 .crossed-head { display: flex; justify-content: space-between; gap: var(--sp-2); align-items: baseline; }
 .crossed .badge { font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px var(--sp-2); border: var(--rule-line); }
 .crossed.inside .badge { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
-.crossed.inside .badge::before { content: "▲ "; }
 .crossed.unknown .badge { background: var(--caution); color: var(--on-caution); }
-.crossed.unknown .badge::before { content: "◆ "; }
 .crossed.outside { opacity: 0.7; }
 .freqs { font-size: var(--fs-14); }
 
@@ -233,13 +228,9 @@ table.navlog tr.under td { opacity: 0.45; }
 .wx-raw { margin: 0; padding: var(--sp-2); background: var(--paper-2); font-family: var(--font-mono); font-size: var(--fs-12); white-space: pre-wrap; word-break: break-word; user-select: text; }
 .cat { font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; letter-spacing: 0.06em; padding: 2px var(--sp-2); border: var(--rule-line); }
 .cat-VFR { background: var(--zone-good); color: var(--paper); border-color: var(--zone-good); }
-.cat-VFR::before { content: "● "; }
 .cat-MVFR { background: var(--caution); color: var(--on-caution); border-color: var(--ink); }
-.cat-MVFR::before { content: "◆ "; }
 .cat-IFR { background: var(--signal); color: var(--on-signal); border-color: var(--signal); }
-.cat-IFR::before { content: "▲ "; }
 .cat-LIFR { background: var(--ink); color: var(--on-ink); }
-.cat-LIFR::before { content: "▲▲ "; }
 .cat-none { color: var(--ink-muted); }
 table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 
@@ -291,7 +282,6 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .secttitle { font-weight: 700; }
 .badge.okbadge { color: var(--zone-good); border-color: var(--zone-good); background: transparent; }
 .badge.todobadge { background: var(--caution); color: var(--on-caution); }
-.badge.todobadge::before { content: "◆ "; }
 .stationcard { border: 1px solid var(--hair); padding: var(--sp-2); margin-bottom: var(--sp-2); display: grid; gap: var(--sp-2); }
 .stationhead { display: grid; grid-template-columns: 1fr auto auto; gap: var(--sp-2); align-items: center; }
 .aircard { border: var(--rule-line); padding: var(--sp-2); margin-bottom: var(--sp-2); background: var(--paper); display: grid; gap: var(--sp-2); }
@@ -495,20 +485,14 @@ button.row { text-align: left; }
 .kind-meteo { --kind: var(--cat-meteo); }
 .kind-piste { --kind: var(--cat-piste); }
 .wx-card.kind-notam, .wx-card.kind-meteo { border-left: 6px solid var(--kind); padding-left: var(--sp-2); }
-.wx-card.kind-notam .wx-head > b::before { content: "◆ "; color: var(--kind); }
-.wx-card.kind-meteo .wx-head > b::before { content: "☁ "; color: var(--kind); }
 .sheet dl .kind-piste { border-left: 6px solid var(--kind); padding-left: var(--sp-2); }
-.sheet dl .kind-piste dt::before { content: "▬ "; color: var(--kind); }
 .notam-ad { border-left: 6px solid var(--cat-notam); padding-left: var(--sp-2); }
-.notam-ad-head::before { content: "◆"; color: var(--cat-notam); }
 
 /* Information neutre (source, date, cycle) : barre bleue + carré « i ». */
 .infonote { border-left: 6px solid var(--info); padding-left: var(--sp-2); }
-.infonote::before { content: "■ i  "; color: var(--info); font-family: var(--font-mono); font-weight: 700; }
 
 /* Route active : pastille magenta dans la liste (symbole ◆ + mot « active »). */
 .route-badge { margin-left: var(--sp-2); padding: 2px var(--sp-2); border: 2px solid var(--route-ink); color: var(--route-ink); background: var(--field); font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
-.route-badge::before { content: "◆ "; }
 .mapctl button[aria-pressed='true'], .layersbtn[aria-pressed='true'] { box-shadow: var(--shadow-pop), inset 0 -5px 0 var(--brand); }
 
 /* États de données : OK (vert + ✓) ou à vérifier (ambre foncé + ◆), toujours avec le texte. */
@@ -576,3 +560,34 @@ button.row { text-align: left; }
 .routechip-menu button { text-align: left; width: 100%; }
 .routebar { position: absolute; z-index: 3; bottom: var(--sp-3); left: calc(var(--sp-3) + var(--h-control) + var(--sp-2) + env(safe-area-inset-left)); right: var(--sp-3); display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--field); border: var(--rule-heavy); box-shadow: var(--shadow-pop); }
 .routebar-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: var(--fs-14); }
+
+/* Icônes : trait de 2 px constant (quelle que soit la taille), alignées sur le texte du bouton. */
+.icon { flex: none; display: block; }
+.icon * { vector-effect: non-scaling-stroke; }
+button.has-icon, .filebtn.has-icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); }
+button.icon-only { padding: 0; min-width: var(--h-touch); }
+button.icon-only.btn-prep { min-width: var(--h-prep); }
+
+/* Barre du haut et bandeau avec icônes ; onglets : icône au-dessus du texte. */
+.toolbar button.has-icon { gap: var(--sp-2); }
+.banner { display: flex; align-items: center; justify-content: center; gap: var(--sp-2); }
+.banner.info .icon { color: var(--info); }
+.tabs button.tabbtn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: var(--sp-1) 2px; }
+.tabs button.tabbtn span { line-height: 1.1; }
+.mapctl button .icon, .layersbtn .icon { margin: 0 auto; }
+
+/* Titres avec icône, badges et formes d'état : icône à gauche du texte, même couleur. */
+.h-icon { display: flex; align-items: center; gap: var(--sp-2); }
+.sheet dt { display: flex; align-items: center; gap: var(--sp-1); }
+.badge, .route-badge { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.secttitle { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.adicon { display: grid; place-items: center; }
+
+/* Icônes de catégorie (couleur de la catégorie) et notes d'information (bleu). */
+.kind-icon { color: var(--kind); align-self: center; }
+.sheet dl .kind-piste dt .icon { color: var(--kind); }
+.infonote { display: flex; align-items: flex-start; gap: var(--sp-2); }
+.infonote .icon { color: var(--info); margin-top: 2px; }
+.stat { display: flex; align-items: center; gap: var(--sp-1); }
+.cat { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.dd-line .icon { display: inline-block; vertical-align: -2px; }
