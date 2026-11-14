@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L!M Nav — nuancier fonctionnel</title>
+<link rel="stylesheet" href="/src/ui/fonts.css">
+<style>
+  :root { --font-display: 'Archivo', 'Arial Narrow', Arial, sans-serif; --font-text: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; --font-mono: 'IBM Plex Mono', Consolas, monospace; }
+  /* Palette proposée. Jour et nuit sont deux jeux complets ; les valeurs existantes sont marquées (existant). */
+  .day   { --paper:#f3f1ea; --field:#fbfaf6; --ink:#15191d; --muted:#42484d; --hair:#b8b3a4; --on-ink:#f3f1ea;
+           --accent:#ffd700; --on-accent:#15191d; --route:#c2188c; --signal:#c8321e; --on-signal:#f3f1ea; --caution:#e0820a; --caution-ink:#7a5200; --good:#2f6b3a; --info:#1f55b8;
+           --c-notam:#6a3fa0; --c-meteo:#00768f; --c-piste:#7b4a2a; }
+  .night { --paper:#15191d; --field:#101417; --ink:#f3f1ea; --muted:#a9afb3; --hair:#3a4147; --on-ink:#15191d;
+           --accent:#ffd700; --on-accent:#15191d; --route:#ee5fc0; --signal:#ee6a53; --on-signal:#15191d; --caution:#f0a030; --caution-ink:#f0a030; --good:#8cbf7b; --info:#7aa9ff;
+           --c-notam:#b79cf0; --c-meteo:#5cc8de; --c-piste:#d2a07a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--font-text); font-size: 16px; line-height: 1.4; background: #e6e3d8; color: #15191d; padding: 16px; }
+  h1 { font-family: var(--font-display); font-stretch: 68%; font-weight: 800; text-transform: uppercase; font-size: 32px; margin: 0 0 4px; }
+  h2 { font-family: var(--font-display); font-stretch: 68%; font-weight: 800; text-transform: uppercase; font-size: 24px; margin: 32px 0 8px; border-top: 3px solid #15191d; padding-top: 8px; }
+  .note { font-family: var(--font-mono); font-size: 12px; color: #42484d; margin: 0 0 12px; }
+  .tools { position: sticky; top: 0; z-index: 5; background: #e6e3d8; padding: 8px 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tools button { font: inherit; font-family: var(--font-display); font-stretch: 68%; font-weight: 700; text-transform: uppercase; min-height: 44px; padding: 0 16px; border: 1px solid #15191d; background: #fbfaf6; cursor: pointer; }
+  .tools button[aria-pressed=true] { background: #15191d; color: #f3f1ea; }
+  .panel { background: var(--paper); color: var(--ink); padding: 16px; border: 3px solid #15191d; margin-bottom: 16px; }
+  .panel > h3 { font-family: var(--font-mono); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 12px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .sw { background: var(--field); color: var(--ink); border: 1px solid var(--ink); }
+  .sw .chip { height: 56px; display: flex; align-items: center; padding: 0 12px; font-family: var(--font-display); font-stretch: 68%; font-weight: 700; text-transform: uppercase; font-size: 20px; }
+  .sw .meta { padding: 8px 12px; font-family: var(--font-mono); font-size: 12px; }
+  .sw .meta b { font-family: var(--font-text); font-size: 14px; display: block; }
+  .sw .role { color: var(--muted); }
+  .ok { color: var(--good); font-weight: 600; } .bad { color: var(--signal); font-weight: 600; }
+  /* exemples */
+  .btn { font-family: var(--font-display); font-stretch: 68%; font-weight: 700; text-transform: uppercase; font-size: 16px; min-height: 48px; padding: 0 16px; border: 1px solid var(--ink); background: var(--field); color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .btn.primary { background: var(--accent); color: var(--on-accent); min-height: 56px; font-size: 20px; }
+  .btn.active { background: var(--ink); color: var(--on-ink); box-shadow: inset 0 -5px 0 var(--accent); }
+  .btn.danger { color: var(--signal); border-color: var(--signal); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .state { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border: 1px solid var(--ink); font-family: var(--font-mono); font-weight: 600; background: var(--field); border-left-width: 8px; }
+  .state svg { flex: none; }
+  .state.alert { border-left-color: var(--signal); } .state.alert svg { color: var(--signal); }
+  .state.caution { border-left-color: var(--caution); } .state.caution svg { color: var(--caution-ink); }
+  .state.good { border-left-color: var(--good); } .state.good svg { color: var(--good); }
+  .state.info { border-left-color: var(--info); } .state.info svg { color: var(--info); }
+  .banner { padding: 8px 16px; font-family: var(--font-mono); font-weight: 600; margin-bottom: 8px; display: flex; gap: 12px; align-items: center; }
+  .banner.alert { background: var(--signal); color: var(--on-signal); font-size: 20px; text-transform: uppercase; font-family: var(--font-display); font-stretch: 68%; }
+  .banner.caution { background: var(--caution); color: #15191d; }
+  .cat { display: grid; gap: 4px; padding: 8px 12px; border: 1px solid var(--hair); background: var(--field); border-left: 6px solid; font-size: 14px; }
+  .cat b { font-family: var(--font-mono); letter-spacing: .06em; text-transform: uppercase; font-size: 12px; display: flex; gap: 6px; align-items: center; }
+  .map { height: 120px; background: #e9e4cf; position: relative; overflow: hidden; border: 1px solid var(--ink); }
+  .map .r { position: absolute; left: -10%; right: -10%; top: 55%; height: 6px; background: var(--route); transform: rotate(-12deg); box-shadow: 0 0 0 2px #fff; }
+  .map .d { position: absolute; left: 30%; width: 50%; top: 30%; height: 0; border-top: 5px dashed var(--route); transform: rotate(14deg); }
+  .map .asp { position: absolute; width: 90px; height: 70px; border: 3px solid #1d46a6; border-radius: 50%; right: 12%; top: 8%; }
+  .map .asp2 { position: absolute; width: 70px; height: 46px; border: 3px solid #e0202a; left: 8%; top: 12%; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: #fbfaf6; }
+  th, td { border: 1px solid #15191d; padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: #15191d; color: #f3f1ea; font-family: var(--font-mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+  .cvd-on .panel, .cvd-on .sw { filter: url(#deut); }
+  .cvd-on .mapkey { filter: url(#deut); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="deut" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.367 0.861 -0.228 0 0  0.280 0.673 0.047 0 0  -0.012 0.043 0.969 0 0"/></filter>
+</svg>
+
+<h1>L!M Nav — nuancier fonctionnel</h1>
+<p class="note">Proposition, rien n'est appliqué dans l'appli. Contrastes calculés (WCAG) sur --champ et --papier de chaque mode. « Existant » = valeur déjà dans tokens.css.</p>
+<div class="tools">
+  <button id="cvd" aria-pressed="false">Simuler la deutéranopie</button>
+  <span class="note" style="margin:0">Les exemples ci-dessous passent dans le filtre : l'information doit rester lisible.</span>
+</div>
+
+<h2>1 · Palette (jour / nuit)</h2>
+<div class="grid" id="palette"></div>
+
+<h2>1 bis · Vue deutéranope (calculée)</h2>
+<p class="note">Matrice de Machado (sévérité 1,0) appliquée aux valeurs jour. Si deux puces deviennent presque identiques, l'information ne doit pas reposer sur la couleur : c'est pourquoi chaque état porte une forme et un libellé.</p>
+<div id="cvdrow" class="row"></div>
+<h2>2 · Exemples d'usage</h2>
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+  <div class="panel day">
+    <h3>Jour — boutons et état</h3>
+    <div class="row"><span class="btn primary">Nouvelle route</span><span class="btn">Dessiner</span><span class="btn active">Route</span><span class="btn danger">Supprimer</span></div>
+    <div class="banner alert"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 1 21h22Z" fill="currentColor"/><path d="M12 9v6M12 17.5v1" stroke="#c8321e" stroke-width="2.4"/></svg>Signal GPS perdu</div>
+    <div class="banner caution"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="#15191d"/><path d="M12 7v6M12 15.5v1" stroke="#e0820a" stroke-width="2.4"/></svg>Données aéro périmées (35 j)</div>
+    <div class="row" style="display:grid;gap:8px">
+      <div class="state alert"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 1 21h22Z" fill="currentColor"/></svg>ALERTE · CTR en 2 min</div>
+      <div class="state caution"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="currentColor"/></svg>PRUDENCE · niveau ?</div>
+      <div class="state good"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7 12.5 3.5 3.5L17 9" stroke="#fff" stroke-width="2.4" fill="none"/></svg>OK · GPS 3D</div>
+      <div class="state info"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor"/><path d="M12 10.5v6M12 6.5v1.4" stroke="#fff" stroke-width="2.4"/></svg>INFO · cycle AIRAC 2611</div>
+    </div>
+    <div class="map"><div class="r"></div><div class="d"></div><div class="asp"></div><div class="asp2"></div></div>
+    <p class="note" style="margin-top:6px">Route active = magenta plein ; « direct vers » = magenta tireté. Espaces : couleurs OACI existantes (carte inchangée).</p>
+  </div>
+  <div class="panel night">
+    <h3>Nuit — mêmes rôles</h3>
+    <div class="row"><span class="btn primary">Nouvelle route</span><span class="btn">Dessiner</span><span class="btn active">Route</span><span class="btn danger">Supprimer</span></div>
+    <div class="banner alert"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 1 21h22Z" fill="currentColor"/><path d="M12 9v6M12 17.5v1" stroke="#ee6a53" stroke-width="2.4"/></svg>Signal GPS perdu</div>
+    <div class="banner caution"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="#15191d"/><path d="M12 7v6M12 15.5v1" stroke="#f0a030" stroke-width="2.4"/></svg>Données aéro périmées (35 j)</div>
+    <div class="row" style="display:grid;gap:8px">
+      <div class="state alert"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 1 21h22Z" fill="currentColor"/></svg>ALERTE · CTR en 2 min</div>
+      <div class="state caution"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="currentColor"/></svg>PRUDENCE · niveau ?</div>
+      <div class="state good"><svg width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m7 12.5 3.5 3.5L17 9" stroke="#101417" stroke-width="2.4" fill="none"/></svg>OK · GPS 3D</div>
+      <div class="state info"><svg width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2" fill="currentColor"/><path d="M12 10.5v6M12 6.5v1.4" stroke="#101417" stroke-width="2.4"/></svg>INFO · cycle AIRAC 2611</div>
+    </div>
+    <div class="map" style="background:#e9e4cf"><div class="r" style="background:#c2188c"></div><div class="d" style="border-top-color:#c2188c"></div><div class="asp"></div><div class="asp2"></div></div>
+    <p class="note" style="margin-top:6px">La carte aéro reste claire (règle actuelle) : la route y garde le magenta du jour.</p>
+  </div>
+</div>
+
+<h2>3 · Catégories dans les fiches (discrètes)</h2>
+<div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));">
+  <div class="panel day">
+    <h3>Jour</h3>
+    <div style="display:grid;gap:8px">
+      <div class="cat" style="border-left-color:var(--ink)"><b>▮ Fréquences</b>TWR 118.100 · AFIS 123.500</div>
+      <div class="cat" style="border-left-color:var(--c-piste)"><b style="color:var(--c-piste)">▬ Pistes</b>03/21 · 800 m · herbe</div>
+      <div class="cat" style="border-left-color:var(--c-notam)"><b style="color:var(--c-notam)">◆ NOTAM</b>A0001/26 · grue 120 ft</div>
+      <div class="cat" style="border-left-color:var(--c-meteo)"><b style="color:var(--c-meteo)">☁ Météo</b>METAR LFLM 120730Z 24008KT</div>
+    </div>
+  </div>
+  <div class="panel night">
+    <h3>Nuit</h3>
+    <div style="display:grid;gap:8px">
+      <div class="cat" style="border-left-color:var(--ink)"><b>▮ Fréquences</b>TWR 118.100 · AFIS 123.500</div>
+      <div class="cat" style="border-left-color:var(--c-piste)"><b style="color:var(--c-piste)">▬ Pistes</b>03/21 · 800 m · herbe</div>
+      <div class="cat" style="border-left-color:var(--c-notam)"><b style="color:var(--c-notam)">◆ NOTAM</b>A0001/26 · grue 120 ft</div>
+      <div class="cat" style="border-left-color:var(--c-meteo)"><b style="color:var(--c-meteo)">☁ Météo</b>METAR LFLM 120730Z 24008KT</div>
+    </div>
+  </div>
+</div>
+<p class="note">Fréquences restent neutres (encre) : trois catégories colorées suffisent, la quatrième n'apporterait rien et rapprocherait trop de teintes.</p>
+
+<h2>4 · Espaces aériens (existant, non modifié)</h2>
+<div class="panel day mapkey">
+  <h3>Conventions OACI déjà dans la carte</h3>
+  <div class="row">
+    <span class="state" style="border-left:8px solid #c8183a">Classe A / CTR — rouge #c8183a</span>
+    <span class="state" style="border-left:8px solid #1d46a6">Classe D / ATZ — bleu #1d46a6</span>
+    <span class="state" style="border-left:8px solid #3d68b5">Classe E — bleu #3d68b5</span>
+    <span class="state" style="border-left:8px solid #e0202a">Interdite / réglementée / dangereuse — rouge #e0202a</span>
+    <span class="state" style="border-left:8px solid #1b5faa">FIR — bleu #1b5faa</span>
+    <span class="state" style="border-left:8px solid #2e9a4a">Planeur — vert #2e9a4a</span>
+  </div>
+  <p class="note">Ces couleurs sont tirées de la carte OACI papier : on ne les touche pas. Elles restent distinctes du rôle « alerte » par leur usage (tracé de carte, jamais bandeau ni bouton).</p>
+</div>
+
+<h2>5 · Où la couleur apparaît, écran par écran</h2>
+<table>
+  <tr><th>Écran</th><th>Couleur</th><th>Éléments</th><th>Part colorée (estim.)</th></tr>
+  <tr><td>Carte en vol</td><td>magenta · rouge · orange · jaune</td><td>route et direct (magenta) ; avion et alerte bandeau (rouge) ; prudence bandeau (orange) ; bouton ◎ / couche active : encre + barre jaune</td><td>≤ 6 % hors carte</td></tr>
+  <tr><td>Route (liste)</td><td>jaune · magenta</td><td>« Nouvelle route » (jaune) ; route sélectionnée : barre jaune à gauche ; pastille magenta « active »</td><td>≈ 8 %</td></tr>
+  <tr><td>Route (détail)</td><td>jaune · vert/orange · rouge</td><td>Dossier (jaune) ; vent auto « OK » (vert + ✓) ; vent manquant (orange + ◆) ; Supprimer (rouge, contour)</td><td>≈ 7 %</td></tr>
+  <tr><td>Log</td><td>jaune · orange</td><td>PDF (jaune) ; case active = encre + barre jaune ; espaces « niveau ? » (orange + ◆)</td><td>≈ 6 %</td></tr>
+  <tr><td>NOTAM</td><td>violet · jaune · orange</td><td>puce NOTAM (violet + ◆) ; Analyser (jaune) ; avertissement « non officiel » (orange + ◆, texte encre)</td><td>≈ 8 %</td></tr>
+  <tr><td>Fiche terrain</td><td>jaune · catégories · bleu</td><td>Direct vers (jaune) ; liserés pistes / NOTAM / météo (catégories) ; « source : openAIP, date » (bleu info + i)</td><td>≈ 9 %</td></tr>
+  <tr><td>Météo</td><td>teal · vert/orange/rouge</td><td>liseré météo ; catégorie de vol VFR (vert ✓) / MVFR (orange ◆) / IFR (rouge ▲), toujours avec le libellé</td><td>≈ 10 %</td></tr>
+  <tr><td>Données</td><td>vert · orange · jaune</td><td>zone à jour (vert ✓) ; périmée (orange ◆) ; Installer / Télécharger (jaune)</td><td>≈ 7 %</td></tr>
+  <tr><td>Avion / Vol / Docs / Réglages</td><td>jaune · rouge</td><td>un primaire par vue ; supprimer (rouge) ; « actif » = encre + barre jaune</td><td>≈ 5 %</td></tr>
+</table>
+<p class="note">Parts estimées sur la conception, pas mesurées : je les mesurerai écran par écran après application (seuil : 10-15 % hors carte).</p>
+
+<h2>6 · Règles</h2>
+<ul>
+  <li><b>Jaune et orange ne servent jamais de texte ni de trait fin sur fond clair</b> (contraste 1,3:1 et 2,7:1) : seulement des aplats avec texte encre (12,6:1 et 6,2:1), ou une barre épaisse. Texte de prudence sur fond clair = <i>--caution-ink</i> (#7a5200, existant, 7:1).</li>
+  <li><b>Jamais la couleur seule</b> : alerte ▲ + « ALERTE », prudence ◆ + « PRUDENCE », OK ● ✓, info ■ i, catégories avec un symbole et un libellé.</li>
+  <li><b>Une couleur = un sens</b> : le vert ne dessine plus la route (réservé à « OK ») ; le rouge d'alerte n'est pas celui des zones OACI (tracé de carte).</li>
+  <li>Bleu marine des chiffres de vol (<i>--data-figure</i>) inchangé : c'est de la donnée, pas un état.</li>
+</ul>
+
+<script>
+const P = [
+  ['Accent', '--brand (existant)', '#ffd700', '#ffd700', 'Action primaire ; barre d\'élément actif / sélectionné', 'Bouton primaire (1 par vue), barre sous l\'onglet / calque / ligne actifs, point sélectionné'],
+  ['Route active', '--direct (existant) → rôle étendu', '#c2188c', '#ee5fc0', 'Route active uniquement (plein) et « direct vers » (tireté)', 'Tracé de route sur la carte, repères de la route, pastille « route active » dans la liste'],
+  ['Alerte', '--signal (existant)', '#c8321e', '#ee6a53', 'Alerte et destructif', 'Bandeau alerte, avion, GPS perdu, contour de Supprimer, IFR'],
+  ['Prudence', '--caution (proposé)', '#e0820a', '#f0a030', 'Prudence', 'Bandeau de prudence, données périmées, « niveau ? », vent manquant, MVFR'],
+  ['OK', '--zone-good (existant)', '#2f6b3a', '#8cbf7b', 'Valide / à jour', 'GPS 3D, zone à jour, vent auto OK, VFR'],
+  ['Info', '--info (nouveau)', '#1f55b8', '#7aa9ff', 'Information neutre', 'Source et date des données, aide contextuelle, cycle AIRAC à jour'],
+  ['Cat. NOTAM', '--cat-notam (nouveau)', '#6a3fa0', '#b79cf0', 'Type d\'info : NOTAM', 'Liseré et puce « ◆ NOTAM » dans les fiches'],
+  ['Cat. Météo', '--cat-meteo (nouveau)', '#00768f', '#5cc8de', 'Type d\'info : météo', 'Liseré et puce « ☁ Météo »'],
+  ['Cat. Pistes', '--cat-piste (nouveau)', '#7b4a2a', '#d2a07a', 'Type d\'info : pistes', 'Liseré et puce « ▬ Pistes »'],
+];
+function lin(c){c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)}
+function L(h){h=h.replace('#','');const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return .2126*lin(r)+.7152*lin(g)+.0722*lin(b)}
+function cr(a,b){let x=L(a),y=L(b);if(x<y)[x,y]=[y,x];return (x+.05)/(y+.05)}
+const grid=document.getElementById('palette');
+for (const [name,tok,d,n,role,use] of P) {
+  const dayF='#fbfaf6', nightF='#101417';
+  const cd=cr(d,dayF), cn=cr(n,nightF);
+  const fill = name==='Accent'||name==='Prudence';
+  const txt = (c)=> c>=4.5? `<span class="ok">${c.toFixed(1)}:1</span>` : `<span class="bad">${c.toFixed(1)}:1</span>`;
+  const el=document.createElement('div');
+  el.innerHTML = `
+  <div class="sw day"><div class="chip" style="background:${d};color:${cr('#15191d',d)>cr('#f3f1ea',d)?'#15191d':'#f3f1ea'}">${name}</div>
+    <div class="meta"><b>Jour ${d}</b>${tok}<br>sur champ : ${txt(cd)}${fill?' (aplat seulement, texte encre '+cr('#15191d',d).toFixed(1)+':1)':''}<br><span class="role">${role}</span></div></div>
+  <div class="sw night" style="margin-top:6px"><div class="chip" style="background:${n};color:${cr('#15191d',n)>cr('#f3f1ea',n)?'#15191d':'#f3f1ea'}">${name}</div>
+    <div class="meta"><b>Nuit ${n}</b>sur champ : ${txt(cn)}<br><span class="role">${use}</span></div></div>`;
+  grid.appendChild(el);
+}
+
+function sim(h){h=h.replace('#','');const c=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255).map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+ const M=[[0.367322,0.860646,-0.227968],[0.280085,0.672501,0.047413],[-0.011820,0.042940,0.968881]];
+ return '#'+M.map(r=>{let v=r[0]*c[0]+r[1]*c[1]+r[2]*c[2];v=Math.min(1,Math.max(0,v));v=v<=0.0031308?v*12.92:1.055*Math.pow(v,1/2.4)-0.055;return Math.round(v*255).toString(16).padStart(2,'0')}).join('')}
+const row=document.getElementById('cvdrow');
+for (const [name,tok,d] of P){ const sd=sim(d); const el=document.createElement('div'); el.style.cssText='display:grid;gap:4px;width:110px;text-align:center;font:12px monospace';
+ el.innerHTML=`<div style="height:40px;background:${d};border:1px solid #15191d"></div><div style="height:40px;background:${sd};border:1px solid #15191d"></div><span>${name}</span>`; row.appendChild(el);}
+document.getElementById('cvd').addEventListener('click', e=>{const on=document.body.classList.toggle('cvd-on'); e.target.setAttribute('aria-pressed', on); e.target.textContent = on?'Retirer la simulation':'Simuler la deutéranopie';});
+</script>
+</body>
+</html>

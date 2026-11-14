@@ -440,7 +440,7 @@ export function MapView(props: MapViewProps) {
       m.addSource("replay", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addLayer({ id: "replay-line", type: "line", source: "replay", layout: { "line-cap": "round", "line-join": "round" }, paint: { "line-color": tk.signal, "line-width": 3, "line-dasharray": [2, 1] } });
       m.addSource("direct", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
-      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.direct, "line-width": 4 } });
+      m.addLayer({ id: "direct-line", type: "line", source: "direct", paint: { "line-color": tk.direct, "line-width": 4, "line-dasharray": [2.2, 1.4] } });
       m.addLayer({ id: "vector-line", type: "line", source: "vector", paint: { "line-color": tk.signal, "line-width": 3 } });
       // les symboles OACI (images PNG de la légende) sont chargés avant le premier dessin des couches
       void oaciReady.then(() => {

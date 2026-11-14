@@ -90,7 +90,7 @@ export function AdInfo(p: {
       <div className="choices"><Button role="primary" size="flight" onClick={p.onDirect}>{T("ad.direct")}</Button></div>
       <dl>
         {keys.map((k) => (
-          <div key={k}><dt>{k}</dt><dd>{d[k]}</dd></div>
+          <div key={k} className={k === "Pistes" ? "kind-piste" : undefined}><dt>{k}</dt><dd>{d[k]}</dd></div>
         ))}
       </dl>
 

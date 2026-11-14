@@ -118,3 +118,15 @@ Les valeurs 20 et 28 disparaissent des textes ; 20 reste réservé aux libellés
 - **Vérifié** : un seul primaire visible sur Route (liste, détail), Log, NOTAM, Données ; aucun débordement horizontal à 375 px ; 571 tests, `tsc` propre.
 - **Gardés en jaune volontairement (carte)** : halo du point de route sélectionné, repères de calage des cartes VAC, bouton central du menu terrain (c'est le « Direct »).
 - **Pas fait / à revoir** : `Text` n'est pas encore utilisé dans les écrans (les titres h2/h3 suivent déjà les mêmes tailles par CSS) ; ~110 boutons sans classe restent « secondaire » par défaut sans passer par `Button` ; vérification visuelle en mode nuit non faite ; fiche terrain et feuille « Direct » vues seulement en maquette.
+
+## 5. Couleur avec intention (appliqué)
+
+Nuancier : `apps/app/design-couleurs.html`. Palette (jour / nuit) :
+accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI nuit `--route-ink` `#ee5fc0`) · alerte `--signal` · prudence `--caution` · OK `--zone-good` · info `--info` `#1f55b8` / `#7aa9ff` · catégories `--cat-notam` violet, `--cat-meteo` teal, `--cat-piste` brun (fréquences neutres).
+
+- **Actif / sélectionné** : encre pleine + barre jaune de 5 px (boutons, cellules, onglets, calques, case du Log, commandes de carte).
+- **Route** : magenta plein sur la carte (liseré `#4d0a3a`), « direct vers » magenta tireté ; le vert n'est plus utilisé pour la route. Pastille « ◆ ACTIVE » magenta dans la liste.
+- **États avec forme + libellé** : bandeaux ▲ alerte / ◆ prudence / ■ information ; puce GPS en cercle / losange / triangle ; catégories de vol ● VFR, ◆ MVFR (orange), ▲ IFR (rouge), ▲▲ LIFR ; espaces traversés ▲ dedans, ◆ niveau inconnu ; données ✓ à jour (vert) ou ◆ à vérifier (ambre foncé).
+- **Catégories** : liseré + symbole dans les fiches NOTAM (◆), météo (☁), pistes (▬). Information neutre (source, cycle AIRAC) : barre bleue + « ■ i ».
+- **Part colorée hors carte, mesurée dans l'aperçu (fenêtre ~800×685)** : carte 5 % · Route liste 8 % · Docs 8 % · Données 6 % · Réglages 5 % · Log / NOTAM / Avion / Météo ≈ 1 %. Vol 13,5 % avant correction (« Arrêter l'enregistrement » en jaune) : le primaire est maintenant « Démarrer l'enregistrement », l'arrêt est secondaire.
+- **Pas vérifié** : écrans avec données réelles (NOTAM, fiches terrain, SIGMET) ; la deutéranopie n'a été simulée que sur le nuancier.

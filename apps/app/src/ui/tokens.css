@@ -31,10 +31,18 @@
   /* Chiffres de vol : une seule couleur pour tous, bleu marine très sombre. Contraste sur --field : 13,1:1 (jour) ; l'encre fait 16,9:1 */
   --data-figure: #0a2a66;
 
-  /* Carte : trace de route (vert vif, liseré sombre) et « direct vers » (magenta). Mêmes valeurs jour et nuit : la carte aéro reste claire. */
-  --route: #22d65f;
-  --route-casing: #04331a;
+  /* Carte : route active (magenta plein, liseré sombre) et « direct vers » (magenta tireté). Mêmes valeurs jour et nuit : la carte aéro reste claire. */
+  --route: #c2188c;
+  --route-casing: #4d0a3a;
   --direct: #c2188c;
+  /* Route active dans l'interface (pastille, texte) : même magenta le jour, plus clair la nuit. Sur la carte (toujours claire) on garde --route. */
+  --route-ink: #c2188c;
+
+  /* Information neutre (bleu, jamais pour décorer) et catégories discrètes des fiches : NOTAM, météo, pistes. Toujours avec un symbole et un libellé. */
+  --info: #1f55b8;
+  --cat-notam: #6a3fa0;
+  --cat-meteo: #00768f;
+  --cat-piste: #7b4a2a;
 
   --font-display: 'Archivo', 'Arial Narrow', 'Helvetica Neue Condensed', Arial, sans-serif;
   --font-text: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif;
@@ -105,6 +113,11 @@
   --zone-warn: #e0b24a;
   --zone-bad: #e58c79;
   --caution: #f0a030;
+  --route-ink: #ee5fc0;
+  --info: #7aa9ff;
+  --cat-notam: #b79cf0;
+  --cat-meteo: #5cc8de;
+  --cat-piste: #d2a07a;
   /* Contraste sur --field (nuit) : 13,3:1 (le papier fait 16,4:1) */
   --data-figure: #c7dcff;
   --shadow-pop: 0 0 0 1px var(--ink), 4px 4px 0 rgba(0, 0, 0, 0.6);

@@ -1492,11 +1492,11 @@ export function App() {
             )}
             {aspSet && (
               <>
-                <p className="muted small">
+                <p className="muted small infonote">
                   {T("aero.airac")} : {airacCycleAt(new Date(now)).id}
                 </p>
                 {freshnessWarnings(datasetFreshness(new Date(aspSet.meta.exportedAtMs), new Date(now))).map((w, i) => (
-                  <p className={i === 0 ? "muted small" : "error"} key={i}>{w}</p>
+                  <p className={i === 0 ? "muted small infonote" : "error"} key={i}>{w}</p>
                 ))}
               </>
             )}

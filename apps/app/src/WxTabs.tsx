@@ -239,7 +239,7 @@ export function SigmetTab(p: WxCommon) {
           {anchors.length === 0 && !all && <p className="muted small">{T("wxs.noAnchor")}</p>}
           {shown.length === 0 && <p className="muted small">{T("wxs.none")}</p>}
           {shown.map((s) => (
-            <div className={`wx-card${routeIds.has(s.id) ? " onroute" : ""}`} key={s.id}>
+            <div className={`wx-card kind-meteo${routeIds.has(s.id) ? " onroute" : ""}`} key={s.id}>
               <div className="wx-head">
                 <b>{hazardLabel(s.hazard)}</b>{s.qualifier ? ` ${s.qualifier}` : ""} <span className="muted small">{s.firName}</span>
                 {routeIds.has(s.id) && <span className="badge">{T("wxs.onroute")}</span>}
@@ -291,7 +291,7 @@ export function BriefingTab(p: WxCommon) {
             const taf = tafBy.get(m.station);
             const per = taf ? tafPeriodsAt(taf, p.window.startMs).base : null;
             return (
-              <div className="wx-card" key={m.station}>
+              <div className="wx-card kind-meteo" key={m.station}>
                 <div className="wx-head">
                   <b>{m.station}</b> <span className="muted small">{m.name}</span>
                   <Category c={m.conditions.category} />

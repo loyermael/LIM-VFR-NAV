@@ -36,7 +36,7 @@ function Row(p: { lang: Lang; pack: PackHook; ds: PackDataset; nowMs: number }) 
       {st?.state === "installing" && (<><progress aria-label={T("dp.installing")} /><div className="mono small">{T("dp.installing")}</div></>)}
       {st?.state === "error" && <div className="error" role="alert">{T("dp.error")} : {st.message}</div>}
       {st?.state !== "downloading" && st?.state !== "installing" && st?.state !== "error" && (
-        <div className="muted small">{have ? `✓ ${ageText(have.updatedAt, p.nowMs, p.lang)}` : p.pack.checking ? T("dp.waiting") : T("dp.missing")}</div>
+        <div className={`small ${have ? ((p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "stat-caution" : "stat-good") : p.pack.checking ? "muted" : "stat-caution"}`}>{have ? `${(p.nowMs - Date.parse(have.updatedAt)) / 86_400_000 > 28 ? "◆" : "✓"} ${ageText(have.updatedAt, p.nowMs, p.lang)}` : p.pack.checking ? T("dp.waiting") : `◆ ${T("dp.missing")}`}</div>
       )}
     </div>
   );

@@ -284,7 +284,7 @@ export function NavScreen(p: NavProps) {
             {p.routes.map((r) => (
               <div key={r.id} className="route-item">
                 <button className="row" aria-pressed={route?.id === r.id} onClick={() => { p.onSelectRoute(r.id); setView("detail"); }}>
-                  {r.name} · {r.points.length}
+                  {r.name} · {r.points.length}{route?.id === r.id && <span className="route-badge">{T("nav.active")}</span>}
                 </button>
                 <ConfirmButton label="✕" ariaLabel={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onDeleteRoute(r.id)} />
               </div>

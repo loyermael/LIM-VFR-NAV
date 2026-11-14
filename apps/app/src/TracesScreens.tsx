@@ -46,8 +46,8 @@ export function TimersTab(p: TimersProps) {
       <p className="muted small">{p.recording ? `${T("tm.recording")} · ${p.pointCount} ${T("tm.points")}` : T("tm.idle")}</p>
       <div className="choices">
         {p.recording
-          ? <Button role="primary" onClick={p.onStopRec}>{T("tm.stopRec")}</Button>
-          : <button onClick={p.onStartRec}>{T("tm.startRec")}</button>}
+          ? <Button onClick={p.onStopRec}>{T("tm.stopRec")}</Button>
+          : <Button role="primary" onClick={p.onStartRec}>{T("tm.startRec")}</Button>}
       </div>
       <p className="muted small">{T("tm.autoNote")}</p>
 

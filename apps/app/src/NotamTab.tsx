@@ -18,7 +18,7 @@ export function NotamCard({ lang, n, role }: { lang: Lang; n: Notam; role: Notam
   const T = (k: Key) => t(lang, k);
   const roleLabel: Record<NotamRole, Key> = { dep: "notam.role.dep", arr: "notam.role.arr", via: "notam.role.via", alt: "notam.role.alt", route: "notam.role.route", other: "notam.role.other" };
   return (
-    <div className={`wx-card${role === "dep" || role === "arr" ? " onroute" : ""}`}>
+    <div className="wx-card kind-notam">
       <div className="wx-head">
         <b>{n.id}</b> <span className="muted small">{n.locations.join(" ") || n.fir}</span>
         {role && <span className="badge">{T(roleLabel[role])}</span>}
