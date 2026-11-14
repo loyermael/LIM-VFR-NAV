@@ -146,3 +146,12 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 - **Direct vers** : les terrains utilisables (hors héliports, terrains fermés et pistes agricoles, types openAIP 4, 7, 8, 12) passent avant ; les autres ne complètent la liste que s'il manque des terrains.
 - **Log** : les espaces « hors limites » verticales sont regroupés dans un repli (« 5 espaces hors limites verticales ») ; « dans les limites » et « à vérifier » restent visibles.
 - **Reste de la revue (non traité)** : Avion (« Nouvel avion » primaire, « Supprimer » à l'écart), Route (↑ ↓ ✕ à 44 px), Docs (primaire à l'import), NOTAM (groupes vides sur une ligne), curseur de plafond.
+
+## 8. Second lot de la revue (corrigé)
+
+- **Avion** : « Nouvel avion » primaire ; « Supprimer » à l'écart (fin de rangée).
+- **Route** : ↑ ↓ Direct ✕ des points à 44 px (nouvelle taille `touch`, 44 px).
+- **Docs** : l'import est primaire quand il n'y a aucun document, secondaire sinon (vérifié : secondaire, 3 VAC présentes).
+- **NOTAM** : un terrain ou une zone sans NOTAM tient sur une ligne (« LFHV VILLEFRANCHE TARARE · Aucun NOTAM ») ; l'écran passe de ~1280 à ~1100 px dans le cas testé.
+- **Calques** : le plafond (FL 195) s'affiche en 28 px au-dessus du curseur.
+- **Pas vérifié** : Docs avec liste vide (import primaire jaune) ; Avion et Calques seulement mesurés, pas regardés en capture.

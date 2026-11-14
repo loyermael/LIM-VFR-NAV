@@ -349,7 +349,7 @@ table.navlog tr.now td { font-weight: 700; background: var(--paper-2); }
 .pt-name { grid-area: name; text-align: left; font-size: var(--fs-16); min-width: 0; width: 100%; height: var(--h-touch); }
 .pt-alt { grid-area: alt; }
 .pt-actions { grid-area: actions; display: flex; gap: var(--sp-2); justify-content: flex-end; }
-.pt-actions button { min-width: var(--h-compact); padding: 0 var(--sp-3); }
+.pt-actions button { min-width: var(--h-touch); padding: 0 var(--sp-3); }
 
 /* Log : en-tête (Vp, Fb, conso, vents), total, carburant, arrivée et performances. */
 .lgsheet { --H: 92px; display: grid; gap: var(--sp-3); }
@@ -538,3 +538,9 @@ button.row { text-align: left; }
 .foldsec > summary::-webkit-details-marker { display: none; }
 .foldsec > summary::before { content: "▸"; }
 .foldsec[open] > summary::before { content: "▾"; }
+
+/* Taille tactile 44 px (actions de ligne serrées), valeur de curseur en grand, NOTAM vides sur une ligne, import en primaire. */
+.btn-touch { min-height: var(--h-touch); min-width: var(--h-touch); font-size: var(--fs-14); padding: 0 var(--sp-3); }
+.bigval { font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-28); line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--data-figure); margin: 0 0 var(--sp-1); }
+.notam-empty { margin: 0; padding: var(--sp-1) 0 var(--sp-1) var(--sp-2); border-top: var(--rule-hair); border-left: 6px solid var(--hair); }
+.filebtn.btn-primary { background: var(--brand); color: var(--on-brand); border-color: var(--ink); min-height: var(--h-control); font-size: var(--fs-20); }

@@ -343,10 +343,10 @@ export function NavScreen(p: NavProps) {
                     />
                   </div>
                   <div className="pt-actions">
-                    <Button size="compact" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</Button>
-                    <Button size="compact" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</Button>
-                    <Button size="compact" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</Button>
-                    <Button size="compact" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</Button>
+                    <Button size="touch" aria-label={T("nav.point.up")} disabled={i === 0} onClick={() => edit((r) => swapPoints(r, i, i - 1, now()))}>↑</Button>
+                    <Button size="touch" aria-label={T("nav.point.down")} disabled={i === route.points.length - 1} onClick={() => edit((r) => swapPoints(r, i, i + 1, now()))}>↓</Button>
+                    <Button size="touch" onClick={() => p.onDirect(i)}>{T("nav.point.direct")}</Button>
+                    <Button size="touch" aria-label={T("nav.delete")} onClick={() => { const before = route; edit((r) => removePoint(r, i, now())); p.onUndoable(T("nav.point.deleted"), () => p.onRoute(before)); }}>✕</Button>
                   </div>
                 </div>
               ))}

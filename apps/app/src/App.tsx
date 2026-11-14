@@ -1370,9 +1370,8 @@ export function App() {
                     </button>
                   ))}
                 </div>
-                <h3>
-                  {T("layers.ceiling")} <span className="mono">FL {ceiling}</span>
-                </h3>
+                <h3>{T("layers.ceiling")}</h3>
+                <div className="bigval" aria-live="polite">FL {ceiling}</div>
                 <input
                   type="range"
                   min={CEILING_FILTER.minFL}

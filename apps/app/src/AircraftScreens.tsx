@@ -251,13 +251,13 @@ export function AircraftTab(p: AircraftTabProps) {
               <div className="choices">
                 <button onClick={() => setEditing(true)}>{T("ac.edit")}</button>
                 <button onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</button>
-                <ConfirmButton label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
+                <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
               </div>
             )}
           </div>
         ))}
       </div>
-      <div className="choices"><button onClick={create}>{T("ac.new")}</button></div>
+      <div className="choices"><Button role="primary" onClick={create}>{T("ac.new")}</Button></div>
       {a && validateAircraft(a).length === 0 && <p className="muted small">{T("ac.ready")}</p>}
       <p className="muted small">{T("ac.warning")}</p>
     </div>

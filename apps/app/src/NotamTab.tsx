@@ -101,6 +101,9 @@ export function NotamTab(p: {
   }, [p.route, p.airspaces]);
   const adRow = (role: NotamRole, icao: string) => {
     const list = relevant.filter((r) => r.role === role && r.notam.locations.includes(icao));
+    if (list.length === 0) {
+      return <p className="notam-empty" key={`${role}-${icao}`}><b>{icao}</b> <span className="muted small">{adName(icao)} · {T("notam.none")}</span></p>;
+    }
     return (
       <div className="notam-ad" key={`${role}-${icao}`}>
         <div className="notam-ad-head"><b>{icao}</b> <span className="muted small">{adName(icao)}</span></div>
@@ -154,10 +157,7 @@ export function NotamTab(p: {
           <section className="notam-group">
             <h3>{T("notam.group.route")}</h3>
             {zones.map((z) => (
-              <div className="notam-ad" key={z.id}>
-                <div className="notam-ad-head"><b>{z.name}</b> <span className="muted small">{z.typeLabel} · {z.lower.label} → {z.upper.label}</span></div>
-                <p className="muted small">{T("notam.none")}</p>
-              </div>
+              <p className="notam-empty" key={z.id}><b>{z.name}</b> <span className="muted small">{z.typeLabel} · {z.lower.label} → {z.upper.label} · {T("notam.none")}</span></p>
             ))}
             {routeNotams.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
             {zones.length === 0 && routeNotams.length === 0 && <p className="muted small">{p.route.points.length < 2 ? T("notam.needTwo") : T("notam.none")}</p>}

@@ -324,8 +324,8 @@ export function DocsTab(p: DocsProps) {
   };
   return (
     <div className="navscreen">
-      <label className="filebtn">
-        <span className="button">{T("dc.import")}</span>
+      <label className={p.docs.length === 0 ? "filebtn btn-primary" : "filebtn"}>
+        {T("dc.import")}
         <input type="file" accept=".pdf,application/pdf,image/*" multiple hidden onChange={(e) => { onFiles(e.target.files); e.target.value = ""; }} />
       </label>
       {importError && <p className="error" role="alert">{importError}</p>}
