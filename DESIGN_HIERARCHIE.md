@@ -163,3 +163,9 @@ accent `--brand` (primaire) · route active `--route` / `--direct` `#c2188c` (UI
 - **Traces** : « Supprimer les traces de moins de 2 min » descend en fin de liste, à droite.
 - **Feuille Altitude** : QNH et affichage restent visibles ; source, calage, référence d'altitude GPS et unités passent dans « Avancé » (379 px au lieu de 821).
 - **Pas vérifié** : `:has()` sur de vieux WebView Android (< 105) : l'en-tête et les onglets resteraient visibles, sans casse ; rien non plus sur un vrai téléphone.
+
+## 10. Dossier de vol PDF (corrigé)
+
+- **Espaces traversés** : zones drone écartées ; « dans les limites » et « à vérifier » détaillés, les autres regroupés en une ligne (« 5 espaces hors limites verticales : CTA LYON, … »). Vérifié sur le PDF régénéré : le dossier de test passe de 2 pages à 1.
+- **Météo** : le type (« METAR », « TAF ») n'est plus écrit deux fois.
+- **Non fait** : section NOTAM dans le dossier (nouvelle fonction, à décider) ; les zones drone restent affichées dans l'écran Log (non demandé).

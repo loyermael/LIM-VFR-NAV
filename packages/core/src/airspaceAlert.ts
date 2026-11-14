@@ -20,7 +20,9 @@ export interface AirspaceAhead {
 const WATCHED = new Set<Airspace["group"]>(["controlled", "restricted"]);
 /** Zones réservées aux drones (ZRT DRONE…) : elles ne concernent pas un aéronef habité, on ne les annonce pas. */
 const DRONE = /\b(drones?|uas|uav|rpas)\b/i;
-const forAircraft = (a: Airspace): boolean => WATCHED.has(a.group) && !DRONE.test(a.name) && !DRONE.test(a.remarks ?? "");
+/** Vrai pour une zone réservée aux drones (nom ou remarques) : sans intérêt pour un aéronef habité. */
+export const isDroneZone = (a: Pick<Airspace, "name" | "remarks">): boolean => DRONE.test(a.name) || DRONE.test(a.remarks ?? "");
+const forAircraft = (a: Airspace): boolean => WATCHED.has(a.group) && !isDroneZone(a);
 
 export function airspaceAhead(
   position: LatLon,

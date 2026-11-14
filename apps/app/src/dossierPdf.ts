@@ -5,7 +5,7 @@
  */
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import {
-  computeBalance, formatAngle, formatDuration, formatQuantity, planFuel, unitLabel, validateAircraft,
+  computeBalance, isDroneZone, formatAngle, formatDuration, formatQuantity, planFuel, unitLabel, validateAircraft,
   type Aircraft, type Loads, type Metar, type NavLog, type RouteHit, type Taf, type UnitPrefs,
 } from "@lim/core";
 import type { RouteRecord } from "./routeEdit";
@@ -46,7 +46,7 @@ const TXT = {
     required: "Total nécessaire", onboard: "Embarqué", surplus: "Excédent", endurance: "Autonomie", insufficient: "CARBURANT INSUFFISANT",
     fuelNote: "Valeurs de réserve choisies par le pilote. Estimation à consommation constante.",
     airspaces: "Espaces traversés (en plan)", noAero: "Aucune donnée d'espaces importée : section non renseignée.", noneCrossed: "Aucun espace traversé dans les données importées.",
-    inside: "DANS", outside: "hors", unknown: "?", entry: "entrée", activation: "activation sur demande ou NOTAM",
+    inside: "DANS", outside: "hors", outsideGroup: "espaces hors limites verticales", unknown: "?", entry: "entrée", activation: "activation sur demande ou NOTAM",
     airspaceNote: "Source openAIP (non officielle). Vérifier dans l'AIP, les SUP AIP et les NOTAM.",
     weather: "Météo près de la route", noWx: "Aucun METAR/TAF importé près de la route.", metar: "METAR", taf: "TAF",
     wxNote: "Aide à la préparation, non officielle : briefing officiel Météo-France / SOFIA, NOTAM au SIA.",
@@ -66,7 +66,7 @@ const TXT = {
     required: "Total required", onboard: "On board", surplus: "Surplus", endurance: "Endurance", insufficient: "FUEL INSUFFICIENT",
     fuelNote: "Reserve values chosen by the pilot. Estimate at constant fuel flow.",
     airspaces: "Airspaces crossed (lateral)", noAero: "No airspace data imported: section not filled.", noneCrossed: "No airspace crossed in the imported data.",
-    inside: "INSIDE", outside: "outside", unknown: "?", entry: "entry", activation: "activation on request or NOTAM",
+    inside: "INSIDE", outside: "outside", outsideGroup: "airspaces outside vertical limits", unknown: "?", entry: "entry", activation: "activation on request or NOTAM",
     airspaceNote: "Source openAIP (unofficial). Check AIP, AIP SUP and NOTAM.",
     weather: "Weather near the route", noWx: "No METAR/TAF imported near the route.", metar: "METAR", taf: "TAF",
     wxNote: "Planning aid, unofficial: official briefing via Météo-France / SOFIA, NOTAM from SIA.",
@@ -327,23 +327,28 @@ export async function buildDossier(inp: DossierInput): Promise<Uint8Array> {
   // Espaces traversés
   w.heading(L.airspaces);
   if (!inp.hasAeroData) w.text(L.noAero, { color: MUTED });
-  else if (inp.crossed.length === 0) w.text(L.noneCrossed, { color: MUTED });
+  else if (inp.crossed.filter((h) => !isDroneZone(h.airspace)).length === 0) w.text(L.noneCrossed, { color: MUTED });
   else {
-    for (const h of inp.crossed) {
+    // Zones drone écartées ; les espaces « hors limites verticales » sont regroupés sur une ligne, les autres détaillés.
+    const list = inp.crossed.filter((h) => !isDroneZone(h.airspace));
+    const outside = list.filter((h) => h.vertical === "outside");
+    for (const h of list.filter((x) => x.vertical !== "outside")) {
       const sp = h.airspace;
       const v = h.vertical === "inside" ? L.inside : h.vertical === "outside" ? L.outside : L.unknown;
       w.text(`${sp.name} [${v}]`, { font: bold, gap: 0 });
       w.text(`${sp.typeLabel}${sp.icaoClass ? ` ${sp.icaoClass}` : ""} - ${sp.lower.label} -> ${sp.upper.label} - ${L.entry} ${dist(h.entry)} ${dU}${sp.byNotam || sp.onRequest ? ` - ${L.activation}` : ""}`, { size: 9, color: MUTED, gap: 0 });
       if (sp.frequencies.length > 0) w.text(sp.frequencies.map((f) => `${f.mhz} ${f.name}`.trim()).join("  "), { size: 9, font: mono, gap: 3 });
     }
+    if (outside.length > 0) w.text(`${outside.length} ${L.outsideGroup} : ${outside.map((h) => h.airspace.name).join(", ")}`, { size: 9, color: MUTED, gap: 3 });
     w.text(L.airspaceNote, { size: 8, color: MUTED });
   }
 
   // Météo
   w.heading(L.weather);
   if (inp.metars.length === 0 && inp.tafs.length === 0) w.text(L.noWx, { color: MUTED });
-  for (const m of inp.metars) w.text(`${L.metar} ${m.station} (${hhmm(m.observedAt)}Z) ${m.raw}`, { font: mono, size: 8, gap: 3 });
-  for (const f of inp.tafs) w.text(`${L.taf} ${f.station} ${f.raw}`, { font: mono, size: 8, gap: 3 });
+  // Le message brut commence déjà par « METAR » / « SPECI » / « TAF » + station : on n'ajoute le type que s'il manque.
+  for (const m of inp.metars) w.text(/^(METAR|SPECI)\b/.test(m.raw) ? `(${hhmm(m.observedAt)}Z) ${m.raw}` : `${L.metar} ${m.station} (${hhmm(m.observedAt)}Z) ${m.raw}`, { font: mono, size: 8, gap: 3 });
+  for (const f of inp.tafs) w.text(/^TAF\b/.test(f.raw) ? f.raw : `${L.taf} ${f.station} ${f.raw}`, { font: mono, size: 8, gap: 3 });
   w.text(L.wxNote, { size: 8, color: MUTED });
 
   return doc.save();
