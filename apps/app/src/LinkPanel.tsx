@@ -24,9 +24,9 @@ export function LinkPanel(p: { lang: Lang; config: LinkConfig; onConfig: (c: Lin
     <div>
       <h3>{T("lk.title")}</h3>
       <p className="muted small">{T("lk.help")}</p>
-      <div className="choices">
-        <button aria-pressed={c.enabled} onClick={() => p.onConfig({ ...c, enabled: !c.enabled })}>{c.enabled ? T("lk.on") : T("lk.off")}</button>
-        <button aria-pressed={c.useOwnship} onClick={() => p.onConfig({ ...c, useOwnship: !c.useOwnship })}>{T("lk.ownship")}</button>
+      <div className="tgls">
+        <button className="tgl" aria-pressed={c.enabled} onClick={() => p.onConfig({ ...c, enabled: !c.enabled })}>{c.enabled ? T("lk.on") : T("lk.off")}</button>
+        <button className="tgl" aria-pressed={c.useOwnship} onClick={() => p.onConfig({ ...c, useOwnship: !c.useOwnship })}>{T("lk.ownship")}</button>
       </div>
       <label className="numfield">
         <span>{T("lk.url")}</span>

@@ -1547,16 +1547,26 @@ export function App() {
                 {tab === 0 && (
                   <>
                 <h3>{T("set.display")}</h3>
-                <div className="choices">
-                  <button onClick={toggleLang}>{T("lang.switch")}</button>
-                  <button onClick={toggleTheme} aria-pressed={theme === "night"}>
-                    {theme === "day" ? T("theme.night") : T("theme.day")}
-                  </button>
+                <div className="unit-row" role="group" aria-label={T("set.lang")}>
+                  <div className="unit-name">{T("set.lang")}</div>
+                  <div className="choices">
+                    <button aria-pressed={lang === "fr"} onClick={() => lang !== "fr" && toggleLang()}>Français</button>
+                    <button aria-pressed={lang === "en"} onClick={() => lang !== "en" && toggleLang()}>English</button>
+                  </div>
                 </div>
-                <h3>{T("set.figures")}</h3>
-                <div className="choices">
-                  <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
-                  <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
+                <div className="unit-row" role="group" aria-label={T("set.theme")}>
+                  <div className="unit-name">{T("set.theme")}</div>
+                  <div className="choices">
+                    <button className="has-icon" aria-pressed={theme === "day"} onClick={() => theme !== "day" && toggleTheme()}><Icon name="sun" size={20} />{T("theme.day")}</button>
+                    <button className="has-icon" aria-pressed={theme === "night"} onClick={() => theme !== "night" && toggleTheme()}><Icon name="moon" size={20} />{T("theme.night")}</button>
+                  </div>
+                </div>
+                <div className="unit-row" role="group" aria-label={T("set.figures")}>
+                  <div className="unit-name">{T("set.figures")}</div>
+                  <div className="choices">
+                    <button aria-pressed={figuresColor} onClick={() => { setFiguresColor(true); saveFiguresColor(true); }}>{T("figures.color")}</button>
+                    <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
+                  </div>
                 </div>
                   </>
                 )}

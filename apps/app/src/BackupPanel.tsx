@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Icon } from "./ui/Icon";
 import { t, type Key, type Lang } from "./i18n";
 import { BackupError, exportBackup, importBackup } from "./backup";
 import { downloadFile } from "./download";
@@ -13,6 +14,7 @@ export function BackupPanel(p: { lang: Lang }) {
       <p className="muted small">{T("bk.help")}</p>
       <div className="choices">
         <button
+          className="has-icon"
           onClick={async () => {
             try {
               downloadFile(`lim-vfr-nav-${new Date().toISOString().slice(0, 10)}.json`, await exportBackup(), "application/json");
@@ -22,10 +24,10 @@ export function BackupPanel(p: { lang: Lang }) {
             }
           }}
         >
-          {T("bk.export")}
+          <Icon name="download" size={20} />{T("bk.export")}
         </button>
-        <label className="filebtn">
-          <span className="button">{T("bk.import")}</span>
+        <label className="filebtn has-icon">
+          <Icon name="upload" size={20} />{T("bk.import")}
           <input
             type="file"
             accept=".json,application/json"

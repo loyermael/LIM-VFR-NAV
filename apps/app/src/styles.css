@@ -681,3 +681,6 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .air-actions .end { margin-left: auto; }
 .vx-row .pt-num, .vx-row .pt-alt { grid-area: auto; }
 .vx-row .pt-alt input.mini { flex: 1; height: 100%; border: 0; width: 0; min-width: 3ch; padding: 0 var(--sp-1); background: transparent; border-radius: 0; font-family: var(--font-mono); font-weight: 600; text-align: right; }
+
+/* Réglages : interrupteurs en lignes (comme les calques). */
+.settings .tgls { display: grid; gap: var(--sp-2); }

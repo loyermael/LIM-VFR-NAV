@@ -308,7 +308,7 @@ export function BalanceTab(p: BalanceProps) {
   const defects = a ? validateAircraft(a) : [];
   const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.burnLiters ?? 0) : null), [a, p.loads, p.burnLiters]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="navscreen">
+    <div className="navscreen acform">
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
@@ -409,7 +409,7 @@ export function FuelTab(p: FuelProps) {
     : null;
   const L = (v: number | null) => (v === null ? "—" : `${formatQuantity("fuel", p.prefs, v)} ${unitLabel("fuel", p.prefs)}`);
   return (
-    <div className="navscreen">
+    <div className="navscreen acform">
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
