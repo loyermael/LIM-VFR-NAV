@@ -81,16 +81,6 @@ export function LogSheet(p: {
   const noteDefault = (j: number) => [pt(j)?.freq, pt(j)?.alt].filter(Boolean).join(" · ");
   const surfaceText = (s: "paved" | "unpaved" | "unknown") => (s === "paved" ? T("log.rwy.paved") : s === "unpaved" ? T("log.rwy.unpaved") : "—");
 
-  const zmin = (i: number) => (
-    <div className="ls-fld"><input inputMode="decimal" aria-label="Z min" placeholder={p.altUnit} value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} /></div>
-  );
-  const hr = (i: number, he: string) => (
-    <div className="ls-fld"><Deviation he={he} hr={form[`hr${i}`] ?? ""} /><input aria-label="Hr" placeholder="hh:mm" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></div>
-  );
-  const report = (j: number) => (
-    <input className="ls-report" aria-label="RNav / Info NAV / Com / Z" value={form[`note${j}`] ?? noteDefault(j)} placeholder="—" onChange={(e) => setField(`note${j}`, e.target.value)} />
-  );
-
   return (
     <div className="lgsheet">
       <div className="ls-top">
@@ -142,78 +132,42 @@ export function LogSheet(p: {
       </div>
 
       <h3>{T("log.logTitle")}</h3>
-      {/* Téléphone : une carte par branche. */}
-      <div className="ls-cards">
-        <div className="lc-end">
-          <b>{T("log.start")}</b>
-          <span className="mono">{m.departure}</span>
-          {report(0)}
-        </div>
+      {/* Tableau en quinconce, comme le log papier : chaque report est à cheval sur la jonction de deux branches. */}
+      <div className="ls-table">
+        <div className="lt-head lt-z" title={T("log.leg.zmin")}><span>Z vol</span><span>Z min</span></div>
+        <div className="lt-head lt-c" title={T("log.leg.cm")}><span>Cm</span><span>Rm</span></div>
+        <div className="lt-head lt-d" title={T("log.leg.dsd")}><span>DSD</span><span>DIST</span><span>DTA</span></div>
+        <div className="lt-head lt-t" title={T("log.leg.tav")}><span>TAV</span><span>TSV</span><span>He / Hr</span></div>
+        <div className="lt-head lt-r"><span>{T("log.col.report")}</span><span className="sub">{T("log.col.reportSub")}</span></div>
+        <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: "2" }}><b>{T("log.start")}</b><span className="mono">{m.departure}</span></div>
+        <div className="lt-fill" style={{ gridColumn: "1 / span 4", gridRow: `${2 * m.legs.length + 3}` }}><b>{T("log.endShort")}</b><span className="mono">{lastHe}</span></div>
         {m.legs.map((l, i) => {
-          const from = pt(i), to = pt(i + 1);
-          const cur = p.activeLeg === i;
+          const row = 2 * i + 3;
+          const cls = `${i % 2 ? " alt" : ""}${p.activeLeg === i ? " active" : ""}`;
+          return [
+            <div key={`z${i}`} className={`lt-cell lt-z${cls}`} style={{ gridRow: `${row} / span 2` }}>
+              <span className="arrow">{l.trend === "climb" ? "↗" : l.trend === "descent" ? "↘" : "→"}</span>
+              <b>{l.z || "—"}</b>
+              <input className="zmin" aria-label="Z min" placeholder="Z min" inputMode="decimal" value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} />
+            </div>,
+            <div key={`c${i}`} className={`lt-cell lt-c${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.cm}°</i><b>{l.rm}°</b></div>,
+            <div key={`d${i}`} className={`lt-cell lt-d${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.dsd}</i><b>{l.d}</b><i>{l.dta}</i></div>,
+            <div key={`t${i}`} className={`lt-cell lt-t${cls}`} style={{ gridRow: `${row} / span 2` }}>
+              <i>{l.tav}</i><b>{l.tsv}</b>
+              <span className="he"><em>{l.he || "—"}<Deviation he={l.he} hr={form[`hr${i}`] ?? ""} /></em><input aria-label="Hr" placeholder="hh:mm" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></span>
+            </div>,
+          ];
+        })}
+        {m.points.map((point, j) => {
+          const cls = `${(j + 1) % 2 ? " alt" : ""}${p.activeLeg !== null && p.activeLeg + 1 === j ? " active" : ""}`;
           return (
-            <section key={`lc${i}`} className={cur ? "lc-leg cur" : "lc-leg"}>
-              <div className="lc-h">
-                <span className="lc-n">{i + 1}</span>
-                <span>{from?.name} → {to?.name}</span>
-                {cur && <span className="ls-badge">{T("log.current")}</span>}
-                <span className="lc-he mono">{l.he || "—"}</span>
-              </div>
-              <div className="lc-l1">
-                <div><span>{T("log.col.course")} Rm</span><b>{l.rm}°</b></div>
-                <div><span>{T("log.col.time")} TSV</span><b>{l.tsv}</b></div>
-                <div><span>{T("log.col.dist")} {m.totals.dUnit}</span><b className="lc-mid">{l.d}</b></div>
-              </div>
-              <div className="lc-l2"><div><span>{T("log.col.alt")} Z vol</span>{l.z ? `${l.z} ${p.altUnit}` : <i className="ls-na">—</i>}</div></div>
-              <div className="lc-l3">
-                <div><span>Cm</span>{l.cm}°</div>
-                <div><span>TAV</span>{l.tav}</div>
-                <div><span>DSD · DTA</span>{l.dsd} · {l.dta}</div>
-              </div>
-              <div className="lc-ent">
-                <label><span>Z min</span>{zmin(i)}</label>
-                <label><span>Hr</span>{hr(i, l.he)}</label>
-              </div>
-              <div className="lc-rep"><span className="ls-lbl">{T("log.col.report")} · {to?.name}</span>{report(i + 1)}</div>
-            </section>
+            <div key={`r${j}`} className={`lt-cell lt-r${cls}`} style={{ gridRow: `${2 * j + 2} / span 2` }}>
+              <b>{point.name}</b>
+              <input aria-label="RNav / Info NAV / Com / Z" value={form[`note${j}`] ?? noteDefault(j)} placeholder="—" onChange={(e) => setField(`note${j}`, e.target.value)} />
+            </div>
           );
         })}
-        <div className="lc-end"><b>{T("log.endShort")}</b><span className="mono">{lastHe}</span></div>
       </div>
-
-      {/* Tablette et plus : tableau, une ligne par branche, report à droite. */}
-      <table className="ls-grid">
-        <thead>
-          <tr>
-            <th className="l">{T("log.col.branch")}</th>
-            <th>{T("log.col.alt")}<small>Z vol · Z min</small></th>
-            <th>{T("log.col.course")}<small>Rm · Cm</small></th>
-            <th>{T("log.col.dist")}<small>DSD · DTA</small></th>
-            <th>{T("log.col.time")}<small>TSV · TAV</small></th>
-            <th>{T("log.col.eta")}<small>He · Hr</small></th>
-            <th className="l">{T("log.col.report")}<small>{T("log.col.reportSub")}</small></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="ls-edge"><td colSpan={6}><b>{T("log.start")}</b> <span className="mono">{m.departure}</span></td><td className="rp">{report(0)}</td></tr>
-          {m.legs.map((l, i) => {
-            const cur = p.activeLeg === i;
-            return (
-              <tr key={`g${i}`} className={cur ? "cur" : undefined}>
-                <td className="l"><span className="g-n">{i + 1}</span> {pt(i)?.name} → {pt(i + 1)?.name}{cur && <span className="ls-badge">{T("log.current")}</span>}</td>
-                <td><span className="g-b">{l.z ? `${l.z} ${p.altUnit}` : <i className="ls-na">—</i>}</span>{zmin(i)}</td>
-                <td><span className="g-a">{l.rm}°</span><span className="g-c">{l.cm}°</span></td>
-                <td><span className="g-b">{l.d}</span><span className="g-c">{l.dsd} · {l.dta}</span></td>
-                <td><span className="g-a">{l.tsv}</span><span className="g-c">{l.tav}</span></td>
-                <td><span className="g-a">{l.he || "—"}</span>{hr(i, l.he)}</td>
-                <td className="rp">{report(i + 1)}</td>
-              </tr>
-            );
-          })}
-          <tr className="ls-edge"><td colSpan={7}><b>{T("log.endShort")}</b> <span className="mono">{lastHe}</span></td></tr>
-        </tbody>
-      </table>
 
       <details className="ls-legend">
         <summary><Icon name="info" size={20} />{T("log.legendTitle")}</summary>

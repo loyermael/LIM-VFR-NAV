@@ -1078,3 +1078,20 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .asp-f span { font-size: var(--fs-12); font-weight: 400; color: var(--ink-muted); }
 .ls-note { display: flex; gap: var(--sp-2); align-items: flex-start; margin: 0; font-family: var(--font-mono); font-size: 11.5px; color: var(--ink-muted); line-height: 1.4; }
 .ls-note .icon { flex: none; color: var(--info); margin-top: 1px; }
+
+/* ---- Log : tableau en quinconce (comme le log papier / SDVFR) ---- */
+.ls-cards, .ls-grid { display: none !important; }
+.ls-table { --H: 132px; width: 100%; min-width: 0; box-sizing: border-box; }
+@media (min-width: 700px) { .ls-table { --H: 112px; } }
+.ls-table .lt-head { font-size: var(--fs-12); }
+.lt-cell i { font-style: italic; color: var(--ink-muted); }
+.lt-cell b { font-weight: 800; }
+.lt-cell.active { background: var(--zone-good); color: var(--paper); box-shadow: none; }
+.lt-cell.active i, .lt-cell.active .arrow, .lt-cell.active .he em { color: var(--paper); opacity: .85; }
+.lt-cell.active input, .lt-cell.active input.zmin, .lt-cell.active .he input { background: rgba(255, 255, 255, 0.2); color: var(--paper); border-color: rgba(255, 255, 255, 0.55); }
+.lt-cell.active input::placeholder { color: var(--paper); opacity: .75; }
+.lt-t .he em { display: flex; align-items: baseline; justify-content: center; gap: 4px; }
+.lt-t .he em .ls-dev { color: inherit; opacity: .9; }
+.lt-t .he em .ls-dev.big { color: var(--caution); opacity: 1; }
+.lt-r input { font-weight: 700; font-style: italic; }
+.ls-table { display: grid !important; }
