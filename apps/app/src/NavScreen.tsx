@@ -545,7 +545,7 @@ export function NavScreen(p: NavProps) {
                 {p.aircraftList.map((a) => <option key={a.id} value={a.id}>{a.registration ? `${a.registration} · ` : ""}{a.name}</option>)}
               </select>
             </label>
-            <button onClick={p.onGoAircraft}>{p.aircraftList.length === 0 ? T("log.createAircraft") : T("log.editAircraft")}</button>
+            <Button size="touch" icon={p.aircraftList.length === 0 ? "plus" : "id-card"} onClick={p.onGoAircraft}>{p.aircraftList.length === 0 ? T("log.createAircraft") : T("log.editAircraft")}</Button>
           </div>
           {!ac && <p className="muted">{p.aircraftList.length === 0 ? T("log.noAircraft") : T("log.pickAircraft")}</p>}
           {ac && tas === null && <p className="muted">{T("log.needTas")}</p>}

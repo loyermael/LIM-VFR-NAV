@@ -261,9 +261,9 @@ export function AircraftEditor(p: {
             <tbody>
               {a.stations.map((s, i) => (
                 <tr key={s.id}>
-                  <td className="c-n"><input className="cell" defaultValue={s.name} key={`${s.id}-${s.name}`} aria-label={T("nav.name")} onBlur={(e) => p.onChange(patchStation(a, i, { name: e.target.value.trim() || s.name }, now()))} /></td>
+                  <td className="c-n"><input className="ed-cell" defaultValue={s.name} key={`${s.id}-${s.name}`} aria-label={T("nav.name")} onBlur={(e) => p.onChange(patchStation(a, i, { name: e.target.value.trim() || s.name }, now()))} /></td>
                   <td className="c-t">
-                    <select className="cell sel" value={s.kind} aria-label={T("ac.kindLabel")} onChange={(e) => p.onChange(patchStation(a, i, { kind: e.target.value as StationKind }, now()))}>
+                    <select className="ed-cell sel" value={s.kind} aria-label={T("ac.kindLabel")} onChange={(e) => p.onChange(patchStation(a, i, { kind: e.target.value as StationKind }, now()))}>
                       {KINDS.map((k) => <option key={k} value={k}>{T(`ac.kind.${k}` as Key)}</option>)}
                     </select>
                   </td>

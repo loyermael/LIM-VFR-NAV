@@ -58,7 +58,7 @@ export function LogSheet(p: {
         <div className="ls-card">
           <span>Vp ({m.vpUnit})</span>
           <input className="ls-vp mono" inputMode="decimal" value={vpText} aria-label="Vp" onChange={(e) => setVpText(e.target.value)} onBlur={commitVp} onKeyDown={(e) => e.key === "Enter" && commitVp()} />
-          {p.vpEdited && <Button size="compact" onClick={() => p.onVp(null)}>{T("log.vpReset")}</Button>}
+          {p.vpEdited && <Button size="compact" icon="rotate-ccw" onClick={() => p.onVp(null)}>{T("log.vpReset")}</Button>}
         </div>
         <div className="ls-card"><span>Fb ({m.fbUnit})</span><b className="mono">{m.fb}</b></div>
         <div className="ls-card"><span>{T("log.fuelflow")} ({m.consoUnit})</span><b className="mono">{m.conso}</b></div>

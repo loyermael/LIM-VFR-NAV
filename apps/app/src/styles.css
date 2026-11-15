@@ -800,9 +800,9 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .edtable th.n { text-align: right; }
 .edtable td { padding: 3px var(--sp-1); vertical-align: middle; }
 .edtable td.num { width: 30px; text-align: center; font-weight: 700; color: var(--ink-muted); }
-.edtable input.cell, .edtable input.mini, .edtable select.cell { width: 100%; min-width: 0; height: 40px; padding: 0 var(--sp-2); border: var(--rule-line); background: var(--field); color: var(--ink); font-family: var(--font-mono); font-size: 16px; font-weight: 700; border-radius: 0; font-variant-numeric: tabular-nums; }
+.edtable input.ed-cell, .edtable input.mini, .edtable select.ed-cell { width: 100%; min-width: 0; height: 40px; padding: 0 var(--sp-2); border: var(--rule-line); background: var(--field); color: var(--ink); font-family: var(--font-mono); font-size: 16px; font-weight: 700; border-radius: 0; font-variant-numeric: tabular-nums; }
 .edtable input.mini { text-align: right; }
-.edtable input.cell { text-align: left; }
+.edtable input.ed-cell { text-align: left; }
 .edtable input::placeholder { color: var(--ink-muted); font-weight: 400; }
 .edtable input:focus-visible, .edtable select:focus-visible { outline: 3px solid var(--brand); outline-offset: 0; }
 .edtable select.sel { appearance: none; -webkit-appearance: none; cursor: pointer; font-size: 14px; padding-right: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
@@ -849,7 +849,7 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 
 /* Tableaux éditables : colonnes fixes, champs bien contenus dans leur cellule (pas de débordement ni de cadre coupé). */
 .edtable { table-layout: fixed; }
-.edtable input.cell, .edtable input.mini, .edtable select.cell { box-sizing: border-box; display: block; }
+.edtable input.ed-cell, .edtable input.mini, .edtable select.ed-cell { box-sizing: border-box; display: block; }
 .edtable th, .edtable td { overflow: visible; }
 .edtable thead th { height: 22px; vertical-align: bottom; padding-bottom: 4px; }
 .edtable tbody td { padding-top: 4px; padding-bottom: 4px; }
@@ -857,3 +857,16 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 @media (min-width: 561px) { .edtable.st .c-a, .edtable.st .c-m { width: 22%; } .edtable.st .c-n { width: 28%; } .edtable.st .c-t { width: 22%; } }
 .cell-note { box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; height: 40px; padding: 0 var(--sp-2); border: 1px dashed var(--hair); }
 .aced .sectbody { overflow: visible; }
+
+/* Choix de l'avion dans le log : menu à la police de l'application, chevron propre. */
+.log-ac select.field { appearance: none; -webkit-appearance: none; height: var(--h-touch); font-family: var(--font-mono); font-weight: 700; padding-right: 32px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+.log-ac { align-items: flex-end; }
+
+/* Largeurs des colonnes lues depuis la ligne d'en-tête (disposition fixe). */
+@media (min-width: 561px) {
+  .edtable.st thead th:nth-child(1) { width: 28%; } .edtable.st thead th:nth-child(2) { width: 22%; }
+  .edtable.st thead th:nth-child(3), .edtable.st thead th:nth-child(4) { width: 22%; }
+  .edtable.st thead th:nth-child(5) { width: 48px; }
+}
+.edtable.vx thead th:nth-child(1) { width: 40px; } .edtable.vx thead th:nth-child(4) { width: 48px; }
+.edtable.vx td.num { text-align: center; }
