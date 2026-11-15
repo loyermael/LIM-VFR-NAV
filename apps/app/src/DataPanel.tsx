@@ -26,7 +26,7 @@ function Row(p: { lang: Lang; pack: PackHook; ds: PackDataset; nowMs: number }) 
     <div className="datarow">
       <div className="datahead">
         <b>{p.ds.title}</b>
-        <span className="mono small">{mo(sizeOf(p.ds))} {T("dp.mb")}</span>
+        <span className="mono small nowrap">{mo(sizeOf(p.ds))} {T("dp.mb")}</span>
       </div>
       {st?.state === "downloading" && (
         <>
@@ -70,7 +70,7 @@ export function DataPanel(p: { lang: Lang; pack: PackHook; nowMs: number; onRemo
           <section className={installed ? "pkg installed" : "pkg"} key={c.code}>
             <div className="datahead">
               <b className="pkgname">{c.name}</b>
-              <span className="mono small">{mo(total)} {T("dp.mb")}</span>
+              <span className="mono small nowrap">{mo(total)} {T("dp.mb")}</span>
             </div>
             {!installed ? (
               <>

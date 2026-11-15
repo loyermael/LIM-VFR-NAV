@@ -1120,3 +1120,4 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .lt-cell.active .t-mid em { color: var(--paper); opacity: .9; }
 .ls-table .lt-d > i:last-child, .ls-table .lt-c > span:last-child { align-self: end; }
 .ls-table .lt-cell:not(.lt-r) b { font-size: clamp(18px, 4.8vw, 26px); }
+.nowrap { white-space: nowrap; flex: none; }
