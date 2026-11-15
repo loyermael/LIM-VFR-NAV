@@ -101,10 +101,15 @@ export function NotamTab(p: {
       .map((h) => h.airspace)
       .filter((a) => (seen.has(a.id) ? false : (seen.add(a.id), true)));
   }, [p.route, p.airspaces]);
+  /** « Aucun NOTAM » n'a de sens que si des NOTAM ont été importés : sinon la situation est inconnue (jamais présentée comme « rien à signaler »). */
+  const emptyMark = () =>
+    p.set
+      ? <span className="stat-good lc-stat"><Icon name="circle-check" size={16} />{T("notam.none")}</span>
+      : <span className="stat-caution lc-stat"><Icon name="diamond-alert" size={16} />{T("notam.notImported")}</span>;
   const adRow = (role: NotamRole, icao: string) => {
     const list = relevant.filter((r) => r.role === role && r.notam.locations.includes(icao));
     if (list.length === 0) {
-      return <p className="notam-empty" key={`${role}-${icao}`}><b>{icao}</b> <span className="muted small">{adName(icao)} · {T("notam.none")}</span></p>;
+      return <p className="notam-empty" key={`${role}-${icao}`}><b>{icao}</b> <span className="muted small">{adName(icao)}</span> {emptyMark()}</p>;
     }
     return (
       <div className="notam-ad" key={`${role}-${icao}`}>
@@ -117,7 +122,7 @@ export function NotamTab(p: {
 
   return (
     <div className="navscreen">
-      <p className="error notam-warn" role="note">{T("notam.warning")}</p>
+      <p className="notam-warn" role="note"><Icon name="diamond-alert" size={20} />{T("notam.warning")}</p>
       <div className="cols">
       <div className="col">
 
@@ -159,7 +164,7 @@ export function NotamTab(p: {
           <section className="notam-group">
             <h3>{T("notam.group.route")}</h3>
             {zones.map((z) => (
-              <p className="notam-empty" key={z.id}><b>{z.name}</b> <span className="muted small">{z.typeLabel} · {z.lower.label} → {z.upper.label} · {T("notam.none")}</span></p>
+              <p className="notam-empty" key={z.id}><b>{z.name}</b> <span className="muted small">{z.typeLabel} · {z.lower.label} → {z.upper.label}</span> {emptyMark()}</p>
             ))}
             {routeNotams.map((r) => <NotamCard key={r.notam.id} lang={p.lang} n={r.notam} role={r.role} />)}
             {zones.length === 0 && routeNotams.length === 0 && <p className="muted small">{p.route.points.length < 2 ? T("notam.needTwo") : T("notam.none")}</p>}
@@ -169,7 +174,7 @@ export function NotamTab(p: {
       {p.set && others.length > 0 && (
         <>
           <div className="choices">
-            <button onClick={() => setShowAll(!showAll)}>{showAll ? T("notam.hideOthers") : `${T("notam.showOthers")} (${others.length})`}</button>
+            <Button icon="eye" onClick={() => setShowAll(!showAll)}>{showAll ? T("notam.hideOthers") : `${T("notam.showOthers")} (${others.length})`}</Button>
           </div>
           {showAll && others.map((n) => <NotamCard key={n.id} lang={p.lang} n={n} role={null} />)}
         </>
@@ -180,8 +185,8 @@ export function NotamTab(p: {
       <textarea className="notam-paste" rows={5} value={text} placeholder={T("notam.paste")} aria-label={T("notam.paste")} onChange={(e) => setText(e.target.value)} />
       <div className="choices">
         <Button role="primary" icon="scroll-text" disabled={busy || text.trim() === ""} onClick={() => void run(async () => { const r = await p.onImportText(text, "texte"); if (!r) setText(""); return r; }, T("notam.imported"))}>{T("notam.analyse")}</Button>
-        <label className="filebtn">
-          {T("notam.file")}
+        <label className="filebtn has-icon">
+          <Icon name="upload" size={20} />{T("notam.file")}
           <input type="file" hidden accept=".txt,.text,.notam" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void run(async () => p.onImportText(await f.text(), f.name), T("notam.imported")); }} />
         </label>
       </div>
@@ -193,7 +198,7 @@ export function NotamTab(p: {
           <span>{T("notam.apiKey")}</span>
           <input className="field mono" type="password" autoComplete="off" value={key} onChange={(e) => saveKey(e.target.value)} />
         </label>
-        <button disabled={busy || key.trim() === "" || !p.route || p.route.points.length === 0} onClick={() => void run(() => p.onFetchApi(key.trim()), T("notam.imported"))}>{busy ? T("notam.fetching") : T("notam.fetch")}</button>
+        <Button icon="download" disabled={busy || key.trim() === "" || !p.route || p.route.points.length === 0} onClick={() => void run(() => p.onFetchApi(key.trim()), T("notam.imported"))}>{busy ? T("notam.fetching") : T("notam.fetch")}</Button>
         {!p.route && <p className="muted small">{T("notam.needRoute")}</p>}
       </details>
       {msg && <p className={msg.ok ? "muted small" : "error"} role="status">{msg.text}</p>}

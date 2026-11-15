@@ -881,3 +881,8 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .addrow { margin-top: var(--sp-2); } .addrow > button:first-child { border: 2px dashed var(--ink-muted); background: transparent; } .addrow > button:not(:first-child) { border: var(--rule-line); }
 .aced-bar { box-shadow: 0 64px 0 0 var(--paper); }
 .aced-bar { bottom: calc(-1 * var(--sp-4)); padding-bottom: calc(var(--sp-2) + var(--sp-2)); }
+
+/* Avertissement NOTAM : prudence (orange, forme + texte), pas une erreur. */
+.notam-warn { display: flex; gap: var(--sp-2); align-items: flex-start; margin: 0; padding: var(--sp-2) var(--sp-3); border: 2px solid var(--caution); background: var(--field); color: var(--ink); font-family: var(--font-mono); font-size: var(--fs-14); }
+.notam-warn .icon { flex: none; color: var(--caution); }
+.notam-empty { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
