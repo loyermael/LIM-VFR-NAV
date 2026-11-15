@@ -879,3 +879,5 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .addrow > button:first-child { border-style: dashed; }
 @media (max-width: 420px) { .addrow { grid-auto-flow: row; } }
 .addrow { margin-top: var(--sp-2); } .addrow > button:first-child { border: 2px dashed var(--ink-muted); background: transparent; } .addrow > button:not(:first-child) { border: var(--rule-line); }
+.aced-bar { box-shadow: 0 64px 0 0 var(--paper); }
+.aced-bar { bottom: calc(-1 * var(--sp-4)); padding-bottom: calc(var(--sp-2) + var(--sp-2)); }
