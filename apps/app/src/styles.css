@@ -903,3 +903,35 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .ls-bottom .ls-perf-row .ls-in { grid-template-columns: minmax(0, 1fr); }
 .ls-in input { height: var(--h-touch); box-sizing: border-box; }
 .ls-bottom textarea { min-height: 7.5em; resize: vertical; }
+
+/* ---------- Log de nav : cartes par branche (téléphone) ---------- */
+.ls-cards { display: none; }
+@media (max-width: 700px) {
+  .ls-table { display: none; }
+  .ls-cards { display: grid; gap: var(--sp-3); }
+}
+.lc-end { display: grid; grid-template-columns: auto 1fr; gap: var(--sp-2) var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-3); background: var(--paper-2); border: var(--rule-line); font-family: var(--font-mono); }
+.lc-end b { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; font-size: var(--fs-16); }
+.lc-end > span { text-align: right; font-weight: 600; }
+.lc-end > input { grid-column: 1 / -1; height: 36px; border: 1px solid var(--ink-muted); background: var(--field); color: var(--data-figure); font-family: var(--font-mono); font-size: var(--fs-14); padding: 0 var(--sp-2); min-width: 0; }
+.lc-leg { display: grid; border: var(--rule-line); background: var(--field); }
+.lc-leg.active { background: var(--ink); color: var(--on-ink); box-shadow: inset 0 -5px 0 var(--brand); }
+.lc-h { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: var(--rule-hair); font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 800; text-transform: uppercase; font-size: var(--fs-16); }
+.lc-leg.active .lc-h { border-color: rgba(255, 255, 255, 0.3); }
+.lc-n { font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 700; border: 1px solid currentColor; padding: 1px 6px; }
+.lc-arrow { font-size: var(--fs-20); }
+.lc-he { margin-left: auto; font-size: var(--fs-14); font-weight: 600; }
+.lc-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-1); }
+.lc-big span, .lc-small span, .lc-ent span { display: block; font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+.lc-big b { font-family: var(--font-mono); font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.lc-small { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px var(--sp-2); padding: 2px var(--sp-3) var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-14); font-variant-numeric: tabular-nums; }
+.lc-ent { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); padding: 0 var(--sp-3) var(--sp-3); }
+.lc-ent label { display: grid; gap: 2px; }
+.lc-ent input, .lc-rep input { height: var(--h-touch); border: 1px solid var(--ink-muted); background: var(--field); color: var(--data-figure); font-family: var(--font-mono); font-size: var(--fs-16); padding: 0 var(--sp-2); min-width: 0; width: 100%; box-sizing: border-box; }
+.lc-ent input { text-align: right; }
+.lc-rep { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-2); align-items: center; padding: var(--sp-2) var(--sp-3); border-top: var(--rule-hair); background: var(--paper-2); color: var(--ink); }
+.lc-rep b { font-family: var(--font-display); font-stretch: var(--stretch-display); text-transform: uppercase; font-size: var(--fs-16); }
+.lc-rep input { height: 36px; font-size: var(--fs-14); }
+.lc-leg.active .lc-ent input, .lc-leg.active .lc-rep input { background: rgba(255, 255, 255, 0.12); color: var(--on-ink); border-color: rgba(255, 255, 255, 0.45); }
+.lc-leg.active .lc-rep { background: rgba(255, 255, 255, 0.08); color: var(--on-ink); border-color: rgba(255, 255, 255, 0.3); }
+.lc-leg.active input::placeholder { color: var(--on-ink); opacity: .7; }

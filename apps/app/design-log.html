@@ -1,0 +1,63 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>L!M Nav — maquette log de nav (téléphone)</title>
+<link rel="stylesheet" href="/src/ui/fonts.css"><link rel="stylesheet" href="/src/ui/tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#d9d4c6;color:var(--ink);font-family:var(--font-text)}
+.meta{font-family:var(--font-mono);font-size:12px;color:#444;margin:0 0 12px;max-width:760px}
+.cap{font-family:var(--font-mono);font-size:11px;color:#444;margin:0 0 4px}
+.row{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap}
+.frame{width:375px;background:var(--paper);border:1px solid var(--ink);padding:12px;display:grid;gap:10px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);border:2px solid var(--ink);background:var(--field)}
+.sum div{padding:6px 10px;border-left:1px solid var(--ink)}.sum div:first-child{border-left:0}
+.sum span{display:block;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-muted)}
+.sum b{font-family:var(--font-mono);font-size:20px}
+/* départ / arrivée */
+.end{display:flex;justify-content:space-between;align-items:center;background:var(--paper-2);border:1px solid var(--ink);padding:8px 12px;font-family:var(--font-mono)}
+.end b{font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:16px}
+/* carte de branche */
+.leg{border:1px solid var(--ink);background:var(--field);display:grid}
+.leg.active{background:var(--ink);color:var(--on-ink);box-shadow:inset 0 -5px 0 var(--brand)}
+.lh{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--hair);font-family:var(--font-display);font-stretch:68%;font-weight:800;text-transform:uppercase;font-size:17px}
+.leg.active .lh{border-color:rgba(255,255,255,.3)}
+.lh .n{font-family:var(--font-mono);font-size:11px;font-weight:700;border:1px solid currentColor;padding:1px 6px}
+.lh .arr{font-size:20px}
+.lh .eta{margin-left:auto;font-family:var(--font-mono);font-size:13px;font-weight:600}
+.big{display:grid;grid-template-columns:repeat(3,1fr);padding:8px 12px 4px;gap:8px}
+.big div span{display:block;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.7}
+.big div b{font-family:var(--font-mono);font-size:26px;line-height:1.1}
+.big div b small{font-size:13px;font-weight:600}
+.small{display:grid;grid-template-columns:repeat(3,1fr);padding:2px 12px 8px;gap:8px;font-family:var(--font-mono);font-size:12px}
+.small span{opacity:.7;margin-right:4px}
+.ent{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 12px 10px}
+.ent label{display:grid;gap:2px;font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;opacity:.8}
+.ent input{height:40px;border:1px solid var(--ink-muted);background:var(--field);color:var(--ink);font-family:var(--font-mono);font-size:16px;padding:0 8px;text-align:right}
+.leg.active .ent input{background:rgba(255,255,255,.12);color:var(--on-ink);border-color:rgba(255,255,255,.45)}
+.rep{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;padding:8px 12px;border-top:1px solid var(--hair);background:var(--paper-2);color:var(--ink)}
+.leg.active .rep{background:rgba(255,255,255,.08);color:var(--on-ink);border-color:rgba(255,255,255,.3)}
+.rep b{font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:16px}
+.rep input{height:36px;border:1px solid var(--ink-muted);background:var(--field);color:var(--ink);font-family:var(--font-mono);font-size:14px;padding:0 8px;min-width:0}
+.leg.active .rep input{background:rgba(255,255,255,.12);color:var(--on-ink);border-color:rgba(255,255,255,.45)}
+.tag{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brand)}
+</style></head><body>
+<p class="meta"><b>Maquette — log de nav sur téléphone (≤ 700 px).</b> Données fictives. Une carte par branche à la place du tableau en quinconce ; au-dessus de 700 px et dans le PDF, le tableau actuel (fiche papier) reste identique. Les champs saisis (Z min, Hr, info du report) gardent les mêmes clés d'enregistrement.</p>
+<div class="row">
+<div><p class="cap">PROPOSITION — cartes par branche (branche 1 = branche active)</p><div class="frame" id="new"></div></div>
+</div>
+<script>
+const L=[
+ {n:1,from:'LFCQ',to:'LFMG',cm:'175',rm:'181',d:'21,7',dsd:'0,0',dta:'43,4',tav:'20′',tsv:'17′',he:'15:10',z:'3000',tr:'→',freq:'134.155 LFMG',active:1},
+ {n:2,from:'LFMG',to:'LFCQ',cm:'006',rm:'001',d:'21,7',dsd:'21,7',dta:'21,7',tav:'15′',tsv:'17′',he:'15:25',z:'3000',tr:'→',freq:'119.655 LFCQ'}];
+const card=l=>`<section class="leg${l.active?' active':''}">
+ <div class="lh"><span class="n">${l.n}</span><span>${l.from} → ${l.to}</span><span class="arr">${l.tr}</span><span class="eta">${l.he}</span></div>
+ <div class="big"><div><span>Rm</span><b>${l.rm}<small>°</small></b></div><div><span>Dist NM</span><b>${l.d}</b></div><div><span>Tsv</span><b>${l.tsv}</b></div></div>
+ <div class="small"><div><span>Cm</span>${l.cm}°</div><div><span>Tav</span>${l.tav}</div><div><span>Z vol</span>${l.z} ft</div></div>
+ <div class="small"><div><span>DSD</span>${l.dsd}</div><div><span>DTA</span>${l.dta}</div><div></div></div>
+ <div class="ent"><label>Z min<input placeholder="—"></label><label>Hr<input placeholder="hh:mm"></label></div>
+ <div class="rep"><b>${l.to}</b><input value="${l.freq}"></div></section>`;
+document.getElementById('new').innerHTML=`
+<div class="sum"><div><span>Total NM</span><b>43,4</b></div><div><span>Tsv</span><b>34′</b></div><div><span>Fuel L</span><b>7,1</b></div></div>
+<div class="end"><b>Départ</b><span>14:50</span></div>
+${L.map(card).join('')}
+<div class="end"><b>Arrivée</b><span>15:25</span></div>`;
+</script></body></html>

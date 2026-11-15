@@ -109,6 +109,50 @@ export function LogSheet(p: {
         })}
       </div>
 
+      {/* Téléphone : une carte par branche (le tableau en quinconce ci-dessus est masqué sous 700 px ; mêmes champs, mêmes clés). */}
+      <div className="ls-cards">
+        <div className="lc-end">
+          <b>{T("log.start")}</b>
+          <span className="mono">{m.departure}</span>
+          <input aria-label="RNav / Info NAV / Com / Z" value={form["note0"] ?? [m.points[0]?.freq, m.points[0]?.alt].filter(Boolean).join(" · ")} onChange={(e) => setField("note0", e.target.value)} />
+        </div>
+        {m.legs.map((l, i) => {
+          const from = m.points[i], to = m.points[i + 1];
+          const def = [to?.freq, to?.alt].filter(Boolean).join(" · ");
+          return (
+            <section key={`lc${i}`} className={p.activeLeg === i ? "lc-leg active" : "lc-leg"}>
+              <div className="lc-h">
+                <span className="lc-n">{i + 1}</span>
+                <span>{from?.name} → {to?.name}</span>
+                <span className="lc-arrow">{l.trend === "climb" ? "↗" : l.trend === "descent" ? "↘" : "→"}</span>
+                <span className="lc-he mono">{l.he}</span>
+              </div>
+              <div className="lc-big">
+                <div><span>Rm</span><b>{l.rm}°</b></div>
+                <div><span>{T("log.distShort")} {m.totals.dUnit}</span><b>{l.d}</b></div>
+                <div><span>Tsv</span><b>{l.tsv}</b></div>
+              </div>
+              <div className="lc-small">
+                <div><span>Cm</span>{l.cm}°</div>
+                <div><span>Tav</span>{l.tav}</div>
+                <div><span>Z vol</span>{l.z || "---"}</div>
+                <div><span>DSD</span>{l.dsd}</div>
+                <div><span>DTA</span>{l.dta}</div>
+              </div>
+              <div className="lc-ent">
+                <label><span>Z min</span><input inputMode="decimal" placeholder="—" value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} /></label>
+                <label><span>Hr</span><input placeholder="hh:mm" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></label>
+              </div>
+              <div className="lc-rep">
+                <b>{to?.name}</b>
+                <input aria-label="RNav / Info NAV / Com / Z" value={form[`note${i + 1}`] ?? def} onChange={(e) => setField(`note${i + 1}`, e.target.value)} />
+              </div>
+            </section>
+          );
+        })}
+        <div className="lc-end"><b>{T("log.endShort")}</b><span className="mono">{m.legs[m.legs.length - 1]?.he ?? ""}</span></div>
+      </div>
+
       <div className="ls-total">
         <b>TOTAL</b>
         <span className="mono">{m.totals.d} {m.totals.dUnit}</span>
