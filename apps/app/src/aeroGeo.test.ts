@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_UNIT_PREFS, parseOpenAipAirfields, parseOpenAipAirspaces } from "@lim/core";
-import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, floorMeters, formatUtc, freshnessWarnings, periodStatus } from "./aeroGeo";
+import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, sortAirspacesTopDown, floorMeters, formatUtc, freshnessWarnings, periodStatus } from "./aeroGeo";
 
 const sq = [[[1, 45], [3, 45], [3, 47], [1, 47], [1, 45]]];
 const asp = (over: Record<string, unknown> = {}) => parseOpenAipAirspaces([{
@@ -45,7 +45,7 @@ describe("textes de détail", () => {
   });
   it("espace sans fréquence ni activation : pas de ligne vide", () => {
     const d = airspaceDetails(asp({ frequencies: [], byNotam: false, remarks: "" }), null);
-    expect(Object.keys(d)).toEqual(["Nom", "Type", "Plancher", "Plafond", "Source"]);
+    expect(Object.keys(d)).toEqual(["Nom", "Type", "Plafond", "Plancher", "Source"]);
   });
   it("terrain : altitude dans l'unité choisie, pistes, fréquences", () => {
     const a = parseOpenAipAirfields([{
@@ -96,5 +96,21 @@ describe("période d'activation d'un espace temporaire", () => {
     const sq2 = [[[1, 45], [3, 45], [3, 47], [1, 47], [1, 45]]];
     const a = parseOpenAipAirspaces([{ _id: "z", name: "ZRT TEST", type: 1, geometry: { type: "Polygon", coordinates: sq2 }, lowerLimit: { value: 0, unit: 1, referenceDatum: 0 }, upperLimit: { value: 3000, unit: 1, referenceDatum: 1 }, activeFrom: "2026-12-02T08:00:00.000Z", activeUntil: "2026-12-10T13:00:00.000Z" }]).items[0]!;
     expect(airspaceDetails(a, null, now)["Période"]).toBe("02/12/2026 08:00 UTC → 10/12/2026 13:00 UTC (à venir)");
+  });
+});
+
+describe("tri des espaces de la fiche", () => {
+  const L = (reference: "FL" | "AMSL" | "AGL", value: number) => ({ reference, value, label: `${reference}${value}` }) as never;
+  it("plafond le plus haut en premier, le plus bas en dernier", () => {
+    const list = [
+      { n: "bas", lower: L("AGL", 0), upper: L("AMSL", 1000) },
+      { n: "haut", lower: L("FL", 115), upper: L("FL", 195) },
+      { n: "mid", lower: L("AMSL", 1000), upper: L("FL", 65) },
+    ];
+    expect(sortAirspacesTopDown(list).map((x) => x.n)).toEqual(["haut", "mid", "bas"]);
+  });
+  it("plafond affiché avant le plancher", () => {
+    const keys = Object.keys(airspaceDetails(asp(), null));
+    expect(keys.indexOf("Plafond")).toBeLessThan(keys.indexOf("Plancher"));
   });
 });

@@ -15,6 +15,15 @@ export function floorMeters(a: Pick<Airspace, "lower">): number {
   return -1;
 }
 
+/** Hauteur d'une limite en mètres (FL, AMSL ou AGL ; l'AGL n'est qu'indicatif) pour classer les espaces du plus haut au plus bas. */
+export function limitMeters(l: Airspace["lower"]): number {
+  return l.reference === "FL" ? flightLevelToMeters(l.value) : l.value;
+}
+/** Tri pour la fiche : l'espace dont le plafond est le plus haut en premier, le plus bas en dernier (à plafond égal, plancher le plus haut d'abord). */
+export function sortAirspacesTopDown<T extends Pick<Airspace, "lower" | "upper">>(list: T[]): T[] {
+  return [...list].sort((a, b) => limitMeters(b.upper) - limitMeters(a.upper) || limitMeters(b.lower) - limitMeters(a.lower));
+}
+
 /**
  * Style d'un espace d'après la légende de la carte OACI : bandes colorées le long de la limite pour les espaces contrôlés (A rouge, B/C/D bleu, E bleu clair),
  * hachures rouges pour les zones interdites (quadrillées), réglementées et dangereuses, trait mixte pour RMZ/TMZ, pointillés pour ATZ et secteurs SIV.
@@ -178,8 +187,8 @@ export function airspaceDetails(a: Airspace, exportedAtMs: number | null, nowMs:
   const d: Record<string, string> = {
     Nom: a.name,
     Type: a.typeLabel + (a.icaoClass ? ` · classe ${a.icaoClass}` : ""),
-    Plancher: a.lower.label,
     Plafond: a.upper.label,
+    Plancher: a.lower.label,
   };
   if (a.frequencies.length > 0) d["Fréquences"] = freqText(a.frequencies);
   if (a.onRequest || a.byNotam) d["Activation"] = `${a.byNotam ? "par NOTAM" : "sur demande"} : à vérifier (SIA / NOTAM), état du jour inconnu`;

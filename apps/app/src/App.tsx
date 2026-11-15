@@ -12,7 +12,7 @@ import { MAX_ZOOM, getLostCharts, importMbtiles, loadCharts, pickMbtiles, remove
 import { CEILING_FILTER } from "./config";
 import { detectLang, t, type Key, type Lang } from "./i18n";
 import { MapView, type Orientation, type TappedFeature, type Theme } from "./MapView";
-import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, navToGeoJSON, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
+import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, sortAirspacesTopDown, navToGeoJSON, airspacesToGeoJSON, freshnessWarnings } from "./aeroGeo";
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, reverseRoute, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
@@ -571,8 +571,12 @@ export function App() {
   /** Double-tap : les espaces et terrains sont remplacés par leur fiche complète. */
   const onDoubleTap = (found: TappedFeature[]) => {
     setCellSheet(null);
+    // Espaces d'abord, du plafond le plus haut au plus bas ; le reste (terrains…) garde son ordre ensuite.
+    const spaces = found.filter((f) => f.layerName === "asp" && aspById.has(String((f.properties as { id?: unknown }).id ?? "")));
+    const sortedSpaces = sortAirspacesTopDown(spaces.map((f) => ({ f, ...aspById.get(String((f.properties as { id?: unknown }).id ?? ""))! }))).map((x) => x.f);
+    const ordered = [...sortedSpaces, ...found.filter((f) => !sortedSpaces.includes(f))];
     setDetails(
-      found.map((f) => {
+      ordered.map((f) => {
         const id = String((f.properties as { id?: unknown }).id ?? "");
         if (f.layerName === "asp") {
           const a = aspById.get(id);
