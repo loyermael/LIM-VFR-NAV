@@ -1802,6 +1802,7 @@ export function App() {
                 onSelect={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
                 onPut={(a) => { ac.put(a); if (a.id === ac.activeId) pushAircraftPerf(a); }}
                 onRemove={ac.remove}
+                onUndoable={offerUndo}
               />
             ) : screen === "aircraft" && tab === 1 ? (
               <BalanceTab

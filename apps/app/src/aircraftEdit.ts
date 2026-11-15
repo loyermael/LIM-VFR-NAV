@@ -92,3 +92,37 @@ export function envelopeArea(a: Pick<Aircraft, "envelope">): number {
   }
   return Math.abs(s) / 2;
 }
+
+/** Réinsère un poste à sa place (annulation d'une suppression). */
+export function insertStation(a: Aircraft, index: number, station: LoadStation, now: number): Aircraft {
+  const i = Math.max(0, Math.min(index, a.stations.length));
+  return touch(a, { stations: [...a.stations.slice(0, i), station, ...a.stations.slice(i)] }, now);
+}
+
+/** Réinsère un sommet à sa place (annulation d'une suppression). */
+export function insertVertex(a: Aircraft, index: number, vertex: readonly [number, number], now: number): Aircraft {
+  const i = Math.max(0, Math.min(index, a.envelope.length));
+  return touch(a, { envelope: [...a.envelope.slice(0, i), vertex, ...a.envelope.slice(i)] }, now);
+}
+
+type Pt = readonly [number, number];
+const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+
+/** Deux segments se croisent-ils en un point intérieur aux deux (croisement franc, pas un simple contact d'extrémité) ? */
+function segmentsCross(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
+  const d1 = cross(p3, p4, p1), d2 = cross(p3, p4, p2), d3 = cross(p1, p2, p3), d4 = cross(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+/** Le contour (polygone fermé) se coupe-t-il lui-même ? Avertissement d'affichage seulement : rien n'est modifié ni bloqué. */
+export function envelopeSelfIntersects(envelope: readonly (readonly [number, number])[]): boolean {
+  const n = envelope.length;
+  if (n < 4) return false;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (j === i + 1 || (i === 0 && j === n - 1)) continue; // arêtes voisines
+      if (segmentsCross(envelope[i] as Pt, envelope[(i + 1) % n] as Pt, envelope[j] as Pt, envelope[(j + 1) % n] as Pt)) return true;
+    }
+  }
+  return false;
+}

@@ -527,8 +527,8 @@ button.row { text-align: left; }
 .docbar { display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .docbar button { flex: none; }
 .docbar .doctitle { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.screen:has(.docbar) > .screen-head { display: none; }
-.screen:has(.docbar) .tabs { display: none; }
+.screen:has(.docbar) > .screen-head, .screen:has(.acbar) > .screen-head { display: none; }
+.screen:has(.docbar) .tabs, .screen:has(.acbar) .tabs { display: none; }
 
 /* Fiche d'un point : nom (large) et altitude (étroite) sur une ligne. */
 .ptsheet-fields { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--sp-3); align-items: end; }
@@ -771,3 +771,70 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .statt { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border: var(--rule-line); background: var(--field); }
 .statt span { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); text-transform: uppercase; letter-spacing: .04em; }
 .statt b { font-size: var(--fs-20); font-weight: 700; }
+
+/* ---------- Éditeur de fiche avion (refonte légère) ---------- */
+.aced { max-width: 1080px; margin-inline: auto; width: 100%; gap: var(--sp-3); }
+.aced .acbar { display: flex; }
+.aced-title h2 { margin: 0; font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 800; font-size: 34px; text-transform: uppercase; line-height: 1; overflow-wrap: anywhere; }
+.aced-sub { font-family: var(--font-mono); font-size: 13px; color: var(--ink-muted); margin-top: 4px; }
+.aced-grid { display: grid; gap: var(--sp-3) var(--sp-4); grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.aced > *, .aced .sectbody > * { min-width: 0; }
+
+/* champ avec libellé au-dessus (UnitField / TextField, disposition « stack ») */
+.ufield.stack .uf-label { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+.ufield.stack .uf-label > span:first-child { font-size: 12px; }
+.uf-opt { font-style: normal; font-weight: 400; color: var(--ink-muted); margin-left: var(--sp-2); }
+.uf-inp input::placeholder { color: var(--ink-muted); font-weight: 400; }
+.uf-inp.txt input { text-align: left; }
+.ufield.stack .uf-inp { height: var(--h-touch); }
+
+/* progression : un segment par section, cliquable */
+.ac-segs { max-width: 260px; }
+.ac-segs .seg { flex: 1; height: 16px; min-height: 0; padding: 0; border: 1px solid var(--ink); border-radius: 0; background: var(--paper-2); box-shadow: none; }
+.ac-segs .seg.done { background: var(--zone-good); border-color: var(--zone-good); }
+.ac-segs .seg:hover, .ac-segs .seg:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+
+/* tableaux éditables : espacement plutôt que filets */
+.edtable { width: 100%; border-collapse: collapse; font-family: var(--font-mono); }
+.edtable th { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); font-weight: 600; text-align: left; padding: 0 var(--sp-1) var(--sp-1); }
+.edtable th.n { text-align: right; }
+.edtable td { padding: 3px var(--sp-1); vertical-align: middle; }
+.edtable td.num { width: 30px; text-align: center; font-weight: 700; color: var(--ink-muted); }
+.edtable input.cell, .edtable input.mini, .edtable select.cell { width: 100%; min-width: 0; height: 40px; padding: 0 var(--sp-2); border: var(--rule-line); background: var(--field); color: var(--ink); font-family: var(--font-mono); font-size: 16px; font-weight: 700; border-radius: 0; font-variant-numeric: tabular-nums; }
+.edtable input.mini { text-align: right; }
+.edtable input.cell { text-align: left; }
+.edtable input::placeholder { color: var(--ink-muted); font-weight: 400; }
+.edtable input:focus-visible, .edtable select:focus-visible { outline: 3px solid var(--brand); outline-offset: 0; }
+.edtable select.sel { appearance: none; -webkit-appearance: none; cursor: pointer; font-size: 14px; padding-right: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23777' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+.cell-note { display: block; text-align: right; font-size: 12px; color: var(--ink-muted); padding-right: var(--sp-2); }
+.trashbtn { width: 40px; height: 40px; min-height: 0; display: grid; place-items: center; padding: 0; border: 0; background: transparent; box-shadow: none; color: var(--ink-muted); cursor: pointer; }
+.trashbtn:hover, .trashbtn:focus-visible { color: var(--signal); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* enveloppe : tableau et aperçu côte à côte en grand écran */
+.aced-env { display: grid; gap: var(--sp-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .aced-env { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+.aced-env-tab { display: grid; gap: var(--sp-3); }
+.ac-sketch { max-width: none; margin: 0; width: 100%; }
+.aced-warn { display: flex; gap: var(--sp-2); align-items: flex-start; margin: 0; padding: var(--sp-2) var(--sp-3); border: 2px solid var(--caution); background: var(--field); font-family: var(--font-mono); font-size: 13px; }
+.aced-warn .icon { flex: none; color: var(--caution); }
+
+/* stations sur téléphone : deux lignes par poste */
+@media (max-width: 560px) {
+  .edtable.st thead { display: none; }
+  .edtable.st, .edtable.st tbody { display: block; }
+  .edtable.st tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; gap: 6px; padding: var(--sp-2) 0; }
+  .edtable.st tr + tr { border-top: var(--rule-hair); }
+  .edtable.st td { display: block; padding: 0; }
+  .edtable.st .c-n { grid-column: 1; } .edtable.st .c-t { grid-column: 2; } .edtable.st .c-x { grid-column: 3; grid-row: 1; }
+  .edtable.st .c-a, .edtable.st .c-m { grid-row: 2; } .edtable.st .c-a { grid-column: 1; } .edtable.st .c-m { grid-column: 2; }
+  .edtable.st .c-a::before, .edtable.st .c-m::before { content: attr(data-l); display: block; font-size: 11px; color: var(--ink-muted); margin-bottom: 2px; }
+}
+
+/* barre d'action collante */
+.aced-bar { position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); margin-top: var(--sp-3); background: var(--paper); border-top: 2px solid var(--ink); }
+.aced-saved { display: inline-flex; align-items: center; gap: var(--sp-1); font-family: var(--font-mono); font-size: 12px; color: var(--zone-good); }
+@media (max-width: 560px) { .aced-bar .btn-primary { flex: 1; justify-content: center; } }
+.uf-inp input { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+@media (min-width: 561px) { .edtable.st .c-n { width: 30%; } .edtable.st .c-t { width: 22%; } .edtable.st .c-x, .edtable.vx td:last-child { width: 44px; } }
+.ac-progress { flex-wrap: wrap; } @media (max-width: 560px) { .ac-segs { flex: 1 1 100%; max-width: none; } }

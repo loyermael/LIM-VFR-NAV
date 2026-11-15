@@ -1,0 +1,111 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>L!M Nav — maquette fiche avion</title>
+<link rel="stylesheet" href="/src/ui/fonts.css"><link rel="stylesheet" href="/src/ui/tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#d9d4c6;color:var(--ink);font-family:var(--font-text)}
+.meta{font-family:var(--font-mono);font-size:12px;color:#444;margin:0 0 12px;max-width:1100px}
+.cap{font-family:var(--font-mono);font-size:11px;color:#444;margin:0 0 4px}
+.frame{background:var(--paper);border:1px solid var(--ink);margin:0 0 24px;position:relative;overflow:hidden}
+.desk{width:1180px;max-width:100%}.phone{width:375px}
+.scr{padding:16px 16px 0;display:grid;gap:14px;max-width:1080px;margin:0 auto;min-width:0}
+.back{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 12px;border:1px solid var(--ink);background:var(--field);font-family:var(--font-display);font-stretch:68%;font-weight:700;text-transform:uppercase;font-size:15px;width:max-content}
+h1{margin:0;font-family:var(--font-display);font-stretch:68%;font-weight:800;font-size:34px;text-transform:uppercase;line-height:1}
+.sub{font-family:var(--font-mono);font-size:13px;color:var(--ink-muted);margin-top:4px}
+.grid{display:grid;gap:12px 16px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.phone .grid{grid-template-columns:1fr}
+.f{display:grid;gap:4px;min-width:0}
+.f>span{font-family:var(--font-mono);font-size:12px;font-weight:600}
+.f>span em{font-style:normal;font-weight:400;color:var(--ink-muted);margin-left:6px}
+.in{display:flex;align-items:center;gap:6px;height:44px;padding:0 10px;border:1px solid var(--ink);background:var(--field);font-family:var(--font-mono)}
+.in input,.in select{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-weight:700;font-size:17px;color:var(--ink);text-align:right;outline:none;padding:0;font-variant-numeric:tabular-nums}
+.in.txt input{text-align:left}
+.in input::placeholder{color:var(--ink-muted);font-weight:400}
+.in .u{font-size:12px;color:var(--ink-muted);white-space:nowrap}
+.in.focus{outline:3px solid var(--brand)}
+.prog{display:grid;gap:6px}
+.segs{display:flex;gap:4px}
+.segs a{flex:1;height:10px;background:var(--paper-2);border:1px solid var(--ink)}
+.segs a.done{background:var(--zone-good);border-color:var(--zone-good)}
+.segs a.cur{outline:2px solid var(--ink);outline-offset:1px}
+.proglbl{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);display:flex;justify-content:space-between}
+.sec{border:1px solid var(--ink);background:var(--field)}
+.sec>.hd{display:flex;align-items:center;gap:10px;min-height:52px;padding:0 12px;font-family:var(--font-display);font-stretch:68%;font-weight:800;text-transform:uppercase;font-size:18px}
+.sec>.hd .chev{margin-left:auto;color:var(--ink-muted)}
+.badge{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--zone-good);display:inline-flex;gap:4px;align-items:center;text-transform:uppercase}
+.badge.todo{color:var(--caution)}
+.sec>.bd{padding:4px 12px 14px;display:grid;gap:14px}
+.help{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);margin:0}
+/* tableau éditable */
+table.ed{width:100%;border-collapse:collapse;font-family:var(--font-mono)}
+table.ed th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-muted);font-weight:600;text-align:left;padding:0 6px 6px}
+table.ed th.n,table.ed td.n{text-align:right}
+table.ed td{padding:3px 6px}
+table.ed tbody tr:first-child td{padding-top:0}
+table.ed .in{height:40px}
+table.ed .num{width:30px;text-align:center;font-weight:700;color:var(--ink-muted)}
+.phone table.st thead{display:none}
+.phone table.st,.phone table.st tbody{display:block}
+.phone table.st tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px;gap:6px;padding:8px 0;border-top:1px solid var(--hair)}
+.phone table.st tr:first-child{border-top:0}
+.phone table.st td{display:block;padding:0}
+.phone table.st .c-n{grid-column:1}.phone table.st .c-t{grid-column:2}.phone table.st .c-x{grid-column:3;grid-row:1}
+.phone table.st .c-a,.phone table.st .c-m{grid-row:2}.phone table.st .c-a{grid-column:1}.phone table.st .c-m{grid-column:2}
+.phone table.st .c-a::before,.phone table.st .c-m::before{content:attr(data-l);display:block;font-size:11px;color:var(--ink-muted);margin-bottom:2px}
+.scr>*,.sec,.bd,.bd>*,.envwrap>*{min-width:0}.phone .scr{grid-template-columns:minmax(0,1fr)}.phone .envwrap{grid-template-columns:minmax(0,1fr)}.sec>.bd{grid-template-columns:minmax(0,1fr)}
+.trash{width:40px;height:40px;border:0;background:transparent;color:var(--ink-muted);display:grid;place-items:center}
+.trash:hover{color:var(--signal)}
+.sel{appearance:none;text-align:left!important;cursor:pointer;background:transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='3'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 0 center;padding-right:18px!important}
+.add{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 14px;border:1px solid var(--ink);background:var(--field);font-family:var(--font-display);font-stretch:68%;font-weight:700;text-transform:uppercase;font-size:15px;width:max-content}
+.row2{display:flex;gap:8px;flex-wrap:wrap}
+.warn{display:flex;gap:8px;align-items:flex-start;border:2px solid var(--caution);padding:8px 10px;font-family:var(--font-mono);font-size:12.5px;background:var(--field)}
+.warn svg{flex:none;color:var(--caution)}
+.envwrap{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.phone .envwrap{grid-template-columns:1fr}
+svg.sk{width:100%;height:auto;background:var(--paper);border:1px solid var(--ink)}
+/* barre collante */
+.bar{position:sticky;bottom:0;margin:14px -16px 0;padding:10px 16px;background:var(--paper);border-top:2px solid var(--ink);display:flex;align-items:center;gap:14px;justify-content:space-between}
+.saved{font-family:var(--font-mono);font-size:12px;color:var(--zone-good);display:inline-flex;gap:5px;align-items:center}
+.primary{display:inline-flex;align-items:center;gap:8px;min-height:56px;padding:0 28px;border:1px solid var(--ink);background:var(--brand);color:var(--on-brand);font-family:var(--font-display);font-stretch:68%;font-weight:800;text-transform:uppercase;font-size:20px}
+.phone .primary{flex:1;justify-content:center}
+.hide-m{}
+.phone .hide-m{display:none}
+@media (prefers-color-scheme:dark){body{background:#111}}
+</style></head><body>
+<p class="meta"><b>Maquette — fiche avion (éditeur).</b> Données fictives. L'enregistrement est automatique dans l'appli : le bouton devient « Terminé » avec un indicateur « Enregistré ». Grand écran puis téléphone (375 px).</p>
+<p class="cap">GRAND ÉCRAN — contenu centré (max. 1080 px), 2–3 champs par ligne, enveloppe : tableau + aperçu côte à côte</p>
+<div class="frame desk" id="desk"></div>
+<p class="cap">TÉLÉPHONE (375 px) — 1 champ par ligne, tableaux compacts, barre d'action collante (ici avec l'avertissement « contour croisé » en exemple)</p>
+<div class="frame phone" id="phone"></div>
+<script>
+const ic=(d,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="square">${d}</svg>`;
+const I={back:ic('<path d="m12 19-7-7 7-7M19 12H5"/>'),trash:ic('<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',20),plus:ic('<path d="M12 5v14M5 12h14"/>'),ok:ic('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',16),chev:ic('<path d="m6 9 6 6 6-6"/>',20),up:ic('<path d="m18 15-6-6-6 6"/>',20),sort:ic('<path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/>'),warn:ic('<path d="M12 2 22 12 12 22 2 12Z"/><path d="M12 8v4M12 16h.01"/>',20)};
+const fld=(l,v,u,o={})=>`<label class="f"><span>${l}${o.opt?'<em>optionnel</em>':''}</span><div class="in${o.txt?' txt':''}${o.focus?' focus':''}"><input value="${v}" placeholder="${o.opt?'optionnel':'—'}">${u?`<span class="u">${u}</span>`:''}</div></label>`;
+const sec=(id,t,done,open,body)=>`<section class="sec" id="s-${id}"><div class="hd">${t}<span class="badge ${done?'':'todo'}">${done?I.ok+' Complet':'À compléter'}</span><span class="chev">${open?I.up:I.chev}</span></div>${open?`<div class="bd">${body}</div>`:''}</section>`;
+const sel=v=>`<div class="in txt"><select class="sel"><option>${v}</option></select></div>`;
+const stRows=[['Pilote','Occupant','2,300','110'],['Passager','Occupant','2,300','110'],['Bagages','Bagage','2,900','20'],['Carburant','Carburant','2,550','']];
+const stations=`<table class="ed st"><thead><tr><th>Nom</th><th>Type</th><th class="n">Bras (m)</th><th class="n">Masse max (kg)</th><th></th></tr></thead><tbody>${stRows.map(r=>`<tr><td class="c-n"><div class="in txt"><input value="${r[0]}"></div></td><td class="c-t">${sel(r[1])}</td><td class="c-a" data-l="Bras (m)"><div class="in"><input value="${r[2]}"></div></td><td class="c-m" data-l="Masse max (kg)"><div class="in"><input value="${r[3]}" placeholder="${r[1]==='Carburant'?'capacité':'—'}"></div></td><td class="c-x"><button class="trash" title="Supprimer">${I.trash}</button></td></tr>`).join('')}</tbody></table><button class="add">${I.plus} Ajouter un poste</button>`;
+const vx=[[2.20,560],[2.20,720],[2.28,800],[2.45,800],[2.45,560]];
+function sketch(vs){const W=420,H=300,L=46,R=12,T=14,B=34,x0=2.15,x1=2.5,y0=500,y1=850;const sx=x=>L+(x-x0)/(x1-x0)*(W-L-R),sy=y=>H-B-(y-y0)/(y1-y0)*(H-T-B);let g='';
+for(let x=2.15;x<=2.5001;x+=.05)g+=`<line x1="${sx(x)}" y1="${T}" x2="${sx(x)}" y2="${H-B}" stroke="var(--hair)"/><text x="${sx(x)}" y="${H-B+14}" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">${x.toFixed(2)}</text>`;
+for(let y=500;y<=850;y+=50)g+=`<line x1="${L}" y1="${sy(y)}" x2="${W-R}" y2="${sy(y)}" stroke="var(--hair)"/><text x="${L-5}" y="${sy(y)+3}" font-size="10" text-anchor="end" fill="var(--ink-muted)" font-family="var(--font-mono)">${y}</text>`;
+g+=`<polygon points="${vs.map(v=>sx(v[0])+','+sy(v[1])).join(' ')}" fill="var(--paper-2)" stroke="var(--ink)" stroke-width="2"/>`;
+vs.forEach((v,i)=>{g+=`<circle cx="${sx(v[0])}" cy="${sy(v[1])}" r="9" fill="var(--ink)"/><text x="${sx(v[0])}" y="${sy(v[1])+4}" font-size="11" font-weight="700" text-anchor="middle" fill="var(--paper)" font-family="var(--font-mono)">${i+1}</text>`});
+g+=`<text x="${(L+W-R)/2}" y="${H-3}" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">bras (m)</text><text transform="translate(10 ${(T+H-B)/2}) rotate(-90)" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">masse (kg)</text>`;
+return `<svg class="sk" viewBox="0 0 ${W} ${H}">${g}</svg>`}
+const vxT=`<table class="ed"><thead><tr><th class="n" style="text-align:center">#</th><th class="n">Bras (m)</th><th class="n">Masse (kg)</th><th></th></tr></thead><tbody>${vx.map((v,i)=>`<tr><td class="num">${i+1}</td><td><div class="in"><input value="${v[0].toFixed(3).replace('.',',')}"></div></td><td><div class="in"><input value="${v[1]}"></div></td><td><button class="trash" title="Supprimer">${I.trash}</button></td></tr>`).join('')}</tbody></table><div class="row2"><button class="add">${I.plus} Ajouter un sommet</button><button class="add" title="Réordonne les sommets autour du contour, sans changer leurs valeurs">${I.sort} Trier les sommets</button></div>`;
+const crossed=`<div class="warn">${I.warn}<span>Les sommets se croisent : le contour n'est pas valide. Utilisez « Trier les sommets » ou corrigez les valeurs.</span></div>`;
+function page(w,warn){
+ const env=`<p class="help">Sommets du contour (bras, masse) d'après le manuel de vol. L'aperçu se met à jour en direct.</p>${warn?crossed:''}<div class="envwrap"><div style="display:grid;gap:12px">${vxT}</div>${sketch(warn?[vx[0],vx[2],vx[1],vx[3],vx[4]]:vx)}</div>`;
+ return `<div class="scr"><a class="back">${I.back} Avions</a>
+ <div><h1>F-EXMP</h1><div class="sub">SF28 (exemple)</div></div>
+ <div class="grid">${fld('Immatriculation','F-EXMP','',{txt:1})}${fld('Type / modèle','SF28 (exemple)','',{txt:1})}</div>
+ <div class="prog"><div class="segs"><a class="done" title="Croisière"></a><a class="done" title="Masses"></a><a class="done" title="Carburant"></a><a class="done" title="Postes de chargement"></a><a class="${warn?'cur':'done'}" title="Enveloppe"></a></div><div class="proglbl"><span>Fiche : ${warn?4:5} / 5 sections complètes</span><span class="hide-m">Cliquer un segment pour y aller</span></div></div>
+ ${sec('cruise','Croisière',1,0)}
+ ${sec('mass','Masses',1,0)}
+ ${sec('fuel','Carburant',1,0)}
+ ${sec('stations','Postes de chargement',1,1,stations)}
+ ${sec('env','Enveloppe de centrage',!warn,1,env)}
+ <div class="bar"><span class="saved">${I.ok} Enregistré</span><button class="primary">Terminé</button></div></div>`}
+document.getElementById('desk').innerHTML=page(1080,false);
+document.getElementById('phone').innerHTML=page(343,true);
+</script></body></html>

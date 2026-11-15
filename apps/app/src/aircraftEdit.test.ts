@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateAircraft } from "@lim/core";
 import {
-  addStation, addVertex, duplicateAircraft, envelopeArea, newAircraft, orderEnvelope, patchAircraft, patchFuel, patchStation,
+  addStation, addVertex, duplicateAircraft, envelopeArea, envelopeSelfIntersects, insertStation, insertVertex, newAircraft, orderEnvelope, patchAircraft, patchFuel, patchStation,
   patchVertex, removeStation, removeVertex,
 } from "./aircraftEdit";
 
@@ -82,5 +82,22 @@ describe("copie", () => {
     expect(b.name).toBe("A (copie)");
     expect(b.stations.map((s) => s.id)).toEqual(["y-pilot", "y-pax", "y-bag", "y-fuel"]);
     expect(a.stations[0]!.id).toBe("x-pilot");
+  });
+});
+
+describe("contour et annulation", () => {
+  it("détecte un contour croisé", () => {
+    expect(envelopeSelfIntersects([[0, 0], [1, 0], [1, 1], [0, 1]])).toBe(false);
+    expect(envelopeSelfIntersects([[0, 0], [1, 1], [1, 0], [0, 1]])).toBe(true);
+    expect(envelopeSelfIntersects([[2.2, 560], [2.2, 720], [2.28, 800], [2.45, 800], [2.45, 560]])).toBe(false);
+    expect(envelopeSelfIntersects([[0, 0], [1, 0], [0, 1]])).toBe(false);
+  });
+  it("réinsère un sommet et un poste à leur place", () => {
+    const a = { ...newAircraft("x", "X", 0), envelope: [[1, 1], [2, 2], [3, 3]] as const };
+    const b = removeVertex(a, 1, 1);
+    expect(insertVertex(b, 1, [2, 2], 2).envelope).toEqual(a.envelope);
+    const s = a.stations[1] as (typeof a.stations)[number];
+    const c = removeStation(a, 1, 1);
+    expect(insertStation(c, 1, s, 2).stations).toEqual(a.stations);
   });
 });

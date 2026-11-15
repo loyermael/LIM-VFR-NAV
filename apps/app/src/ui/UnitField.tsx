@@ -15,6 +15,10 @@ export function UnitField(props: {
   limit?: number | null;
   /** Ligne d'aide sous le champ (ex. équivalent en kg). */
   hint?: ReactNode;
+  /** Libellé au-dessus du champ (grilles de formulaire) plutôt que « libellé | champ » sur une ligne. */
+  layout?: "row" | "stack";
+  /** Mention « optionnel » (texte déjà traduit) : affichée en petit et en placeholder. */
+  optional?: string | undefined;
 }) {
   const decimals = props.decimals ?? 0;
   const show = (v: number | null) => (v === null ? "" : v.toFixed(decimals));
@@ -30,15 +34,16 @@ export function UnitField(props: {
   const lim = props.limit ?? null;
   const fill = fillLevel(props.value, lim);
   return (
-    <div className="ufield">
+    <div className={props.layout === "stack" ? "ufield stack" : "ufield"}>
       <label className="uf-label">
-        <span>{props.label}</span>
+        <span>{props.label}{props.optional && <em className="uf-opt">{props.optional}</em>}</span>
         <span className={fill && fill.level !== "ok" ? `uf-inp lvl-${fill.level}` : "uf-inp"}>
           {lim !== null && <span className="uf-lim">/ {lim.toFixed(decimals)}</span>}
           <input
             className="mono"
             inputMode="decimal"
             value={text}
+            placeholder={props.layout === "stack" ? (props.optional ?? "—") : undefined}
             onChange={(e) => setText(e.target.value)}
             onBlur={commit}
             onKeyDown={(e) => e.key === "Enter" && commit()}
