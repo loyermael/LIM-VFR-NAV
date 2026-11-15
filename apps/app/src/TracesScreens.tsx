@@ -5,7 +5,7 @@ import { useState } from "react";
 import {
   exportTrackGPX, exportTrackIGC, exportTrackKML, formatQuantity, fromSI, pointAt, trackStats, unitLabel, type TrackPoint, type UnitPrefs,
 } from "@lim/core";
-import { NumField } from "./NavScreen";
+import { UnitField } from "./ui/UnitField";
 import { Section } from "./Section";
 import { t, type Key, type Lang } from "./i18n";
 import { downloadFile, safeName } from "./download";
@@ -62,7 +62,7 @@ export function TimersTab(p: TimersProps) {
             ))}
           </div>
           <div className="params">
-            <NumField label={`${T("tm.minutes")}`} decimals={0} value={minutes} onCommit={(v) => { setMinutes(v); p.onCd({ ...p.cd, durationMs: v !== null && v > 0 ? Math.round(v * 60000) : 0 }); }} />
+            <UnitField label={T("tm.minutes")} unit="min" decimals={0} value={minutes} onCommit={(v) => { setMinutes(v); p.onCd({ ...p.cd, durationMs: v !== null && v > 0 ? Math.round(v * 60000) : 0 }); }} />
           </div>
         </>
       )}
