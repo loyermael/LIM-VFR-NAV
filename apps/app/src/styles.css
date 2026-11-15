@@ -846,3 +846,14 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .wx-obs .wx-dl div { grid-template-columns: minmax(70px, 28%) 1fr; }
 .wx-obs .wx-dl dt { font-size: var(--fs-12); }
 .wx-obs .wx-dl dd { font-size: var(--fs-14); }
+
+/* Tableaux éditables : colonnes fixes, champs bien contenus dans leur cellule (pas de débordement ni de cadre coupé). */
+.edtable { table-layout: fixed; }
+.edtable input.cell, .edtable input.mini, .edtable select.cell { box-sizing: border-box; display: block; }
+.edtable th, .edtable td { overflow: visible; }
+.edtable thead th { height: 22px; vertical-align: bottom; padding-bottom: 4px; }
+.edtable tbody td { padding-top: 4px; padding-bottom: 4px; }
+.edtable td.num { width: 34px; }
+@media (min-width: 561px) { .edtable.st .c-a, .edtable.st .c-m { width: 22%; } .edtable.st .c-n { width: 28%; } .edtable.st .c-t { width: 22%; } }
+.cell-note { box-sizing: border-box; display: flex; align-items: center; justify-content: flex-end; height: 40px; padding: 0 var(--sp-2); border: 1px dashed var(--hair); }
+.aced .sectbody { overflow: visible; }

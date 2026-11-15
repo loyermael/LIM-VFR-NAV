@@ -294,7 +294,7 @@ export function AircraftEditor(p: {
           {crossed && <p className="aced-warn" role="alert"><Icon name="diamond-alert" size={20} />{T("ac.crossed")}</p>}
           <div className="aced-env">
             <div className="aced-env-tab">
-              <table className="edtable vx">
+              {a.envelope.length > 0 && <table className="edtable vx">
                 <thead><tr><th className="n">#</th><th className="n">{T("ac.arm")} (m)</th><th className="n">{T("ac.mass")} (kg)</th><th><span className="sr-only">{T("nav.delete")}</span></th></tr></thead>
                 <tbody>
                   {a.envelope.map((v, i) => (
@@ -311,7 +311,7 @@ export function AircraftEditor(p: {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </table>}
               <div className="choices">
                 <Button icon="plus" onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</Button>
                 <Button icon="arrow-left-right" title={T("ac.sortHint")} disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</Button>
