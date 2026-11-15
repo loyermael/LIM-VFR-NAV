@@ -755,3 +755,19 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .bal-note .icon { flex: none; color: var(--info); margin-top: 1px; }
 
 @media (max-width: 480px) { .levelmark .lm-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
+
+/* Cartes de liste (documents, traces) : icône, titre + méta + état (forme + mot), chevron. */
+.doccard, .trackcard { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); }
+.lc-icon { color: var(--ink-muted); }
+.lc-chev { color: var(--ink-muted); }
+.lc-body { display: grid; gap: 2px; min-width: 0; }
+.lc-body b { overflow-wrap: anywhere; }
+.lc-stat { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-12); }
+.stat-info { font-family: var(--font-mono); font-weight: 600; color: var(--info); }
+.doccard:hover .lc-chev, .trackcard:hover .lc-chev { color: var(--ink); }
+
+/* Statistiques d'une trace : tuiles libellé / valeur. */
+.statgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); }
+.statt { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); border: var(--rule-line); background: var(--field); }
+.statt span { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); text-transform: uppercase; letter-spacing: .04em; }
+.statt b { font-size: var(--fs-20); font-weight: 700; }

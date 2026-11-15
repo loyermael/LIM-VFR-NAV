@@ -174,14 +174,14 @@ export function TracesTab(p: TracesProps) {
         {track.id === p.activeId && <p className="muted small">{T("tr.inProgress")}</p>}
         {track.interrupted && <p className="error" role="alert">{T("tr.interrupted")}</p>}
         {(track.resumes ?? 0) > 0 && <p className="muted small">{T("tr.resumed")} : {track.resumes} × ({Math.round((track.gapSeconds ?? 0))} s {T("tr.gapUnit")})</p>}
-        <table className="navlog"><tbody>
-          <tr><td className="legname">{T("tr.date")}</td><td>{new Date(first).toISOString().replace("T", " ").slice(0, 16)} UTC</td></tr>
-          <tr><td className="legname">{T("tr.flightTime")}</td><td>{flying === null ? "---" : hms(flying)}</td></tr>
-          <tr><td className="legname">{T("tr.duration")}</td><td>{hms(st.duration * 1000)}</td></tr>
-          <tr><td className="legname">{T("tr.distance")}</td><td>{dist(st.distance)}</td></tr>
-          <tr><td className="legname">{T("tr.maxAlt")}</td><td>{st.maxAltitude === null ? "---" : `${formatQuantity("altitude", p.prefs, st.maxAltitude)} ${unitLabel("altitude", p.prefs)}`}</td></tr>
-          <tr><td className="legname">{T("tr.maxGs")}</td><td>{st.maxGroundSpeed === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, st.maxGroundSpeed)} ${unitLabel("groundSpeed", p.prefs)}`}</td></tr>
-        </tbody></table>
+        <div className="statgrid">
+          <div className="statt"><span>{T("tr.date")}</span><b className="mono">{new Date(first).toISOString().replace("T", " ").slice(0, 16)} UTC</b></div>
+          <div className="statt"><span>{T("tr.flightTime")}</span><b className="mono">{flying === null ? "---" : hms(flying)}</b></div>
+          <div className="statt"><span>{T("tr.duration")}</span><b className="mono">{hms(st.duration * 1000)}</b></div>
+          <div className="statt"><span>{T("tr.distance")}</span><b className="mono">{dist(st.distance)}</b></div>
+          <div className="statt"><span>{T("tr.maxAlt")}</span><b className="mono">{st.maxAltitude === null ? "---" : `${formatQuantity("altitude", p.prefs, st.maxAltitude)} ${unitLabel("altitude", p.prefs)}`}</b></div>
+          <div className="statt"><span>{T("tr.maxGs")}</span><b className="mono">{st.maxGroundSpeed === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, st.maxGroundSpeed)} ${unitLabel("groundSpeed", p.prefs)}`}</b></div>
+        </div>
         <div className="choices">
           <Button role="primary" disabled={track.points.length < 2} onClick={() => { p.onReplay({ id: track.id, t: first, playing: true, speed: 4 }); p.onShowOnMap(); }}>{T("tr.replayMap")}</Button>
         </div>
@@ -234,10 +234,14 @@ export function TracesTab(p: TracesProps) {
             const s = trackStats(x.points);
             return (
               <button className="trackcard" key={x.id} onClick={() => setSel(x.id)}>
-                <b>{x.name}</b>
-                <span className="muted small">
-                  {hms(s.duration * 1000)} · {dist(s.distance)}{x.interrupted ? ` · ${T("tr.interruptedShort")}` : ""}{x.id === p.activeId ? ` · ${T("tr.inProgressShort")}` : ""}
+                <Icon name="route" size={24} className="lc-icon" />
+                <span className="lc-body">
+                  <b>{x.name}</b>
+                  <span className="muted small">{hms(s.duration * 1000)} · {dist(s.distance)}</span>
+                  {x.id === p.activeId && <span className="stat-info lc-stat"><Icon name="play" size={16} />{T("tr.inProgressShort")}</span>}
+                  {x.interrupted && <span className="stat-caution lc-stat"><Icon name="diamond-alert" size={16} />{T("tr.interruptedShort")}</span>}
                 </span>
+                <Icon name="chevron-right" size={20} className="lc-chev" />
               </button>
             );
           })}

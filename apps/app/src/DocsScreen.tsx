@@ -347,10 +347,15 @@ export function DocsTab(p: DocsProps) {
               <h3>{icao || T("dc.noAirfield")}</h3>
               {list.map((d) => (
                 <button className="doccard" key={d.id} onClick={() => p.onOpen(d.id)}>
-                  <b>{d.name}</b>
-                  <span className="muted small">
-                    {T(KIND_KEYS[d.kind])}{d.georef ? ` · ${T("dc.geo.badge")}` : ""}{d.sourceDate ? ` · ${d.sourceDate}` : ""} · {(d.size / 1048576).toFixed(1)} {T("dp.mb")}
+                  <Icon name="file-text" size={24} className="lc-icon" />
+                  <span className="lc-body">
+                    <b>{d.name}</b>
+                    <span className="muted small">
+                      {T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""} · {(d.size / 1048576).toFixed(1)} {T("dp.mb")}
+                    </span>
+                    {d.georef && <span className="stat-good lc-stat"><Icon name="circle-check" size={16} />{T("dc.geo.badge")}</span>}
                   </span>
+                  <Icon name="chevron-right" size={20} className="lc-chev" />
                 </button>
               ))}
             </div>
