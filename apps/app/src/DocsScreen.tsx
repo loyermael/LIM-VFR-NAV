@@ -229,7 +229,7 @@ function DocDetail(p: { lang: Lang; doc: DocRecord; airfields: readonly Airfield
         <button className="has-icon" onClick={p.onBack}><Icon name="arrow-left" size={20} />{T("dc.back")}</button>
         <h3 className="doctitle">{d.icao ? `${d.icao} · ` : ""}{d.name}</h3>
       </div>
-      <p className="muted small">{T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""}{g ? ` · ${T("dc.geo.badge")}` : ""}</p>
+      <p className="muted small lc-meta">{T(KIND_KEYS[d.kind])}{d.sourceDate ? ` · ${d.sourceDate}` : ""}{g && <span className="stat-good lc-stat"><Icon name="circle-check" size={16} />{T("dc.geo.badge")}</span>}</p>
 
       {error && <p className="error" role="alert">{T("dc.renderError")} : {error}</p>}
       {!r && !error && <p className="muted">{T("dc.rendering")}</p>}

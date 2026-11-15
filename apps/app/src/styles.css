@@ -935,3 +935,10 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .lc-leg.active .lc-ent input, .lc-leg.active .lc-rep input { background: rgba(255, 255, 255, 0.12); color: var(--on-ink); border-color: rgba(255, 255, 255, 0.45); }
 .lc-leg.active .lc-rep { background: rgba(255, 255, 255, 0.08); color: var(--on-ink); border-color: rgba(255, 255, 255, 0.3); }
 .lc-leg.active input::placeholder { color: var(--on-ink); opacity: .7; }
+
+/* Barre de document (Docs, Traces) : le titre complet passe sous le bouton retour sur téléphone au lieu d'être tronqué. */
+.lc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+@media (max-width: 560px) {
+  .docbar { flex-wrap: wrap; }
+  .docbar .doctitle { flex: 1 1 100%; white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+}
