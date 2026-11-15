@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_UNIT_PREFS } from "@lim/core";
-import { baseFactor, minutesText } from "./logModel";
+import { baseFactor, hrDeviation, minutesText } from "./logModel";
 import { buildLogPdf } from "./logPdf";
 
 describe("log : facteur de base et durées", () => {
@@ -63,5 +63,20 @@ describe("log : champs préremplis", () => {
   it("sans carburant embarqué : carburant minimal annoncé", () => {
     const o = buildAutoFields({ ...input, loads: {} });
     expect(o["fStart"]).toMatch(/^mini /);
+  });
+});
+
+describe("log : écart Hr − He", () => {
+  it("minutes d'écart, positif si en retard", () => {
+    expect(hrDeviation("15:10", "15:12")).toBe(2);
+    expect(hrDeviation("15:10", "1509")).toBe(-1);
+    expect(hrDeviation("15:10", "15h10")).toBe(0);
+  });
+  it("traverse minuit et refuse une heure illisible", () => {
+    expect(hrDeviation("23:58", "00:03")).toBe(5);
+    expect(hrDeviation("00:02", "23:58")).toBe(-4);
+    expect(hrDeviation("15:10", "")).toBeNull();
+    expect(hrDeviation("", "15:10")).toBeNull();
+    expect(hrDeviation("15:10", "25:99")).toBeNull();
   });
 });

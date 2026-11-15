@@ -9,7 +9,7 @@ import { periodStatus } from "./aeroGeo";
 import { ageText, filterRoutes, orderRoutes, summarizeRoute } from "./routeList";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { LogSheet, useLogForm } from "./LogSheet";
-import { buildAutoFields, buildLogModel, vpKey } from "./logModel";
+import { arrivalSheet, buildAutoFields, buildLogModel, fuelFigures, vpKey } from "./logModel";
 import type { FuelPlanParams } from "./aircraftStore";
 import { buildLogPdf } from "./logPdf";
 import { WIND_HORIZON_H, windKey } from "./windClient";
@@ -263,6 +263,59 @@ export function NavScreen(p: NavProps) {
   );
   const showTrue = prefs.track === "true";
   const dist = (v: number) => formatQuantity("distance", prefs, v);
+  const fuelFig = useMemo(
+    () => (route && log && log.legs.length > 0 ? fuelFigures({ prefs, route, log, aircraft: ac, loads: p.loads, plan: p.fuelPlan, flow, airfields: p.airfields }) : null),
+    [route, log, prefs, ac, p.loads, p.fuelPlan, flow, p.airfields],
+  );
+  const arrivalFiche = useMemo(() => (log && log.legs.length > 0 ? arrivalSheet({ prefs, log, airfields: p.airfields }) : null), [log, prefs, p.airfields]);
+  /** « Espaces traversés » : résumé, puis un espace par entrée dans l'ordre de la route (à vérifier d'abord, hors limites repliés). */
+  const spacesBlock = (() => {
+    const ordered = [...crossed].sort((a, b) => (a.entry as number) - (b.entry as number));
+    const rel = ordered.filter((h) => h.vertical !== "outside");
+    const out = ordered.filter((h) => h.vertical === "outside");
+    const entryText = (h: (typeof crossed)[number]) => ((h.entry as number) < 50 ? T("navasp.fromStart") : `${T("navasp.entry")} ${dist(h.entry as number)} ${distUnit}`);
+    const card = (h: (typeof crossed)[number]) => {
+      const st = periodStatus(h.airspace, p.date.getTime());
+      const f0 = h.airspace.frequencies[0];
+      return (
+        <div className={`asp-item ${h.vertical}`} key={h.airspace.id}>
+          <div className="asp-t">
+            <b>{h.airspace.name}</b>
+            {h.vertical !== "outside" && (
+              <span className={h.vertical === "inside" ? "asp-st inside" : "asp-st"}>
+                <Icon name={h.vertical === "inside" ? "triangle-alert" : "diamond-alert"} size={16} />{T(h.vertical === "inside" ? "navasp.inside" : "navasp.unknown")}
+              </span>
+            )}
+          </div>
+          <div className="asp-d">
+            {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {entryText(h)}
+            {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
+            {st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`}
+          </div>
+          {f0 && <div className="asp-f">{f0.mhz} <span>{f0.name}</span></div>}
+          {h.airspace.frequencies.length > 1 && <div className="asp-d">{h.airspace.frequencies.slice(1).map((f) => `${f.mhz} ${f.name}`.trim()).join(" · ")}</div>}
+        </div>
+      );
+    };
+    return (
+      <section className="ls-blk" key="spaces">
+        <h3>{T("navasp.title")}</h3>
+        <div className="ls-box">
+          {!p.hasAero && <p className="muted small">{T("navasp.needData")}</p>}
+          {p.hasAero && route && route.points.length >= 2 && crossed.length === 0 && <p className="muted small">{T("navasp.none")}</p>}
+          {rel.length > 0 && <span className="ls-chip lvl-caution big"><Icon name="diamond-alert" size={16} />{rel.length} {T(rel.length === 1 ? "navasp.toCheckOne" : "navasp.toCheckCount")}</span>}
+          {rel.map(card)}
+          {out.length > 0 && (
+            <details className="foldsec rawbox">
+              <summary>{out.length} {T("navasp.outsideGroup")}</summary>
+              {out.map(card)}
+            </details>
+          )}
+          {p.hasAero && crossed.length > 0 && <p className="ls-note"><Icon name="info" size={16} />{T("navasp.legend")}</p>}
+        </div>
+      </section>
+    );
+  })();
   const spd = (v: number | null) => (v === null ? "---" : formatQuantity("groundSpeed", prefs, v));
   const fuelTxt = (v: number | null) => (v === null || flow === null ? "---" : formatQuantity("fuel", prefs, v));
   const wcaTxt = (l: NavLogLeg) => (l.wca === null ? "---" : `${l.wca > 0.5 ? "+" : l.wca < -0.5 ? "−" : ""}${Math.abs(Math.round(l.wca))}`);
@@ -534,9 +587,7 @@ export function NavScreen(p: NavProps) {
       )}
 
       {p.tab === 1 && route && (
-        <div className="vfrlog cols log">
-          <div className="col">
-          <h3>{route.name}</h3>
+        <div className="vfrlog">
           <div className="log-ac">
             <label className="numfield">
               <span>{T("log.aircraft")}</span>
@@ -569,50 +620,18 @@ export function NavScreen(p: NavProps) {
                   activeLeg={p.targetIndex !== null && p.targetIndex >= 1 ? p.targetIndex - 1 : null}
                   onLoadWinds={() => depPoint && p.onLoadWinds([depPoint])}
                   windsBusy={p.windsBusy}
+                  windsUpdatedMs={depForecast?.fetchedAt ?? null}
                   onPdf={() => void makeLogPdf()}
+                  altUnit={altUnit}
+                  fuel={fuelFig}
+                  fmtFuel={(l) => `${formatQuantity("fuel", prefs, l)} ${fuelUnit}`}
+                  fmtDuration={(sec) => formatDuration(sec as never).replace(/:\d\d$/, "")}
+                  arrival={arrivalFiche}
+                  spaces={spacesBlock}
                 />
               )}
             </>
           )}
-
-          </div>
-          <div className="col">
-          <h3>{T("navasp.title")}</h3>
-          {!p.hasAero && <p className="muted small">{T("navasp.needData")}</p>}
-          {p.hasAero && route.points.length >= 2 && crossed.length === 0 && <p className="muted small">{T("navasp.none")}</p>}
-          {(() => {
-            const card = (h: (typeof crossed)[number]) => (
-              <div className={`crossed ${h.vertical}`} key={h.airspace.id}>
-                <div className="crossed-head">
-                  <b>{h.airspace.name}</b>
-                  <span className="badge">{h.vertical !== "outside" && <Icon name={h.vertical === "inside" ? "triangle-alert" : "diamond-alert"} size={16} />}{T(h.vertical === "inside" ? "navasp.inside" : h.vertical === "outside" ? "navasp.outside" : "navasp.unknown")}</span>
-                </div>
-                <div className="muted small">
-                  {h.airspace.typeLabel}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} · {h.airspace.lower.label} → {h.airspace.upper.label} · {T("navasp.entry")} {dist(h.entry)} {distUnit}
-                  {h.airspace.byNotam || h.airspace.onRequest ? ` · ${T("navasp.activation")}` : ""}
-                  {(() => { const st = periodStatus(h.airspace, p.date.getTime()); return st === null ? "" : ` · ${T(st === "upcoming" ? "navasp.upcoming" : st === "ended" ? "navasp.ended" : "navasp.current")}`; })()}
-                </div>
-                {h.airspace.frequencies.length > 0 && (
-                  <div className="freqs mono">{h.airspace.frequencies.map((f) => `${f.mhz} ${f.name}`.trim()).join(" · ")}</div>
-                )}
-              </div>
-            );
-            const rel = crossed.filter((h) => h.vertical !== "outside");
-            const out = crossed.filter((h) => h.vertical === "outside");
-            return (
-              <>
-                {rel.map(card)}
-                {out.length > 0 && (
-                  <details className="foldsec rawbox">
-                    <summary>{out.length} {T("navasp.outsideGroup")}</summary>
-                    {out.map(card)}
-                  </details>
-                )}
-              </>
-            );
-          })()}
-          {p.hasAero && crossed.length > 0 && <p className="muted small">{T("navasp.legend")}</p>}
-          </div>
         </div>
       )}
     </div>

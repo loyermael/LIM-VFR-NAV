@@ -221,3 +221,74 @@ export function buildAutoFields(i: AutoFieldsInput): Record<string, string> {
   if (t2) { out["toda2"] = t2; out["lda2"] = t2; }
   return out;
 }
+
+
+/** Chiffres carburant du vol (litres) tirés du même calcul que les champs préremplis ; null si pas d'avion. Sert au résumé et à l'état « sous la réserve ». */
+export interface FuelFigures {
+  /** Embarqué (L), 0 si non renseigné. */
+  readonly onboard: number;
+  readonly trip: number | null;
+  /** Restant à l'arrivée (L) : embarqué − roulage − trajet ; null si rien d'embarqué ou pas de consommation. */
+  readonly arrival: number | null;
+  /** Réserve finale (L) réglée dans l'écran Carburant. */
+  readonly reserve: number | null;
+  /** Autonomie (secondes). */
+  readonly enduranceSec: number | null;
+}
+
+export function fuelFigures(i: AutoFieldsInput): FuelFigures | null {
+  if (!i.aircraft) return null;
+  const fuelStation = i.aircraft.stations.find((s) => s.kind === "fuel");
+  const onboard = fuelStation ? (i.loads[fuelStation.id] ?? 0) : 0;
+  const trip = i.flow === null ? null : (i.log.totals.fuel as number);
+  const plan = planFuel({
+    tripLiters: trip, taxiLiters: i.plan.taxiLiters, contingencyPercent: i.plan.contingencyPercent, alternateMinutes: i.plan.alternateMinutes,
+    reserveMinutes: i.plan.reserveMinutes, fuelFlowLph: i.flow, onboardLiters: onboard, usableCapacityLiters: Math.max(0, i.aircraft.fuel.capacity - i.aircraft.fuel.unusable),
+  });
+  return {
+    onboard,
+    trip,
+    arrival: onboard > 0 && trip !== null ? Math.max(0, onboard - plan.taxi - trip) : null,
+    reserve: plan.reserve,
+    enduranceSec: plan.endurance === null ? null : plan.endurance * 3600,
+  };
+}
+
+/** Écart Hr − He en minutes (« 15:12 » − « 15:10 » = 2), ramené à ±12 h ; null si l'une des heures n'est pas lisible. */
+export function hrDeviation(he: string, hr: string): number | null {
+  const parse = (v: string) => {
+    const m = /^\s*(\d{1,2})\s*[:h.]?\s*(\d{2})\s*$/.exec(v);
+    if (!m) return null;
+    const h = Number(m[1]), mi = Number(m[2]);
+    return h < 24 && mi < 60 ? h * 60 + mi : null;
+  };
+  const a = parse(he), b = parse(hr);
+  if (a === null || b === null) return null;
+  let d = b - a;
+  if (d > 720) d -= 1440;
+  if (d < -720) d += 1440;
+  return d;
+}
+
+export interface ArrivalSheet {
+  readonly icao: string;
+  readonly name: string;
+  /** Altitude du terrain, déjà mise en texte (« 1030 ft »), ou "". */
+  readonly elevation: string;
+  readonly frequencies: readonly { readonly mhz: string; readonly name: string }[];
+  readonly runways: readonly { readonly designator: string; readonly length: string; readonly surface: "paved" | "unpaved" | "unknown" }[];
+}
+
+/** Fiche structurée du terrain d'arrivée (mêmes données que le texte préinscrit du log) ; null si aucun terrain à moins de 2 km. */
+export function arrivalSheet(i: Pick<AutoFieldsInput, "prefs" | "log" | "airfields">): ArrivalSheet | null {
+  const arr = i.log.legs[i.log.legs.length - 1]?.to;
+  const ad = arr ? nearAirfield(arr.position, i.airfields) : null;
+  if (!ad) return null;
+  return {
+    icao: ad.icao ?? ad.name,
+    name: ad.name,
+    elevation: ad.elevation === null ? "" : `${formatQuantity("altitude", i.prefs, ad.elevation as number)} ${unitLabel("altitude", i.prefs)}`,
+    frequencies: ad.frequencies.slice(0, 4).map((f) => ({ mhz: String(f.mhz), name: f.name ?? "" })),
+    runways: ad.runways.map((r) => ({ designator: r.designator, length: r.lengthM ? `${Math.round(r.lengthM)} m` : "", surface: r.paved === true ? "paved" : r.paved === false ? "unpaved" : "unknown" })),
+  };
+}
