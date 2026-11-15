@@ -1,7 +1,11 @@
 import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { ConfirmButton } from "./ui/ConfirmButton";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import { StatusBanner, LevelMark } from "./ui/StatusBanner";
+import { ResultTable } from "./ui/ResultTable";
+import { UnitField } from "./ui/UnitField";
+import { fillLevel, levelOf, minMargin, niceAxis, placeLabels, worst, type Level } from "./balanceView";
 import {
   computeBalance, formatDuration, formatQuantity, fromSI, planFuel, toSI, unitLabel, validateAircraft,
   type Aircraft, type BalanceIssue, type BalanceState, type Loads, type StationKind, type UnitPrefs,
@@ -26,59 +30,97 @@ const ISSUE_KEYS: Record<BalanceIssue, Key> = {
   "negative-load": "bal.issue.negative",
 };
 
-const f1 = (v: number) => v.toFixed(1);
-const f3 = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : "—");
+export interface ChartPhase { key: string; name: string; state: BalanceState; level: Level }
+const LEVEL_COLOR: Record<Level, string> = { ok: "var(--zone-good)", caution: "var(--caution)", bad: "var(--signal)" };
+const fmtCg = (lang: Lang, v: number) => (Number.isFinite(v) ? (lang === "fr" ? v.toFixed(3).replace(".", ",") : v.toFixed(3)) : "—");
+const mmOf = (m: number | null) => (m === null || !Number.isFinite(m) ? "—" : String(Math.round(m * 1000)));
 
-/** Graphique d'enveloppe : masse (kg) en fonction du bras du CG (m). Zéro carburant, décollage, atterrissage. */
-export function BalanceChart(p: { aircraft: Aircraft; zeroFuel: BalanceState; takeoff: BalanceState; landing: BalanceState; label: (k: Key) => string }) {
+/**
+ * Graphique d'enveloppe : masse (kg) en fonction du bras du CG (m). Graduations rondes, cadrage serré, points reliés
+ * dans l'ordre des phases (flèches), une forme par phase et une couleur par état, étiquettes sans recouvrement.
+ */
+export function BalanceChart(p: { aircraft: Aircraft; phases: ChartPhase[]; label: (k: Key) => string; lang: Lang }) {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const [sel, setSel] = useState<number | null>(null);
   const env = p.aircraft.envelope;
   if (env.length < 3) return null;
-  const pts = [p.zeroFuel, p.takeoff, p.landing].filter((s) => Number.isFinite(s.cg));
-  const xs = [...env.map((v) => v[0]), ...pts.map((s) => s.cg)];
-  const ys = [...env.map((v) => v[1]), ...pts.map((s) => s.mass)];
-  const pad = (lo: number, hi: number) => { const d = (hi - lo) * 0.08 || 1; return [lo - d, hi + d] as const; };
-  const [x0, x1] = pad(Math.min(...xs), Math.max(...xs));
-  const [y0, y1] = pad(Math.min(...ys), Math.max(...ys));
-  const W = 360, H = 270, L = 48, R = 12, T = 12, B = 34;
-  const sx = (x: number) => L + ((x - x0) / (x1 - x0)) * (W - L - R);
-  const sy = (y: number) => H - B - ((y - y0) / (y1 - y0)) * (H - T - B);
-  const ticks = (lo: number, hi: number, n: number) => Array.from({ length: n + 1 }, (_, i) => lo + ((hi - lo) * i) / n);
+  const maxMass = p.aircraft.maxTakeoffMass > 0 ? p.aircraft.maxTakeoffMass : null;
+  const pts = p.phases.map((ph) => ph.state).filter((st) => Number.isFinite(st.cg));
+  const xs = [...env.map((v) => v[0]), ...pts.map((st) => st.cg)];
+  const ys = [...env.map((v) => v[1]), ...pts.map((st) => st.mass), ...(maxMass !== null ? [maxMass] : [])];
+  const ax = niceAxis(Math.min(...xs), Math.max(...xs), 7);
+  const ay = niceAxis(Math.min(...ys), Math.max(...ys), 7);
+  const W = 420, H = 320, L = 50, R = 14, T = 16, B = 38;
+  const sx = (x: number) => L + ((x - ax.lo) / (ax.hi - ax.lo)) * (W - L - R);
+  const sy = (y: number) => H - B - ((y - ay.lo) / (ay.hi - ay.lo)) * (H - T - B);
+  const xDec = ax.step < 0.01 ? 3 : ax.step < 0.1 ? 2 : 1;
   const poly = env.map((v) => `${sx(v[0])},${sy(v[1])}`).join(" ");
-  const mark = (s: BalanceState, shape: "sq" | "ci" | "tr", name: string) => {
-    if (!Number.isFinite(s.cg)) return null;
-    const x = sx(s.cg), y = sy(s.mass);
-    const color = s.inEnvelope ? "var(--zone-good)" : "var(--zone-bad)";
-    return (
-      <g key={name}>
-        {shape === "sq" && <rect x={x - 5} y={y - 5} width={10} height={10} fill={color} stroke="var(--ink)" />}
-        {shape === "ci" && <circle cx={x} cy={y} r={6} fill={color} stroke="var(--ink)" />}
-        {shape === "tr" && <path d={`M${x} ${y - 7} L${x + 6} ${y + 5} L${x - 6} ${y + 5} Z`} fill={color} stroke="var(--ink)" />}
-        <text x={x + 9} y={y + 4} fontSize="11" fontFamily="var(--font-mono)" fill="var(--ink)">{name}</text>
-      </g>
-    );
+  const shown = p.phases.map((ph, idx) => ({ ph, idx })).filter(({ ph }) => Number.isFinite(ph.state.cg));
+  const q = shown.map(({ ph }) => ({ x: sx(ph.state.cg), y: sy(ph.state.mass) }));
+  const placed = placeLabels(shown.map(({ ph }, k) => ({ x: (q[k] as { x: number }).x, y: (q[k] as { y: number }).y, text: ph.name })), { x: L, y: T, w: W - L - R, h: H - T - B }, 12, 9);
+  const marker = (idx: number, x: number, y: number, color: string) => {
+    if (idx === 0) return <rect x={x - 6.5} y={y - 6.5} width={13} height={13} fill={color} stroke="var(--ink)" strokeWidth="1.5" />;
+    if (idx === 1) return <circle cx={x} cy={y} r={7.5} fill={color} stroke="var(--ink)" strokeWidth="1.5" />;
+    return <path d={`M${x} ${y - 9} L${x + 8} ${y + 6} L${x - 8} ${y + 6} Z`} fill={color} stroke="var(--ink)" strokeWidth="1.5" />;
   };
+  const sPh = sel !== null ? p.phases[sel] : undefined;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="balchart" role="img" aria-label={p.label("bal.chart")}>
-      {ticks(x0, x1, 4).map((x) => (
-        <g key={`x${x}`}>
-          <line x1={sx(x)} y1={T} x2={sx(x)} y2={H - B} stroke="var(--hair)" />
-          <text x={sx(x)} y={H - B + 14} fontSize="10" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink-muted)">{x.toFixed(2)}</text>
-        </g>
-      ))}
-      {ticks(y0, y1, 4).map((y) => (
-        <g key={`y${y}`}>
-          <line x1={L} y1={sy(y)} x2={W - R} y2={sy(y)} stroke="var(--hair)" />
-          <text x={L - 4} y={sy(y) + 3} fontSize="10" fontFamily="var(--font-mono)" textAnchor="end" fill="var(--ink-muted)">{Math.round(y)}</text>
-        </g>
-      ))}
-      <polygon points={poly} fill="var(--paper-2)" stroke="var(--ink)" strokeWidth="2" />
-      <line x1={sx(p.takeoff.cg)} y1={sy(p.takeoff.mass)} x2={sx(p.landing.cg)} y2={sy(p.landing.mass)} stroke="var(--ink)" strokeDasharray="4 3" />
-      {mark(p.zeroFuel, "sq", "ZFM")}
-      {mark(p.takeoff, "ci", "DEC")}
-      {mark(p.landing, "tr", "ATT")}
-      <text x={(L + W - R) / 2} y={H - 4} fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink)">{p.label("bal.axisArm")}</text>
-      <text x={12} y={(T + H - B) / 2} fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink)" transform={`rotate(-90 12 ${(T + H - B) / 2})`}>{p.label("bal.axisMass")}</text>
-    </svg>
+    <div className="balchart-wrap">
+      <svg viewBox={`0 0 ${W} ${H}`} className="balchart" role="img" aria-label={p.label("bal.chart")}>
+        <defs>
+          <marker id={`ar${uid}`} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="var(--ink)" /></marker>
+        </defs>
+        {ax.ticks.map((x) => (
+          <g key={`x${x}`}>
+            <line x1={sx(x)} y1={T} x2={sx(x)} y2={H - B} stroke="var(--hair)" />
+            <text x={sx(x)} y={H - B + 15} fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink-muted)">{x.toFixed(xDec)}</text>
+          </g>
+        ))}
+        {ay.ticks.map((y) => (
+          <g key={`y${y}`}>
+            <line x1={L} y1={sy(y)} x2={W - R} y2={sy(y)} stroke="var(--hair)" />
+            <text x={L - 5} y={sy(y) + 4} fontSize="11" fontFamily="var(--font-mono)" textAnchor="end" fill="var(--ink-muted)">{Math.round(y)}</text>
+          </g>
+        ))}
+        <polygon points={poly} fill="var(--paper-2)" stroke="var(--ink)" strokeWidth="2" />
+        {maxMass !== null && (
+          <g>
+            <line x1={L} y1={sy(maxMass)} x2={W - R} y2={sy(maxMass)} stroke="var(--signal)" strokeWidth="1.5" strokeDasharray="6 4" />
+            <text x={W - R - 4} y={sy(maxMass) - 5} fontSize="11" fontFamily="var(--font-mono)" fontWeight="700" textAnchor="end" fill="var(--signal)">{p.label("bal.maxMass")} {maxMass}</text>
+          </g>
+        )}
+        {q.slice(0, -1).map((a, k) => {
+          const b = q[k + 1] as { x: number; y: number };
+          const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
+          if (d < 26) return null;
+          const f = 12 / d;
+          return <line key={k} x1={a.x + dx * f} y1={a.y + dy * f} x2={b.x - dx * f} y2={b.y - dy * f} stroke="var(--ink)" strokeWidth="1.6" markerEnd={`url(#ar${uid})`} />;
+        })}
+        {shown.map(({ ph, idx }, k) => {
+          const pt = q[k] as { x: number; y: number };
+          const pl = placed[k]!;
+          return (
+            <g key={ph.key} role="button" tabIndex={0} aria-label={`${ph.name} : ${Math.round(ph.state.mass)} kg, CG ${fmtCg(p.lang, ph.state.cg)} m`} className="bal-pt"
+              onClick={() => setSel(sel === idx ? null : idx)} onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setSel(sel === idx ? null : idx)}>
+              {pl.leader && <line x1={pt.x} y1={pt.y} x2={pt.x + pl.dx + (pl.anchor === "end" ? 2 : pl.anchor === "start" ? -2 : 0)} y2={pt.y + pl.dy - 4} stroke="var(--ink-muted)" strokeWidth="1" />}
+              {marker(idx, pt.x, pt.y, LEVEL_COLOR[ph.level])}
+              <text x={pt.x + pl.dx} y={pt.y + pl.dy} textAnchor={pl.anchor} fontSize="12" fontWeight="700" fontFamily="var(--font-mono)" fill="var(--ink)" paintOrder="stroke" stroke="var(--paper)" strokeWidth="3">{ph.name}</text>
+              <circle cx={pt.x} cy={pt.y} r={16} fill="transparent" />
+              <title>{`${ph.name} — ${Math.round(ph.state.mass)} kg · CG ${fmtCg(p.lang, ph.state.cg)} m · ${p.label("bal.margin").toLowerCase()} ${mmOf(ph.state.cgMargin)} mm`}</title>
+            </g>
+          );
+        })}
+        <text x={(L + W - R) / 2} y={H - 4} fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink-muted)">{p.label("bal.axisArm")}</text>
+        <text x={12} y={(T + H - B) / 2} fontSize="11" fontFamily="var(--font-mono)" textAnchor="middle" fill="var(--ink-muted)" transform={`rotate(-90 12 ${(T + H - B) / 2})`}>{p.label("bal.axisMass")}</text>
+      </svg>
+      <div className="bal-legend">
+        <span>■ {p.phases[0]?.name}</span><span>● {p.phases[1]?.name}</span><span>▲ {p.phases[2]?.name}</span>
+        <span className="lvl-ok">● {p.label("bal.ok")}</span><span className="lvl-caution">● {p.label("bal.status.caution")}</span><span className="lvl-bad">● {p.label("bal.limit")}</span>
+      </div>
+      <p className="bal-readout muted small" aria-live="polite">
+        {sPh ? <><b>{sPh.name}</b> — {Math.round(sPh.state.mass)} kg · CG {fmtCg(p.lang, sPh.state.cg)} m · {p.label("bal.margin").toLowerCase()} {mmOf(sPh.state.cgMargin)} mm</> : p.label("bal.tapHint")}
+      </p>
+    </div>
   );
 }
 
@@ -301,21 +343,34 @@ interface BalanceProps {
   onOpenSheet: () => void;
 }
 
-/** Onglet « Centrage » : charges, résultats et graphique d'enveloppe de l'avion actif. */
+/** Onglet « Centrage » : chargement (colonne gauche) et résultats (colonne droite) de l'avion actif. */
 export function BalanceTab(p: BalanceProps) {
   const T = (k: Key) => t(p.lang, k);
   const a = p.active;
   const defects = a ? validateAircraft(a) : [];
   const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.burnLiters ?? 0) : null), [a, p.loads, p.burnLiters]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fuelUnit = unitLabel("fuel", p.prefs);
+  const dec = (v: number | null) => (v === null || Math.abs(v - Math.round(v)) < 0.05 ? 0 : 1);
+  const phases: ChartPhase[] = res
+    ? ([["zfm", "bal.zfm", res.zeroFuel], ["takeoff", "bal.takeoff", res.takeoff], ["landing", "bal.landing", res.landing]] as const).map(([key, k, state]) => ({ key, name: T(k), state, level: levelOf(state) }))
+    : [];
+  const overall = phases.reduce<Level>((l, ph) => worst(l, ph.level), "ok");
+  const mm = minMargin(phases.map((ph) => ({ ...ph, state: ph.state })));
+  const issues = res ? [...new Set([...res.zeroFuel.issues, ...res.takeoff.issues, ...res.landing.issues])] : [];
+  const mto = a && res && a.maxTakeoffMass > 0 ? { mass: res.takeoff.mass, max: a.maxTakeoffMass, fill: fillLevel(res.takeoff.mass, a.maxTakeoffMass) } : null;
   return (
-    <div className="navscreen acform">
+    <div className="navscreen acform bal">
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
           <div className="choices"><Button role="primary" onClick={p.onOpenSheet}>{T("ac.goSheet")}</Button></div>
         </>
       )}
-      {a && <p className="muted small">{a.registration ? `${a.registration} · ` : ""}{a.name}</p>}
+      {a && (
+        <div className="bal-id">
+          {a.registration ? <><b>{a.registration}</b><span>{a.name}</span></> : <b>{a.name}</b>}
+        </div>
+      )}
       {a && defects.length > 0 && (
         <>
           <p className="error" role="alert">{T("ac.missing")} : {defects.join(", ")}</p>
@@ -323,55 +378,79 @@ export function BalanceTab(p: BalanceProps) {
         </>
       )}
       {a && res && (
-        <>
-          <h3>{T("bal.loads")}</h3>
-          <p className="muted small">{T("bal.units")}</p>
-          <div className="params">
+        <div className="bal-cols">
+          <section className="bal-sec" aria-label={T("bal.loads")}>
+            <h3>{T("bal.loads")}</h3>
             {a.stations.map((s) => {
               const isFuel = s.kind === "fuel";
               const v = p.loads[s.id];
+              const shown = v === undefined ? null : isFuel ? fromSI("fuel", p.prefs, v) : v;
+              const limit = isFuel ? fromSI("fuel", p.prefs, a.fuel.capacity) : s.maxMass;
               return (
-                <NumField
-                  key={s.id}
-                  label={`${s.name} (${isFuel ? unitLabel("fuel", p.prefs) : "kg"})${s.maxMass !== null && !isFuel ? ` ≤ ${s.maxMass}` : ""}`}
-                  decimals={1}
-                  value={v === undefined ? null : isFuel ? fromSI("fuel", p.prefs, v) : v}
-                  onCommit={(x) => {
-                    const next = { ...p.loads };
-                    if (x === null) delete next[s.id];
-                    else next[s.id] = isFuel ? toSI("fuel", p.prefs, x) : x;
-                    p.onLoads(next);
-                  }}
-                />
+                <div key={s.id}>
+                  <UnitField
+                    label={s.name}
+                    unit={isFuel ? fuelUnit : "kg"}
+                    decimals={dec(shown)}
+                    value={shown}
+                    limit={limit !== null && limit > 0 ? limit : null}
+                    hint={isFuel ? `≈ ${Math.round((v ?? 0) * a.fuel.density)} kg` : undefined}
+                    onCommit={(x) => {
+                      const next = { ...p.loads };
+                      if (x === null) delete next[s.id];
+                      else next[s.id] = isFuel ? toSI("fuel", p.prefs, x) : x;
+                      p.onLoads(next);
+                    }}
+                  />
+                  {isFuel && (
+                    <div className="bal-burn">
+                      <span>{T("bal.burnShort")}</span>
+                      <b className="mono">{p.burnLiters !== null ? `${formatQuantity("fuel", p.prefs, p.burnLiters)} ${fuelUnit}` : "—"}</b>
+                      {p.burnLiters === null && <small>{T("bal.noBurn")}</small>}
+                    </div>
+                  )}
+                </div>
               );
             })}
-          </div>
-          {p.burnLiters !== null && <p className="muted small">{T("bal.burn")} : {formatQuantity("fuel", p.prefs, p.burnLiters)} {unitLabel("fuel", p.prefs)}</p>}
-          {p.burnLiters === null && <p className="muted small">{T("bal.noBurn")}</p>}
+            {!a.stations.some((s) => s.kind === "fuel") && (p.burnLiters === null ? <p className="muted small">{T("bal.noBurn")}</p> : <p className="muted small">{T("bal.burn")} : {formatQuantity("fuel", p.prefs, p.burnLiters)} {fuelUnit}</p>)}
+          </section>
 
-          <h3>{T("bal.results")}</h3>
-          <div className="tablewrap">
-            <table className="navlog">
-              <thead><tr><th></th><th>{T("bal.mass")} (kg)</th><th>{T("bal.cg")} (m)</th><th>{T("bal.margin")} (m)</th><th>{T("bal.state")}</th></tr></thead>
-              <tbody>
-                {([["bal.zfm", res.zeroFuel], ["bal.takeoff", res.takeoff], ["bal.landing", res.landing]] as const).map(([k, s]) => (
-                  <tr key={k} className={s.issues.length > 0 ? "bad" : undefined}>
-                    <td className="legname">{T(k)}</td>
-                    <td>{f1(s.mass)}</td>
-                    <td>{f3(s.cg)}</td>
-                    <td>{s.cgMargin === null ? "—" : f3(s.cgMargin)}</td>
-                    <td>{s.issues.length === 0 ? T("bal.ok") : T("bal.limit")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {[...res.takeoff.issues, ...res.landing.issues.filter((i) => !res.takeoff.issues.includes(i))].map((i) => (
-            <p className="error" role="alert" key={i}>{T(ISSUE_KEYS[i])}</p>
-          ))}
-          <BalanceChart aircraft={a} zeroFuel={res.zeroFuel} takeoff={res.takeoff} landing={res.landing} label={T} />
-          <p className="muted small">{T("bal.note")}</p>
-        </>
+          <section className="bal-sec" aria-label={T("bal.results")}>
+            <h3>{T("bal.results")}</h3>
+            <StatusBanner level={overall} title={T(`bal.status.${overall}` as Key)}>
+              {mm && <span>{T("bal.minMargin")} {mmOf(mm.state.cgMargin)} mm · {mm.name}</span>}
+              {issues.map((i) => <span key={i}>{T(ISSUE_KEYS[i])}</span>)}
+            </StatusBanner>
+            {mto && (
+              <div className="bal-mto">
+                <div><span>{T("bal.mto")}</span><span><b className="mono">{Math.round(mto.mass)}</b> / {mto.max} kg</span></div>
+                {mto.fill && <div className={`uf-bar lvl-${mto.fill.level}`} aria-hidden="true"><i style={{ width: `${Math.min(100, mto.fill.ratio * 100)}%` }} /></div>}
+              </div>
+            )}
+            <BalanceChart aircraft={a} phases={phases} label={T} lang={p.lang} />
+            <ResultTable
+              columns={[
+                { key: "ph", header: T("bal.phase") },
+                { key: "m", header: `${T("bal.mass")} (kg)` },
+                { key: "cg", header: `${T("bal.cg")} (m)` },
+                { key: "mg", header: `${T("bal.margin")} (mm)` },
+                { key: "st", header: T("bal.state") },
+              ]}
+              rows={phases.map((ph) => ({
+                key: ph.key,
+                highlight: mm?.key === ph.key,
+                cells: [
+                  ph.name,
+                  Math.round(ph.state.mass),
+                  fmtCg(p.lang, ph.state.cg),
+                  mmOf(ph.state.cgMargin),
+                  <LevelMark key="l" level={ph.level} label={ph.level === "ok" ? T("bal.ok") : ph.level === "caution" ? T("bal.status.caution") : T("bal.limit")} />,
+                ],
+              }))}
+            />
+            <p className="bal-note"><Icon name="info" size={16} />{T("bal.note")}</p>
+          </section>
+        </div>
       )}
     </div>
   );

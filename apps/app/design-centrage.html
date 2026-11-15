@@ -1,0 +1,123 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>L!M Nav — maquette Avion / Centrage</title>
+<link rel="stylesheet" href="/src/ui/fonts.css"><link rel="stylesheet" href="/src/ui/tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#d9d4c6;color:var(--ink);font-family:var(--font-text)}
+.meta{font-family:var(--font-mono);font-size:12px;color:#444;margin:0 0 12px;max-width:1100px}
+h1.page{font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:20px;margin:24px 0 8px}
+.frame{background:var(--paper);border:1px solid var(--ink);margin:0 0 24px;overflow:hidden}
+.frame.desk{width:1180px;max-width:100%}.frame.phone{width:375px}
+.cap{font-family:var(--font-mono);font-size:11px;color:#444;margin:0 0 4px}
+/* --- écran --- */
+.scr{padding:16px;display:grid;gap:12px}
+.head{display:flex;align-items:center;gap:12px}
+.back{width:44px;height:44px;border:1px solid var(--ink);background:var(--field);display:grid;place-items:center;font-size:20px}
+.head h2{margin:0;font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:28px;line-height:1}
+.id{display:flex;align-items:baseline;gap:8px;padding-left:2px}
+.id b{font-family:var(--font-display);font-stretch:68%;font-weight:800;font-size:24px;text-transform:uppercase}
+.id span{font-family:var(--font-mono);font-size:13px;color:var(--ink-muted)}
+.cols{display:grid;gap:16px;grid-template-columns:minmax(0,400px) minmax(0,1fr);align-items:start}
+.phone .cols{grid-template-columns:minmax(0,1fr)}.phone .fld{grid-template-columns:minmax(0,1fr) 140px}.scr{min-width:0}.sec{min-width:0}.phone td{padding:9px 4px;font-size:13px}.phone th{padding:6px 4px;font-size:10px}.phone td.st{font-size:12px}
+.sec{display:grid;gap:10px;align-content:start}
+.sec>h3{margin:0;font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:16px;border-left:5px solid var(--ink);padding-left:8px;letter-spacing:.03em}
+/* champs avec unité, limite, barre */
+.fld{display:grid;grid-template-columns:minmax(80px,1fr) 150px;gap:4px 12px;align-items:center}
+.fld>label{font-family:var(--font-mono);font-size:13px;font-weight:600}
+.box{display:grid;gap:3px}
+.inp{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;height:44px;padding:0 10px;border:1px solid var(--ink);background:var(--field);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.inp.focus{outline:3px solid var(--brand);outline-offset:0}
+.inp strong{font-size:18px;font-weight:700;align-self:center}
+.inp .u{font-size:12px;color:var(--ink-muted);align-self:center}
+.inp .lim{font-size:12px;color:var(--ink-muted);align-self:center;margin-right:auto}
+.bar{height:5px;background:var(--paper-2);border:1px solid var(--hair)}
+.bar i{display:block;height:100%;background:var(--ink-muted)}
+.bar.warn i{background:var(--caution)}.bar.bad i{background:var(--signal)}
+.sub{grid-column:2;font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);margin-top:-2px}
+.fuel-eq{font-family:var(--font-mono);font-size:12px;color:var(--ink-muted);align-self:center}
+.indent{margin-left:16px;border-left:2px solid var(--hair);padding-left:10px}
+/* bandeau d'état */
+.status{display:flex;align-items:center;gap:12px;padding:12px 14px;border:3px solid var(--caution);background:var(--field)}
+.status svg{flex:none}
+.status .t{display:grid;gap:2px}
+.status b{font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:24px;line-height:1}
+.status span{font-family:var(--font-mono);font-size:13px}
+.status.warn{border-color:var(--caution)}.status.warn b{color:var(--caution-ink,#8a4b00)}
+.status.ok{border-color:var(--zone-good)}.status.bad{border-color:var(--signal)}
+.mto{display:grid;gap:4px}
+.mto .row{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:13px}
+.mto .row b{font-size:18px;font-variant-numeric:tabular-nums}
+/* tableau */
+table{border-collapse:collapse;width:100%;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-muted);text-align:right;padding:6px 8px;border-bottom:2px solid var(--ink);font-weight:600}
+td{padding:10px 8px;text-align:right;border-bottom:1px solid var(--hair);font-size:15px;font-weight:600}
+th:first-child,td:first-child{text-align:left}
+tr.min td{background:color-mix(in srgb,var(--caution) 14%,transparent)}
+td.st{font-size:13px;white-space:nowrap}
+.ok{color:var(--zone-good)}.cau{color:var(--caution)}.bd{color:var(--signal)}
+.st svg{vertical-align:-4px;margin-right:4px}
+.note{display:flex;gap:8px;font-family:var(--font-mono);font-size:11.5px;color:var(--ink-muted);border-top:1px solid var(--hair);padding-top:8px;line-height:1.4}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-family:var(--font-mono);font-size:11.5px;color:var(--ink-muted)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+svg.chart{width:100%;height:auto;display:block;background:var(--paper);border:1px solid var(--ink)}
+.tip{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+@media (prefers-color-scheme:dark){body{background:#111}}
+</style></head><body>
+<p class="meta"><b>Maquette — écran Avion › Centrage.</b> Données d'exemple fictives (F-EXMP), rien n'est calculé par l'app. Même contenu en grand écran puis téléphone. Les marges sont en mm, les masses en kg entiers, le CG au mm.</p>
+
+<p class="cap">GRAND ÉCRAN (≥ 900 px) — 2 colonnes</p>
+<div class="frame desk" id="desk"></div>
+<p class="cap">TÉLÉPHONE (375 px) — 1 colonne : chargement puis résultats</p>
+<div class="frame phone" id="phone"></div>
+
+<script>
+const I = {
+  ok:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>',
+  cau:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 2 22 12 12 22 2 12Z"/><path d="M12 8v4M12 16h.01"/></svg>',
+  bad:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3 22 21H2Z"/><path d="M12 10v4M12 17.5h.01"/></svg>',
+  info:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" style="flex:none;color:var(--info)"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>'
+};
+// données fictives
+const env=[[2.20,560],[2.20,720],[2.28,800],[2.45,800],[2.45,560]];
+const P=[{n:'Zéro carburant',m:672,cg:2.421,mg:29,s:'cau'},{n:'Décollage',m:748,cg:2.398,mg:52,s:'ok'},{n:'Atterrissage',m:701,cg:2.405,mg:45,s:'ok'}];
+const COL={ok:'var(--zone-good)',cau:'var(--caution)',bad:'var(--signal)'};
+function chart(w){
+  const W=w,H=Math.round(w*0.72),L=44,R=14,T=14,B=30;
+  const x0=2.15,x1=2.50,y0=550,y1=825;
+  const sx=x=>L+(x-x0)/(x1-x0)*(W-L-R), sy=y=>H-B-(y-y0)/(y1-y0)*(H-T-B);
+  let g='';
+  for(let x=2.15;x<=2.5001;x+=0.05) g+=`<line x1="${sx(x)}" y1="${T}" x2="${sx(x)}" y2="${H-B}" stroke="var(--hair)"/><text x="${sx(x)}" y="${H-B+14}" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">${x.toFixed(2)}</text>`;
+  for(let y=550;y<=800;y+=50) g+=`<line x1="${L}" y1="${sy(y)}" x2="${W-R}" y2="${sy(y)}" stroke="var(--hair)"/><text x="${L-5}" y="${sy(y)+3}" font-size="10" text-anchor="end" fill="var(--ink-muted)" font-family="var(--font-mono)">${y}</text>`;
+  g+=`<text x="${(L+W-R)/2}" y="${H-3}" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">bras de levier (m)</text>`;
+  g+=`<text transform="translate(10 ${(T+H-B)/2}) rotate(-90)" font-size="10" text-anchor="middle" fill="var(--ink-muted)" font-family="var(--font-mono)">masse (kg)</text>`;
+  g+=`<polygon points="${env.map(v=>sx(v[0])+','+sy(v[1])).join(' ')}" fill="var(--paper-2)" stroke="var(--ink)" stroke-width="2"/>`;
+  g+=`<line x1="${L}" y1="${sy(800)}" x2="${W-R}" y2="${sy(800)}" stroke="var(--signal)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${W-R-4}" y="${sy(800)-4}" font-size="10" text-anchor="end" fill="var(--signal)" font-family="var(--font-mono)" font-weight="700">masse max 800</text>`;
+  g+=`<defs><marker id="ar${w}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10Z" fill="var(--ink)"/></marker></defs>`;
+  const q=P.map(p=>[sx(p.cg),sy(p.m)]);
+  // flèches raccourcies pour ne pas entrer dans les marqueurs
+  for(let i=0;i<2;i++){const [a,b]=[q[i],q[i+1]];const dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1,k=11/d;g+=`<line x1="${a[0]+dx*k}" y1="${a[1]+dy*k}" x2="${b[0]-dx*k}" y2="${b[1]-dy*k}" stroke="var(--ink)" stroke-width="1.6" marker-end="url(#ar${w})"/>`}
+  const off=[[-12,20,'end'],[12,-8,'start'],[12,16,'start']];
+  P.forEach((p,i)=>{const [x,y]=q[i],c=COL[p.s];
+    const sh=i===0?`<rect x="${x-6}" y="${y-6}" width="12" height="12" fill="${c}" stroke="var(--ink)" stroke-width="1.5"/>`:i===1?`<circle cx="${x}" cy="${y}" r="7" fill="${c}" stroke="var(--ink)" stroke-width="1.5"/>`:`<path d="M${x} ${y-8}L${x+7} ${y+6}L${x-7} ${y+6}Z" fill="${c}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    g+=`<g tabindex="0">${sh}<text x="${x+off[i][0]}" y="${y+off[i][1]}" text-anchor="${off[i][2]}" font-size="11" font-weight="700" font-family="var(--font-mono)" fill="var(--ink)" paint-order="stroke" stroke="var(--paper)" stroke-width="3">${p.n}</text><title>${p.n} — ${p.m} kg · CG ${p.cg.toFixed(3)} m · marge ${p.mg} mm</title></g>`});
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+const fld=(lab,val,u,lim,pct,cls,focus,extra='')=>`<div class="fld"><label>${lab}</label><div class="box"><div class="inp${focus?' focus':''}">${lim?`<span class="lim">/ ${lim}</span>`:''}<strong>${val}</strong><span class="u">${u}</span></div>${pct!==null?`<div class="bar ${cls}"><i style="width:${pct}%"></i></div>`:''}</div>${extra}</div>`;
+const loads=`<div class="sec"><h3>Chargement</h3>
+${fld('Pilote','78','kg','110',71,'',false)}
+${fld('Passager','64','kg','110',58,'',true)}
+${fld('Bagages','12','kg','20',60,'',false)}
+${fld('Carburant','95','L','',null,'',false,'')}
+<div class="fld"><span></span><span class="fuel-eq" style="text-align:right">≈ 68 kg · capacité 120 L</span></div>
+<div class="indent"><div class="fld"><label style="font-weight:400;color:var(--ink-muted)">Consommé en vol</label><div class="box"><div class="inp" style="height:36px"><strong style="font-size:15px">34</strong><span class="u">L</span></div></div></div></div>
+</div>`;
+const status=`<div class="status warn">${I.cau.replace('width="20" height="20"','width="32" height="32"')}<div class="t"><b>Marge faible</b><span>Marge min 29 mm · Zéro carburant</span></div></div>`;
+const mto=`<div class="mto"><div class="row"><span>Masse au décollage</span><span><b>748</b> / 800 kg</span></div><div class="bar"><i style="width:93.5%"></i></div></div>`;
+const table=`<table><thead><tr><th>Phase</th><th>Masse (kg)</th><th>CG (m)</th><th>Marge (mm)</th><th>État</th></tr></thead><tbody>
+${P.map((p,i)=>`<tr class="${i===0?'min':''}"><td>${p.n}</td><td>${p.m}</td><td>${p.cg.toFixed(3).replace('.',',')}</td><td>${p.mg}</td><td class="st ${p.s}">${I[p.s].replace('width="20" height="20"','width="18" height="18"')}${p.s==='ok'?'OK':'Faible'}</td></tr>`).join('')}</tbody></table>`;
+const legend=`<div class="legend"><span>■ Zéro carburant</span><span>● Décollage</span><span>▲ Atterrissage</span><span style="color:var(--zone-good)">● OK</span><span style="color:var(--caution)">● Marge faible (&lt; 30 mm)</span><span style="color:var(--signal)">● Hors limites</span></div><div class="tip">Touchez un point : masse, CG, marge.</div>`;
+const note=`<div class="note">${I.info}<span>Calcul indicatif : la responsabilité du chargement et du centrage reste celle du commandant de bord. Vérifiez avec le manuel de vol.</span></div>`;
+const results=(w)=>`<div class="sec"><h3>Résultats</h3>${status}${mto}${chart(w)}${legend}${table}${note}</div>`;
+const head=`<div class="head"><div class="back">←</div><h2>Avion</h2></div><div class="id"><b>F-EXMP</b><span>SF28 · Tecnam</span></div>`;
+document.getElementById('desk').innerHTML=`<div class="scr">${head}<div class="cols">${loads}${results(640)}</div></div>`;
+document.getElementById('phone').innerHTML=`<div class="scr">${head}<div class="cols">${loads}${results(343)}</div></div>`;
+</script></body></html>

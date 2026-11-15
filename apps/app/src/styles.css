@@ -684,3 +684,74 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 
 /* Réglages : interrupteurs en lignes (comme les calques). */
 .settings .tgls { display: grid; gap: var(--sp-2); }
+
+/* ---------- Écran Centrage : deux colonnes (chargement | résultats) en grand écran, une colonne sur téléphone ---------- */
+.bal { max-width: 1180px; margin-inline: auto; width: 100%; }
+.bal-id { display: flex; align-items: baseline; gap: var(--sp-2); }
+.bal-id b { font-family: var(--font-display); font-stretch: var(--stretch-display); font-weight: 800; font-size: 24px; text-transform: uppercase; }
+.bal-id span { font-family: var(--font-mono); font-size: 14px; color: var(--ink-muted); }
+.bal-cols { display: grid; gap: var(--sp-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .bal-cols { grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); } }
+.bal-sec { display: grid; gap: var(--sp-3); align-content: start; min-width: 0; }
+.bal-sec > h3 { margin: 0; }
+
+/* Champ avec unité, limite et barre */
+.ufield { display: grid; gap: 3px; }
+.uf-label { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: var(--sp-3); align-items: center; }
+.uf-label > span:first-child { font-family: var(--font-mono); font-size: 14px; font-weight: 600; }
+.uf-inp { display: flex; align-items: center; gap: var(--sp-2); height: var(--h-touch); padding: 0 var(--sp-3); border: var(--rule-line); background: var(--field); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.uf-inp:focus-within { outline: 3px solid var(--brand); outline-offset: 0; }
+.uf-inp input { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; color: var(--ink); text-align: right; font-size: 18px; font-weight: 700; padding: 0; height: 100%; outline: none; box-shadow: none; }
+.uf-lim, .uf-unit { font-size: var(--fs-12); color: var(--ink-muted); white-space: nowrap; }
+.uf-inp.lvl-bad { border-color: var(--signal); }
+.uf-inp.lvl-caution { border-color: var(--caution); }
+.uf-bar { height: 5px; background: var(--paper-2); border: 1px solid var(--hair); width: 100%; }
+.ufield .uf-bar { width: 160px; margin-left: auto; }
+.uf-bar i { display: block; height: 100%; background: var(--ink-muted); }
+.uf-bar.lvl-caution i { background: var(--caution); }
+.uf-bar.lvl-bad i { background: var(--signal); }
+.uf-hint { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); text-align: right; }
+.bal-burn { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); margin: var(--sp-2) 0 0 var(--sp-4); padding-left: var(--sp-3); border-left: 2px solid var(--hair); font-family: var(--font-mono); font-size: 13px; color: var(--ink-muted); }
+.bal-burn b { color: var(--ink); font-size: 14px; margin-left: auto; }
+.bal-burn small { flex-basis: 100%; font-size: var(--fs-12); }
+
+/* Bandeau d'état */
+.statusbanner { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3); border: 3px solid var(--ink); background: var(--field); }
+.statusbanner > .icon { flex: none; width: 32px; height: 32px; }
+.sb-text { display: grid; gap: 2px; min-width: 0; font-family: var(--font-mono); font-size: 13px; }
+.sb-text b { font-family: var(--font-display); font-stretch: var(--stretch-display); font-size: 24px; text-transform: uppercase; line-height: 1.05; }
+.statusbanner.lvl-ok { border-color: var(--zone-good); }
+.statusbanner.lvl-ok > .icon, .statusbanner.lvl-ok b { color: var(--zone-good); }
+.statusbanner.lvl-caution { border-color: var(--caution); }
+.statusbanner.lvl-caution > .icon, .statusbanner.lvl-caution b { color: var(--caution); }
+.statusbanner.lvl-bad { border-color: var(--signal); }
+.statusbanner.lvl-bad > .icon, .statusbanner.lvl-bad b { color: var(--signal); }
+
+.bal-mto { display: grid; gap: 4px; }
+.bal-mto > div:first-child { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--font-mono); font-size: 13px; }
+.bal-mto b { font-size: 18px; }
+
+/* Graphique */
+.balchart-wrap { display: grid; gap: var(--sp-2); }
+.balchart-wrap .balchart { max-width: none; margin: 0; }
+.bal-pt { cursor: pointer; outline: none; }
+.bal-pt:focus-visible rect, .bal-pt:focus-visible path { stroke-width: 3; }
+.bal-legend { display: flex; flex-wrap: wrap; gap: 2px var(--sp-3); font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); }
+.bal-legend .lvl-ok { color: var(--zone-good); } .bal-legend .lvl-caution { color: var(--caution); } .bal-legend .lvl-bad { color: var(--signal); }
+.bal-readout { margin: 0; min-height: 1.4em; }
+
+/* Tableau de résultats */
+.restable { border-collapse: collapse; width: 100%; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.restable thead th { font-size: var(--fs-12); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-muted); text-align: right; padding: 6px var(--sp-2); border-bottom: 2px solid var(--ink); font-weight: 600; }
+.restable thead th:first-child { text-align: left; }
+.restable tbody th { text-align: left; padding: 10px var(--sp-2); color: var(--ink); font-size: 14px; border-bottom: 1px solid var(--hair); font-weight: 700; }
+.restable td { padding: 10px var(--sp-2); text-align: right; border-bottom: 1px solid var(--hair); font-size: 14px; font-weight: 600; }
+.restable tr.min th, .restable tr.min td { background: color-mix(in srgb, var(--caution) 14%, transparent); }
+.levelmark { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-12); white-space: nowrap; }
+.levelmark.lvl-ok { color: var(--zone-good); } .levelmark.lvl-caution { color: var(--caution); } .levelmark.lvl-bad { color: var(--signal); }
+@media (max-width: 480px) { .restable thead th, .restable td, .restable tbody th { padding-inline: 3px; } .restable thead th { font-size: 10px; } .uf-label { grid-template-columns: minmax(0, 1fr) 140px; } .ufield .uf-bar { width: 140px; } }
+
+.bal-note { display: flex; gap: var(--sp-2); align-items: flex-start; margin: 0; padding-top: var(--sp-2); border-top: var(--rule-hair); font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); line-height: 1.4; }
+.bal-note .icon { flex: none; color: var(--info); margin-top: 1px; }
+
+@media (max-width: 480px) { .levelmark .lm-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); } }
