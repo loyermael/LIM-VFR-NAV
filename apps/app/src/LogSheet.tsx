@@ -147,7 +147,7 @@ export function LogSheet(p: {
           return [
             <div key={`z${i}`} className={`lt-cell lt-z${cls}`} style={{ gridRow: `${row} / span 2` }}>
               <span className="arrow">{l.trend === "climb" ? "↗" : l.trend === "descent" ? "↘" : "→"}</span>
-              <b>{l.z || "—"}</b>
+              {l.z ? <b>{l.z}</b> : <i className="ls-na">—</i>}
               <input className="zmin" aria-label="Z min" placeholder="Z min" inputMode="decimal" value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} />
             </div>,
             <div key={`c${i}`} className={`lt-cell lt-c${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.cm}°</i><b>{l.rm}°</b></div>,
@@ -163,7 +163,7 @@ export function LogSheet(p: {
           return (
             <div key={`r${j}`} className={`lt-cell lt-r${cls}`} style={{ gridRow: `${2 * j + 2} / span 2` }}>
               <b>{point.name}</b>
-              <input aria-label="RNav / Info NAV / Com / Z" value={form[`note${j}`] ?? noteDefault(j)} placeholder="—" onChange={(e) => setField(`note${j}`, e.target.value)} />
+              <input aria-label="RNav / Info NAV / Com / Z" title={form[`note${j}`] ?? noteDefault(j)} value={form[`note${j}`] ?? noteDefault(j)} placeholder="—" onChange={(e) => setField(`note${j}`, e.target.value)} />
             </div>
           );
         })}

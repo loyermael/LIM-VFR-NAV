@@ -1095,3 +1095,14 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .lt-t .he em .ls-dev.big { color: var(--caution); opacity: 1; }
 .lt-r input { font-weight: 700; font-style: italic; }
 .ls-table { display: grid !important; }
+
+/* Cellules du log : toute la hauteur est réservée au contenu (plus de champ qui déborde sur la ligne voisine). */
+.ls-table { --H: 156px; }
+@media (min-width: 700px) { .ls-table { --H: 140px; } }
+.ls-table .lt-cell { padding: 6px 4px 8px; overflow: hidden; }
+.lt-z input.zmin, .lt-t .he input { height: 40px; width: 100%; box-sizing: border-box; }
+.lt-t .he { align-self: end; }
+.lt-z .ls-na, .lt-cell .ls-na { font-size: 18px; align-self: center; }
+.lt-r input { height: 40px; }
+.ls-table .lt-cell.lt-r { padding: 6px 6px 8px 26px; }
+.ls-table { grid-template-columns: 15% 13% 15% 17% minmax(0, 1fr); } .lt-r input { font-size: 13px; padding: 0 4px; text-overflow: ellipsis; } @media (min-width: 700px) { .lt-r input { font-size: 16px; } }
