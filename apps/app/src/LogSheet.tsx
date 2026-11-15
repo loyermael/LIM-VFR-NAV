@@ -150,11 +150,12 @@ export function LogSheet(p: {
               {l.z ? <b>{l.z}</b> : <i className="ls-na">—</i>}
               <input className="zmin" aria-label="Z min" placeholder="Z min" inputMode="decimal" value={form[`z${i}`] ?? ""} onChange={(e) => setField(`z${i}`, e.target.value)} />
             </div>,
-            <div key={`c${i}`} className={`lt-cell lt-c${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.cm}°</i><b>{l.rm}°</b></div>,
+            <div key={`c${i}`} className={`lt-cell lt-c${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.cm}°</i><b>{l.rm}<small>°</small></b><span /></div>,
             <div key={`d${i}`} className={`lt-cell lt-d${cls}`} style={{ gridRow: `${row} / span 2` }}><i>{l.dsd}</i><b>{l.d}</b><i>{l.dta}</i></div>,
             <div key={`t${i}`} className={`lt-cell lt-t${cls}`} style={{ gridRow: `${row} / span 2` }}>
-              <i>{l.tav}</i><b>{l.tsv}</b>
-              <span className="he"><em>{l.he || "—"}<Deviation he={l.he} hr={form[`hr${i}`] ?? ""} /></em><input aria-label="Hr" placeholder="hh:mm" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} /></span>
+              <i>{l.tav}</i>
+              <div className="t-mid"><b>{l.tsv}</b><em>{l.he || "—"}<Deviation he={l.he} hr={form[`hr${i}`] ?? ""} /></em></div>
+              <input aria-label="Hr" placeholder="hh:mm" value={form[`hr${i}`] ?? ""} onChange={(e) => setField(`hr${i}`, e.target.value)} />
             </div>,
           ];
         })}
