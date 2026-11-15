@@ -870,3 +870,12 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 }
 .edtable.vx thead th:nth-child(1) { width: 40px; } .edtable.vx thead th:nth-child(4) { width: 48px; }
 .edtable.vx td.num { text-align: center; }
+
+/* Lignes d'ajout sous les tableaux éditables : pleine largeur du tableau, alignées sur les champs. */
+.edtable th:first-child, .edtable td:first-child { padding-left: 0; }
+.edtable th:last-child, .edtable td:last-child { padding-right: 0; }
+.addrow { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--sp-2); }
+.addrow > button { width: 100%; min-height: var(--h-touch); justify-content: center; }
+.addrow > button:first-child { border-style: dashed; }
+@media (max-width: 420px) { .addrow { grid-auto-flow: row; } }
+.addrow { margin-top: var(--sp-2); } .addrow > button:first-child { border: 2px dashed var(--ink-muted); background: transparent; } .addrow > button:not(:first-child) { border: var(--rule-line); }

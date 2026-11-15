@@ -283,7 +283,7 @@ export function AircraftEditor(p: {
               ))}
             </tbody>
           </table>
-          <div><Button icon="plus" onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</Button></div>
+          <div className="addrow"><Button icon="plus" onClick={() => p.onChange(addStation(a, `${a.id}-${crypto.randomUUID().slice(0, 6)}`, now()))}>{T("ac.addStation")}</Button></div>
         </>
       ))}
 
@@ -312,7 +312,7 @@ export function AircraftEditor(p: {
                   ))}
                 </tbody>
               </table>}
-              <div className="choices">
+              <div className="addrow">
                 <Button icon="plus" onClick={() => p.onChange(addVertex(a, a.envelope[a.envelope.length - 1]?.[0] ?? 0, a.envelope[a.envelope.length - 1]?.[1] ?? 0, now()))}>{T("ac.addVertex")}</Button>
                 <Button icon="arrow-left-right" title={T("ac.sortHint")} disabled={a.envelope.length < 3} onClick={() => p.onChange(orderEnvelope(a, now()))}>{T("ac.order")}</Button>
               </div>
