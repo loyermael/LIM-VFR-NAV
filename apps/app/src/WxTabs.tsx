@@ -96,6 +96,27 @@ function useStations<S extends { station: string; name: string; lat: number; lon
   }, [all, p.route, p.gps, query]);
 }
 
+/** Bloc d'observation ou de prévision du briefing : étiquette + heure (+ état), puis valeurs en lignes libellé / valeur. */
+function WxObs({ tag, when, cat, stale, staleText, c, p }: { tag: string; when: string; cat: Conditions["category"]; stale?: boolean; staleText?: string; c: Conditions; p: WxCommon }) {
+  const T = (k: Key) => t(p.lang, k);
+  return (
+    <div className="wx-obs">
+      <div className="wx-obs-head">
+        <span className="wx-tag">{tag}</span>
+        <span className="mono small">{when}</span>
+        <Category c={cat} />
+        {stale && <span className="stat-caution lc-stat"><Icon name="diamond-alert" size={16} />{staleText}</span>}
+      </div>
+      <dl className="wx-dl">
+        <div><dt>{T("wxm.wind")}</dt><dd>{windText(c, p.prefs)}</dd></div>
+        <div><dt>{T("wxm.vis")}</dt><dd>{visibilityText(c.visibility)}</dd></div>
+        <div><dt>{T("wxm.clouds")}</dt><dd>{cloudsText(c.clouds)}</dd></div>
+        {c.weather && <div><dt>{T("wxm.wx")}</dt><dd>{c.weather}</dd></div>}
+      </dl>
+    </div>
+  );
+}
+
 function MetarCard({ m, p }: { m: Metar; p: WxCommon }) {
   const T = (k: Key) => t(p.lang, k);
   const c = m.conditions;
@@ -306,8 +327,11 @@ export function BriefingTab(p: WxCommon) {
                 <div className="muted small mono">
                   {formatQuantity("distance", p.prefs, n.along)} {unitLabel("distance", p.prefs)} {T("wxb.alongRoute")} · {formatQuantity("distance", p.prefs, n.distance)} {unitLabel("distance", p.prefs)} {T("wxb.offRoute")}
                 </div>
-                <div className="mono small">METAR {utcTime(m.observedAt)} ({ageText(ageMinutes(m.observedAt, p.nowMs))}) : {windText(m.conditions, p.prefs)} · {visibilityText(m.conditions.visibility)} · {cloudsText(m.conditions.clouds)}</div>
-                {taf && per && <div className="mono small">TAF {utcRange(per.from, per.to)}{tafStatus(taf, p.nowMs) === "expired" ? ` (${T("wxt.expired")})` : ""} : <Category c={per.conditions.category} /> {periodLine(per, p)}</div>}
+                {(() => {
+                  const age = ageMinutes(m.observedAt, p.nowMs);
+                  return <WxObs tag="METAR" when={`${utcTime(m.observedAt)} · ${ageText(age)}`} cat={m.conditions.category} stale={age > METAR_STALE_MINUTES} staleText={T("wxm.old")} c={m.conditions} p={p} />;
+                })()}
+                {taf && per && <WxObs tag="TAF" when={utcRange(per.from, per.to)} cat={per.conditions.category} stale={tafStatus(taf, p.nowMs) === "expired"} staleText={T("wxt.expired")} c={per.conditions} p={p} />}
                 {taf && !per && <div className="muted small">TAF : {T("wxb.noPeriod")}</div>}
                 {!taf && <div className="muted small">TAF : {T("wxb.noTaf")}</div>}
               </div>
