@@ -886,3 +886,20 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .notam-warn { display: flex; gap: var(--sp-2); align-items: flex-start; margin: 0; padding: var(--sp-2) var(--sp-3); border: 2px solid var(--caution); background: var(--field); color: var(--ink); font-family: var(--font-mono); font-size: var(--fs-14); }
 .notam-warn .icon { flex: none; color: var(--caution); }
 .notam-empty { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+
+/* ---------- Log de nav : lisibilité sur téléphone ---------- */
+/* Choix de l'avion : le menu prend toute la largeur, « Gérer les avions » passe dessous (plus de bouton coupé). */
+@media (max-width: 700px) { .log-ac > * { flex: 1 1 100%; min-width: 0; } .log-ac .btn { width: 100%; justify-content: center; } }
+.log-ac select.field { width: 100%; }
+/* En-tête : Vp encadré comme un champ. */
+.ls-vp { border: var(--rule-line); background: var(--field); padding: 0 var(--sp-2); height: var(--h-touch); text-align: right; }
+.ls-card .btn { justify-self: start; }
+/* Report actif (ligne sombre) : champs sombres, texte clair lisible (avant : texte clair sur fond clair). */
+.lt-cell.active input, .lt-cell.active .zmin, .lt-cell.active .he input { background: rgba(255, 255, 255, 0.12); color: var(--on-ink); border-color: rgba(255, 255, 255, 0.45); }
+.lt-cell.active input::placeholder { color: var(--on-ink); opacity: 0.7; }
+/* Blocs du bas : une colonne tant qu'il n'y a pas la place, champs « libellé | valeur ». */
+.ls-bottom { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.ls-bottom section > .ls-in { grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: var(--sp-3); }
+.ls-bottom .ls-perf-row .ls-in { grid-template-columns: minmax(0, 1fr); }
+.ls-in input { height: var(--h-touch); box-sizing: border-box; }
+.ls-bottom textarea { min-height: 7.5em; resize: vertical; }
