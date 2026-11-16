@@ -55,7 +55,7 @@ import { ConfirmButton } from "./ui/ConfirmButton";
 import { FRENCH_FIRS, deleteNotams, fetchIcaoNotams, icaoAt, loadNotams, mergeNotams, notamsAtAirfield, notamsForFlight, parseNotams, saveNotams, type NotamSet } from "./notam";
 import { BriefingTab, MetarTab, SigmetTab, TafTab, type WxCommon } from "./WxTabs";
 import { importWxFiles, loadWx, saveWx, type MetarSet, type SigmetSet, type TafSet } from "./wxData";
-import { fetchWinds, loadWindCache, windKey } from "./windClient";
+import { fetchWindsMany, loadWindCache, windKey } from "./windClient";
 import { DeviceBarometer, SimulatedBarometer, type PressureSource } from "./pressureSource";
 import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, loadVisibleGroups, saveVisibleGroups, saveAltitude, saveGpsAltitudeRef, saveUnitPrefs, loadFiguresColor, saveFiguresColor, type GpsAltitudeRef } from "./prefs";
 
@@ -435,7 +435,7 @@ export function App() {
     setWindBusy(true);
     setWindError(null);
     try {
-      const results = await Promise.all(points.map((p) => fetchWinds(p.lat, p.lon)));
+      const results = await fetchWindsMany(points, true);
       setWindForecasts((prev) => {
         const next = new Map(prev);
         for (const f of results) next.set(windKey(f.lat, f.lon), f);
@@ -492,7 +492,7 @@ export function App() {
     if (tas === null || tas === undefined) return t(lang, "nav.aw.needTas");
     setAutoWindBusy(true);
     try {
-      const fcs = await Promise.all(route.points.map((pt) => fetchWinds(pt.position.lat, pt.position.lon)));
+      const fcs = await fetchWindsMany(route.points.map((pt) => pt.position));
       setWindForecasts((prev) => {
         const next = new Map(prev);
         for (const f of fcs) next.set(windKey(f.lat, f.lon), f);
