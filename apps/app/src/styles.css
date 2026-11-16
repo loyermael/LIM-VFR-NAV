@@ -1142,9 +1142,9 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 /* Page Carburant : réglages et embarqué à gauche, résultat à droite (grand écran) ; une colonne sur téléphone. */
 .sh-titles { min-width: 0; }
 .sh-sub { font-family: var(--font-mono); font-size: var(--fs-12); color: var(--ink-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fuelpage { display: grid; gap: var(--sp-3); width: 100%; max-width: 1080px; margin: 0 auto; min-width: 0; }
+.fuelpage { container-type: inline-size; display: grid; gap: var(--sp-3); width: 100%; max-width: 1080px; margin: 0 auto; min-width: 0; }
 .fp-cols { display: grid; gap: var(--sp-4); grid-template-columns: minmax(0, 1fr); align-items: start; }
-@media (min-width: 900px) { .fp-cols { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); } }
+@container (min-width: 760px) { .fp-cols { grid-template-columns: minmax(0, 380px) minmax(0, 1fr); } }
 .fp-in, .fp-out, .fp-sec { display: grid; gap: var(--sp-3); align-content: start; min-width: 0; }
 .fp-sec > h3 { margin: 0; }
 .fp-fold { border: var(--rule-line); background: var(--field); }

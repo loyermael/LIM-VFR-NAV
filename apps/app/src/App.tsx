@@ -61,8 +61,8 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "wx.notam"];
-const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb", "nav.fuel"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "nav.fuel", "wx.notam"];
+const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
 const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
 const WX_TABS: Key[] = ["wx.briefing", "wx.metar", "wx.taf", "wx.sigmet", "wx.winds"];
@@ -1565,9 +1565,9 @@ export function App() {
               <Button icon="arrow-left" aria-label={T("back")} onClick={goBack} />
               <div className="sh-titles">
                 <h2>
-                  {screen === "soon" ? T(soonTitle) : screen === "aircraft" && tab === 2 ? T("nav.fuel") : screen === "aircraft" && tab === 1 ? T("nav.wb") : T(SCREEN_TITLE[screen] ?? "soon")}
+                  {screen === "soon" ? T(soonTitle) : screen === "nav" && tab === 2 ? T("nav.fuel") : screen === "aircraft" && tab === 1 ? T("nav.wb") : T(SCREEN_TITLE[screen] ?? "soon")}
                 </h2>
-                {screen === "aircraft" && tab >= 1 && route && (
+                {((screen === "aircraft" && tab === 1) || (screen === "nav" && tab === 2)) && route && (
                   <div className="sh-sub">{route.name}{navLog ? ` · ${formatQuantity("distance", prefs, navLog.totals.distance as number)} ${unitLabel("distance", prefs)}` : ""}</div>
                 )}
               </div>
@@ -1744,6 +1744,18 @@ export function App() {
                 return tab === 0 ? <BriefingTab {...common} /> : tab === 1 ? <MetarTab {...common} /> : tab === 2 ? <TafTab {...common} /> : <SigmetTab {...common} />;
               })()
             ) : screen === "nav" && tab === 2 ? (
+              <FuelTab
+                lang={lang}
+                prefs={prefs}
+                active={ac.active}
+                loads={ac.loads}
+                fuel={fuelSheet}
+                plan={ac.plan}
+                onPlan={ac.updatePlan}
+                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
+                onOpenSheet={() => open("aircraft")}
+              />
+            ) : screen === "nav" && tab === 3 ? (
               (() => {
                 const startMs = route?.departureMs ?? now;
                 const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, arr) => (i === 0 ? 0 : acc + distance((arr[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;
@@ -1844,18 +1856,6 @@ export function App() {
                 active={ac.active}
                 loads={ac.loads}
                 fuel={fuelSheet}
-                onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
-                onOpenSheet={() => setTab(0)}
-              />
-            ) : screen === "aircraft" && tab === 2 ? (
-              <FuelTab
-                lang={lang}
-                prefs={prefs}
-                active={ac.active}
-                loads={ac.loads}
-                fuel={fuelSheet}
-                plan={ac.plan}
-                onPlan={ac.updatePlan}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
                 onOpenSheet={() => setTab(0)}
               />
