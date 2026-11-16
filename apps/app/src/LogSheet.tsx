@@ -194,7 +194,7 @@ export function LogSheet(p: {
           <h3>{T("log.fuel")}</h3>
           <div className="ls-box ls-fuel">
             {p.onboardField && p.fv ? (
-              <UnitField label={T("log.f.start")} unit={p.fv.unit} decimals={p.onboardField.decimals} value={p.onboardField.value} onCommit={p.onboardField.onCommit} />
+              <UnitField layout="stack" label={T("log.f.start")} unit={p.fv.unit} decimals={p.onboardField.decimals} value={p.onboardField.value} onCommit={p.onboardField.onCommit} />
             ) : (
               <div className="ls-ro-row"><span className="ls-lbl">{T("log.f.start")}</span><b>{p.fv?.onboard ?? "—"}</b></div>
             )}

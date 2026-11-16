@@ -1196,3 +1196,12 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .fp-rov b { font-size: 16px; white-space: nowrap; }
 .fp-rov button { white-space: nowrap; padding: 0 4px; }
 .fp-lbl, .ufield .uf-label > span:first-child { min-height: 1.4em; }
+
+/* Log : bloc carburant (Embarqué saisi, autonomie et arrivée calculées) et hauteurs alignées avion / bouton. */
+.ls-fuel { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: start; }
+.ls-ro-row { display: grid; gap: 3px; align-content: start; min-width: 0; }
+.ls-ro-row .ls-lbl { font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; }
+.ls-ro-row b { display: flex; align-items: center; min-height: var(--h-touch); font-family: var(--font-mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.ls-ro-row.lvl-caution b { color: var(--caution); } .ls-ro-row.lvl-bad b { color: var(--signal); }
+.ls-fuel .ufield { min-width: 0; }
+.log-ac select.field, .log-ac .btn { box-sizing: border-box; height: var(--h-touch); min-height: var(--h-touch); }
