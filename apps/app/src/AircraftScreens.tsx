@@ -21,6 +21,7 @@ import {
 } from "./aircraftEdit";
 import type { FuelPlanParams } from "./aircraftStore";
 import { formatFuel, type FuelSheet } from "./fuel";
+import { listAircraft, type AircraftSort } from "./aircraftList";
 
 const ISSUE_KEYS: Record<BalanceIssue, Key> = {
   overweight: "bal.issue.overweight",
@@ -345,7 +346,13 @@ interface AircraftTabProps {
 export function AircraftTab(p: AircraftTabProps) {
   const T = (k: Key) => t(p.lang, k);
   const [editing, setEditing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sort, setSortState] = useState<AircraftSort>(() => {
+    try { const v = localStorage.getItem("lim.aircraftSort"); return v === "name" || v === "recent" ? v : "reg"; } catch { return "reg"; }
+  });
+  const setSort = (v: AircraftSort) => { setSortState(v); try { localStorage.setItem("lim.aircraftSort", v); } catch { /* stockage bloqué */ } };
   const a = p.active;
+  const shown = listAircraft(p.aircraft, a?.id ?? null, query, sort);
   if (a && editing) return <AircraftEditor lang={p.lang} prefs={p.prefs} aircraft={a} onChange={p.onPut} onUndoable={p.onUndoable} onDone={() => setEditing(false)} />;
   const create = () => {
     const na = newAircraft(crypto.randomUUID(), `${T("ac.new")} ${p.aircraft.length + 1}`, Date.now());
@@ -358,8 +365,20 @@ export function AircraftTab(p: AircraftTabProps) {
     <div className="navscreen">
       <h3>{T("ac.list")}</h3>
       {p.aircraft.length === 0 && <p className="muted">{T("ac.none")}</p>}
+      {p.aircraft.length >= 3 && (
+        <div className="air-tools">
+          <input className="field" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={T("ac.search")} aria-label={T("ac.search")} />
+          <select className="field" value={sort} onChange={(e) => setSort(e.target.value as AircraftSort)} aria-label={T("ac.sort")}>
+            <option value="reg">{T("ac.sort.reg")}</option>
+            <option value="name">{T("ac.sort.name")}</option>
+            <option value="recent">{T("ac.sort.recent")}</option>
+          </select>
+        </div>
+      )}
+      {p.aircraft.length > 0 && shown.length === 0 && <p className="muted">{T("ac.noMatch")}</p>}
+      {query && shown.length > 0 && <p className="muted small">{shown.length} / {p.aircraft.length}</p>}
       <div className="route-list">
-        {p.aircraft.map((x) => {
+        {shown.map((x) => {
           const sel = a?.id === x.id;
           const tas = x.tasMps === null ? "---" : `${formatQuantity("groundSpeed", p.prefs, x.tasMps as never)} ${unitLabel("groundSpeed", p.prefs)}`;
           const flow = x.fuelFlowLph === null ? "---" : `${fromSI("fuel", p.prefs, x.fuelFlowLph).toFixed(1)} ${unitLabel("fuel", p.prefs)}/h`;

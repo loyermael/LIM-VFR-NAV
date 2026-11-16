@@ -28,11 +28,11 @@ svg{display:block;flex:none}
 .status.low{border-color:var(--caution)}.status.bad{border-color:var(--signal)}
 .status .t{font-family:var(--font-display);font-stretch:68%;font-size:24px;text-transform:uppercase;line-height:1}
 .status.ok .t{color:var(--zone-good)}.status.low .t{color:var(--caution)}.status.bad .t{color:var(--signal)}
-.status .kp{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border-top:1px solid var(--hair);padding-top:8px}
-.kp div{display:grid;gap:1px}
+.status .kp{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;border-top:1px solid var(--hair);padding-top:8px}
+.kp div{display:grid;gap:2px;min-width:0;align-content:start}
 .kp span{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em}
-.kp b{font-family:var(--font-mono);font-size:22px;font-variant-numeric:tabular-nums}
-.kp small{font-size:13px;font-weight:600;color:var(--ink-muted)}
+.kp b{font-family:var(--font-mono);font-size:20px;font-variant-numeric:tabular-nums}
+.kp small{font-size:12px;font-weight:600;color:var(--ink-muted);line-height:1.25}
 /* champ avec unité */
 .fld{display:grid;grid-template-columns:minmax(80px,1fr) 170px;gap:4px 12px;align-items:center}
 .fld>label{font-family:var(--font-mono);font-size:13px;font-weight:600}
@@ -50,10 +50,11 @@ details.fold{border:1px solid var(--ink);background:var(--field)}
 details.fold>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;font-family:var(--font-mono);font-size:13px;font-weight:700;list-style:none}
 details.fold>summary::-webkit-details-marker{display:none}
 details.fold .in{padding:12px;display:grid;gap:12px;border-top:1px solid var(--hair)}
+.ro{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:0 10px;border:1px dashed var(--ink-muted);background:transparent;font-family:var(--font-mono);font-variant-numeric:tabular-nums}.ro strong{font-size:18px}.ro .u{font-size:12px;color:var(--ink-muted)}.ro a{font-size:11px;color:var(--ink);text-decoration:underline}
 .sumv{font-weight:400;color:var(--ink-muted);font-size:12px}
 .note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-muted);line-height:1.4}
 /* barre empilée */
-.stk{display:grid;gap:6px}
+.stk{display:grid;gap:8px;padding-top:26px}
 .track{position:relative;display:flex;height:34px;border:1px solid var(--ink);background:var(--paper-2)}
 .track i{display:block;height:100%;border-right:1px solid var(--paper)}
 .s-taxi{background:#8d877a}.s-trip{background:#4a4a46}.s-cont{background:#b3ad9f}.s-alt{background:#6f6a60}
@@ -62,14 +63,14 @@ details.fold .in{padding:12px;display:grid;gap:12px;border-top:1px solid var(--h
 .s-miss{background:repeating-linear-gradient(45deg,var(--caution) 0 4px,var(--field) 4px 8px)}
 .s-miss.bad{background:repeating-linear-gradient(45deg,var(--signal) 0 4px,var(--field) 4px 8px)}
 .mark{position:absolute;top:-6px;bottom:-6px;width:0;border-left:3px solid var(--ink)}
-.mark b{position:absolute;top:-16px;transform:translateX(-50%);font-family:var(--font-mono);font-size:10px;white-space:nowrap}
-.scale{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);margin-top:14px}
+.mark b{position:absolute;top:-20px;transform:translateX(-50%);font-family:var(--font-mono);font-size:10px;white-space:nowrap}
+.scale{display:flex;justify-content:space-between;gap:12px;font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);margin-top:14px}
 .legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--font-mono);font-size:11px}
 .legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:12px;height:12px;border:1px solid var(--ink);display:inline-block}
 /* tableau */
 table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
 td{padding:7px 4px;border-bottom:1px solid var(--hair);font-size:13px}
-td.l{width:100%}td.l small{color:var(--ink-muted);font-size:11px;margin-left:6px}
+td.l{width:100%}td.l small{color:var(--ink-muted);font-size:11px;margin-left:4px;white-space:nowrap}td.l{line-height:1.25}
 td.v{text-align:right;white-space:nowrap;font-weight:600}td.u{width:1%;padding-left:6px;color:var(--ink-muted);font-size:11px;white-space:nowrap}
 tr.tot td{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);font-weight:800;font-size:14px}
 table.bil td.v{font-size:16px}table.bil tr.big td.v{font-size:20px;font-weight:800}
@@ -113,19 +114,22 @@ function bar(c){const scale=Math.max(c.cap,c.req,c.onb);const w=v=>(v/scale*100)
 function row(l,v,u,x){return `<tr class="${x||''}"><td class="l">${l}</td><td class="v">${v}</td><td class="u">${u}</td></tr>`}
 function detail(c){return `<div class="grp">Calcul</div><table>${row('Roulage',f1(c.taxi),'L')}${row('Consommation trajet',f1(c.trip),'L')}${row('Aléas <small>10 %</small>',f1(c.cont),'L')}${row('Déroutement <small>0 min</small>',f1(c.alt),'L')}${row('Réserve finale <small>30 min</small>',f1(c.res),'L')}${row('Total nécessaire',f1(c.req),'L','tot')}</table>
  <div class="grp" style="margin-top:6px">Bilan</div><table class="bil">${row('Embarqué',f1(c.onb),'L','big')}${row(c.sur<0?'Manque':'Excédent',f1(Math.abs(c.sur)),'L','big')}${row('À l’arrivée',f1(c.arr),'L')}${row('Autonomie totale',hm(c.endT),'h:mm')}${row('Autonomie utilisable',hm(c.endU),'h:mm')}</table>`}
-function inputs(c){return `<div class="sec"><h3>Saisie du vol</h3><div class="fld"><label>Embarqué</label><div class="inp"><span class="lim">/ ${f1(c.cap)} L</span><strong>${f1(c.onb)}</strong><span class="u">L</span></div></div>
- <div class="basis">Trajet calculé avec le vent · même valeur que sur le log et le centrage</div></div>
- <details class="fold"><summary><span>Réglages <span class="sumv">roulage 1,0 L · aléas 10 % · déroutement 0 min · réserve 30 min</span></span>${ICON.chev}</summary><div class="in">
- <div class="grid2"><div class="stack"><label>Roulage</label><div class="inp"><strong>1,0</strong><span class="u">L</span></div></div><div class="stack"><label>Aléas</label><div class="inp"><strong>10</strong><span class="u">%</span></div></div>
- <div class="stack"><label>Déroutement</label><div class="inp"><strong>0</strong><span class="u">min</span></div></div><div class="stack"><label>Réserve finale</label><div class="inp"><strong>30</strong><span class="u">min</span></div></div>
+function settings(c){return `<details class="fold" open><summary><span>Réglages du vol</span>${ICON.chev}</summary><div class="in">
+ <div class="grid2"><div class="stack"><label>Consommation</label><div class="ro"><span><strong>12,0</strong> <span class="u">L/h</span></span><a>Fiche ›</a></div></div>
+ <div class="stack"><label>Roulage</label><div class="inp"><strong>1,0</strong><span class="u">L</span></div></div>
+ <div class="stack"><label>Aléas (% du trajet)</label><div class="inp"><strong>10</strong><span class="u">%</span></div></div>
+ <div class="stack"><label>Déroutement</label><div class="inp"><strong>0</strong><span class="u">min</span></div></div>
+ <div class="stack"><label>Réserve finale</label><div class="inp"><strong>30</strong><span class="u">min</span></div></div>
  <div class="stack"><label>Seuil « marge faible »</label><div class="inp"><strong>3,0</strong><span class="u">L</span></div></div></div>
  <div class="note">${ICON.info}<span>Valeurs par défaut à confirmer selon votre réglementation.</span></div></div></details>`}
-function screen(c,cls){return `<div class="scr"><div class="wrap">
+function onboard(c){return `<div class="sec"><h3>Embarqué</h3><div class="fld"><label>Carburant embarqué</label><div class="inp"><span class="lim">/ ${f1(c.cap)} L</span><strong>${f1(c.onb)}</strong><span class="u">L</span></div></div>
+ <div class="basis">Même valeur que sur le log et le centrage · trajet calculé avec le vent</div></div>`}
+function screen(c,cls){const res=`${banner(c)}<div class="sec"><h3>Répartition</h3>${bar(c)}</div><div class="sec"><h3>Détail</h3>${detail(c)}</div>`;
+ return `<div class="scr"><div class="wrap">
  <div class="head"><div class="back">${ICON.back}</div><div><h2>Carburant</h2><div class="route">AR LFHV LFLM · 43,7 km</div></div></div>
  <div class="id">${ICON.chk}<b>F-EXMP</b><span>SF28 (exemple)</span></div>
- ${banner(c)}
- ${cls==='desk'?`<div class="cols"><div class="sec" style="gap:14px">${inputs(c)}</div><div class="sec" style="gap:14px"><h3>Répartition</h3>${bar(c)}<h3>Détail</h3>${detail(c)}</div></div>`
- :`${inputs(c)}<div class="sec"><h3>Répartition</h3>${bar(c)}</div><div class="sec"><h3>Détail</h3>${detail(c)}</div>`}
+ ${cls==='desk'?`<div class="cols"><div class="sec" style="gap:14px">${settings(c)}${onboard(c)}</div><div class="sec" style="gap:14px">${res}</div></div>`
+ :`${settings(c)}${onboard(c)}${res}`}
  <div class="note">${ICON.info}<span>Estimation à consommation constante. Ne remplace pas la vérification des quantités réelles.</span></div></div></div>`}
 const A=calc(40),B=calc(17),C=calc(12);
 document.getElementById('out').innerHTML=

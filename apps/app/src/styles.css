@@ -1132,3 +1132,9 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 /* Rappel de l'avion choisi en tête des onglets Centrage et Carburant. */
 .ac-chosen { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 2px solid var(--ink); border-left: 10px solid var(--brand); background: var(--field); font-family: var(--font-mono); margin-bottom: var(--sp-2); }
 .ac-chosen b { font-family: var(--font-display); letter-spacing: 0.04em; }
+
+/* Liste d'avions : recherche et tri. */
+.air-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 11rem); gap: var(--sp-2); }
+.air-tools .field { min-height: var(--h-touch); width: 100%; }
+@media (max-width: 480px) { .air-tools { grid-template-columns: minmax(0, 1fr); } }
+.air-tools .field { text-align: left; font-family: var(--font-mono); font-size: 14px; padding: 0 var(--sp-2); }
