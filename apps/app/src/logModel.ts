@@ -1,8 +1,8 @@
 import {
-  airspacesAt, formatAngle, formatDuration, formatQuantity, nearestAirfields, planFuel, unitLabel, windAt,
+  airspacesAt, formatAngle, formatQuantity, nearestAirfields, unitLabel, windAt,
   type Aircraft, type Airfield, type Airspace, type Loads, type NavLog, type UnitPrefs, type WindForecast,
 } from "@lim/core";
-import type { FuelPlanParams } from "./aircraftStore";
+import { formatFuel, type FuelSheet } from "./fuel";
 import type { RouteRecord } from "./routeEdit";
 
 /**
@@ -162,39 +162,27 @@ export interface AutoFieldsInput {
   readonly prefs: UnitPrefs;
   readonly route: RouteRecord;
   readonly log: NavLog;
-  readonly aircraft: Aircraft | null;
-  readonly loads: Loads;
-  readonly plan: FuelPlanParams;
-  readonly flow: number | null;
+  /** Fiche carburant unique (`fuel.ts`) : le log n'en recalcule rien. */
+  readonly fuel: FuelSheet | null;
   readonly airfields: readonly Airfield[];
 }
 
 /**
  * Valeurs préremplies de la feuille (carburant, aérodrome d'arrivée, perfo du jour), toutes tirées des données de l'app :
- * carburant embarqué et réglages de l'écran Avion, terrains (pistes, fréquences, altitude) et log. L'utilisateur peut tout corriger.
+ * fiche carburant, terrains (pistes, fréquences, altitude) et log. L'utilisateur peut corriger tout sauf le carburant (partagé avec les autres écrans).
  * TODA / LDA : la base de données ne donne que la longueur de piste, d'où le « ~ » (distances déclarées à vérifier).
  */
 export function buildAutoFields(i: AutoFieldsInput): Record<string, string> {
   const out: Record<string, string> = {};
   const { prefs, log, route } = i;
-  const fuelU = unitLabel("fuel", prefs);
-  const fl = (v: number) => `${formatQuantity("fuel", prefs, v)} ${fuelU}`;
-  const fuelStation = i.aircraft?.stations.find((s) => s.kind === "fuel");
-  const onboard = i.aircraft && fuelStation ? (i.loads[fuelStation.id] ?? 0) : 0;
-  const trip = i.flow === null ? null : (log.totals.fuel as number);
-  const plan = i.aircraft
-    ? planFuel({
-        tripLiters: trip, taxiLiters: i.plan.taxiLiters, contingencyPercent: i.plan.contingencyPercent, alternateMinutes: i.plan.alternateMinutes,
-        reserveMinutes: i.plan.reserveMinutes, fuelFlowLph: i.flow, onboardLiters: onboard, usableCapacityLiters: Math.max(0, i.aircraft.fuel.capacity - i.aircraft.fuel.unusable),
-      })
-    : null;
-  if (plan) {
-    if (onboard > 0) {
-      out["fStart"] = fl(onboard);
-      if (plan.endurance !== null) out["fAuto"] = formatDuration(plan.endurance * 3600);
-      if (trip !== null) out["fStop"] = fl(Math.max(0, onboard - plan.taxi - trip));
-    } else if (plan.required !== null) {
-      out["fStart"] = `mini ${fl(plan.required)}`;
+  if (i.fuel) {
+    const fv = formatFuel(i.fuel, prefs);
+    if (i.fuel.onboard > 0) {
+      out["fStart"] = fv.onboard;
+      out["fAuto"] = fv.enduranceTotal;
+      if (i.fuel.arrival !== null) out["fStop"] = fv.arrival;
+    } else if (i.fuel.required !== null) {
+      out["fStart"] = `mini ${fv.required}`;
     }
   }
   const dep = log.legs[0]?.from;
@@ -222,37 +210,6 @@ export function buildAutoFields(i: AutoFieldsInput): Record<string, string> {
   return out;
 }
 
-
-/** Chiffres carburant du vol (litres) tirés du même calcul que les champs préremplis ; null si pas d'avion. Sert au résumé et à l'état « sous la réserve ». */
-export interface FuelFigures {
-  /** Embarqué (L), 0 si non renseigné. */
-  readonly onboard: number;
-  readonly trip: number | null;
-  /** Restant à l'arrivée (L) : embarqué − roulage − trajet ; null si rien d'embarqué ou pas de consommation. */
-  readonly arrival: number | null;
-  /** Réserve finale (L) réglée dans l'écran Carburant. */
-  readonly reserve: number | null;
-  /** Autonomie (secondes). */
-  readonly enduranceSec: number | null;
-}
-
-export function fuelFigures(i: AutoFieldsInput): FuelFigures | null {
-  if (!i.aircraft) return null;
-  const fuelStation = i.aircraft.stations.find((s) => s.kind === "fuel");
-  const onboard = fuelStation ? (i.loads[fuelStation.id] ?? 0) : 0;
-  const trip = i.flow === null ? null : (i.log.totals.fuel as number);
-  const plan = planFuel({
-    tripLiters: trip, taxiLiters: i.plan.taxiLiters, contingencyPercent: i.plan.contingencyPercent, alternateMinutes: i.plan.alternateMinutes,
-    reserveMinutes: i.plan.reserveMinutes, fuelFlowLph: i.flow, onboardLiters: onboard, usableCapacityLiters: Math.max(0, i.aircraft.fuel.capacity - i.aircraft.fuel.unusable),
-  });
-  return {
-    onboard,
-    trip,
-    arrival: onboard > 0 && trip !== null ? Math.max(0, onboard - plan.taxi - trip) : null,
-    reserve: plan.reserve,
-    enduranceSec: plan.endurance === null ? null : plan.endurance * 3600,
-  };
-}
 
 /** Écart Hr − He en minutes (« 15:12 » − « 15:10 » = 2), ramené à ±12 h ; null si l'une des heures n'est pas lisible. */
 export function hrDeviation(he: string, hr: string): number | null {

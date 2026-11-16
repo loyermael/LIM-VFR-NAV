@@ -1121,3 +1121,14 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .ls-table .lt-d > i:last-child, .ls-table .lt-c > span:last-child { align-self: end; }
 .ls-table .lt-cell:not(.lt-r) b { font-size: clamp(18px, 4.8vw, 26px); }
 .nowrap { white-space: nowrap; flex: none; }
+
+/* Avion choisi bien visible : barre jaune à gauche, fond papier, pastille pleine encre ; les autres avions restent discrets. */
+.air-card { border-left-width: 2px; }
+.air-card:not(.sel) { background: transparent; }
+.air-card.sel { background: var(--field); border-left: 10px solid var(--brand); box-shadow: 4px 4px 0 var(--ink); }
+.air-card.sel .air-main b { font-size: var(--fs-20, 1.25rem); }
+.air-main .route-badge { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.air-card:not(.sel) .air-main b { font-weight: 600; }
+/* Rappel de l'avion choisi en tête des onglets Centrage et Carburant. */
+.ac-chosen { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border: 2px solid var(--ink); border-left: 10px solid var(--brand); background: var(--field); font-family: var(--font-mono); margin-bottom: var(--sp-2); }
+.ac-chosen b { font-family: var(--font-display); letter-spacing: 0.04em; }

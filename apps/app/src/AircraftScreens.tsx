@@ -20,6 +20,7 @@ import {
   patchVertex, removeStation, removeVertex,
 } from "./aircraftEdit";
 import type { FuelPlanParams } from "./aircraftStore";
+import { formatFuel, type FuelSheet } from "./fuel";
 
 const ISSUE_KEYS: Record<BalanceIssue, Key> = {
   overweight: "bal.issue.overweight",
@@ -397,8 +398,8 @@ interface BalanceProps {
   prefs: UnitPrefs;
   active: Aircraft | null;
   loads: Loads;
-  /** Carburant consommé pendant le vol selon le log de nav (L), ou null. */
-  burnLiters: number | null;
+  /** Fiche carburant unique (trajet, roulage) : voir fuel.ts. */
+  fuel: FuelSheet;
   onLoads: (l: Loads) => void;
   onOpenSheet: () => void;
 }
@@ -408,8 +409,9 @@ export function BalanceTab(p: BalanceProps) {
   const T = (k: Key) => t(p.lang, k);
   const a = p.active;
   const defects = a ? validateAircraft(a) : [];
-  const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.burnLiters ?? 0) : null), [a, p.loads, p.burnLiters]); // eslint-disable-line react-hooks/exhaustive-deps
+  const res = useMemo(() => (a && defects.length === 0 ? computeBalance(a, p.loads, p.fuel.burnToLanding ?? 0) : null), [a, p.loads, p.fuel.burnToLanding]); // eslint-disable-line react-hooks/exhaustive-deps
   const fuelUnit = unitLabel("fuel", p.prefs);
+  const fv = formatFuel(p.fuel, p.prefs);
   const dec = (v: number | null) => (v === null || Math.abs(v - Math.round(v)) < 0.05 ? 0 : 1);
   const phases: ChartPhase[] = res
     ? ([["zfm", "bal.zfm", res.zeroFuel], ["takeoff", "bal.takeoff", res.takeoff], ["landing", "bal.landing", res.landing]] as const).map(([key, k, state]) => ({ key, name: T(k), state, level: levelOf(state) }))
@@ -427,7 +429,7 @@ export function BalanceTab(p: BalanceProps) {
         </>
       )}
       {a && (
-        <div className="bal-id">
+        <div className="bal-id ac-chosen"><Icon name="circle-check" size={20} />
           {a.registration ? <><b>{a.registration}</b><span>{a.name}</span></> : <b>{a.name}</b>}
         </div>
       )}
@@ -465,14 +467,14 @@ export function BalanceTab(p: BalanceProps) {
                   {isFuel && (
                     <div className="bal-burn">
                       <span>{T("bal.burnShort")}</span>
-                      <b className="mono">{p.burnLiters !== null ? `${formatQuantity("fuel", p.prefs, p.burnLiters)} ${fuelUnit}` : "—"}</b>
-                      {p.burnLiters === null && <small>{T("bal.noBurn")}</small>}
+                      <b className="mono">{fv.trip}</b>
+                      {p.fuel.trip === null && <small>{T("bal.noBurn")}</small>}
                     </div>
                   )}
                 </div>
               );
             })}
-            {!a.stations.some((s) => s.kind === "fuel") && (p.burnLiters === null ? <p className="muted small">{T("bal.noBurn")}</p> : <p className="muted small">{T("bal.burn")} : {formatQuantity("fuel", p.prefs, p.burnLiters)} {fuelUnit}</p>)}
+            {!a.stations.some((s) => s.kind === "fuel") && (p.fuel.trip === null ? <p className="muted small">{T("bal.noBurn")}</p> : <p className="muted small">{T("bal.burn")} : {fv.trip}</p>)}
           </section>
 
           <section className="bal-sec" aria-label={T("bal.results")}>
@@ -521,7 +523,7 @@ interface FuelProps {
   prefs: UnitPrefs;
   active: Aircraft | null;
   loads: Loads;
-  tripLiters: number | null;
+  fuel: FuelSheet;
   plan: FuelPlanParams;
   onPlan: (p: FuelPlanParams) => void;
   onLoads: (l: Loads) => void;
@@ -533,20 +535,9 @@ export function FuelTab(p: FuelProps) {
   const T = (k: Key) => t(p.lang, k);
   const a = p.active;
   const fuelStation = a?.stations.find((s) => s.kind === "fuel") ?? null;
-  const onboard = fuelStation ? (p.loads[fuelStation.id] ?? 0) : 0;
-  const plan = a
-    ? planFuel({
-        tripLiters: p.tripLiters,
-        taxiLiters: p.plan.taxiLiters,
-        contingencyPercent: p.plan.contingencyPercent,
-        alternateMinutes: p.plan.alternateMinutes,
-        reserveMinutes: p.plan.reserveMinutes,
-        fuelFlowLph: a.fuelFlowLph,
-        onboardLiters: onboard,
-        usableCapacityLiters: Math.max(0, a.fuel.capacity - a.fuel.unusable),
-      })
-    : null;
-  const L = (v: number | null) => (v === null ? "—" : `${formatQuantity("fuel", p.prefs, v)} ${unitLabel("fuel", p.prefs)}`);
+  const f = p.fuel;
+  const fv = formatFuel(f, p.prefs);
+  const L = fv.fmt;
   return (
     <div className="navscreen acform">
       {!a && (
@@ -555,8 +546,9 @@ export function FuelTab(p: FuelProps) {
           <div className="choices"><Button role="primary" onClick={p.onOpenSheet}>{T("ac.goSheet")}</Button></div>
         </>
       )}
-      {a && plan && (
+      {a && (
         <>
+          <div className="ac-chosen"><Icon name="circle-check" size={20} />{a.registration ? <><b>{a.registration}</b><span>{a.name}</span></> : <b>{a.name}</b>}</div>
           <p className="muted small">{T("fuel.defaultsNote")}</p>
           <div className="params">
             <NumField label={`${T("fuel.taxi")} (${unitLabel("fuel", p.prefs)})`} decimals={1} value={fromSI("fuel", p.prefs, p.plan.taxiLiters)} onCommit={(v) => p.onPlan({ ...p.plan, taxiLiters: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
@@ -564,32 +556,35 @@ export function FuelTab(p: FuelProps) {
             <NumField label={`${T("fuel.alternate")} (min)`} decimals={0} value={p.plan.alternateMinutes} onCommit={(v) => p.onPlan({ ...p.plan, alternateMinutes: v === null ? 0 : Math.max(0, v) })} />
             <NumField label={`${T("fuel.reserve")} (min)`} decimals={0} value={p.plan.reserveMinutes} onCommit={(v) => p.onPlan({ ...p.plan, reserveMinutes: v === null ? 0 : Math.max(0, v) })} />
             {fuelStation && (
-              <NumField label={`${T("fuel.onboard")} (${unitLabel("fuel", p.prefs)})`} decimals={1} value={fromSI("fuel", p.prefs, onboard)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
+              <NumField label={`${T("fuel.onboard")} (${unitLabel("fuel", p.prefs)})`} decimals={1} value={fromSI("fuel", p.prefs, f.onboard)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
             )}
           </div>
           <h3>{T("fuel.plan")}</h3>
-          {plan.trip === null && <p className="muted small">{T("fuel.noTrip")}</p>}
+          {f.trip === null && <p className="muted small">{T("fuel.noTrip")}</p>}
+          {f.tripBasis !== null && <p className="muted small">{T(f.tripBasis === "wind" ? "fuel.basisWind" : "fuel.basisNoWind")}</p>}
           {a.fuelFlowLph === null && <p className="muted small">{T("fuel.noFlow")}</p>}
           <div className="tablewrap">
             <table className="navlog">
               <tbody>
-                <tr><td className="legname">{T("fuel.taxi")}</td><td>{L(plan.taxi)}</td></tr>
-                <tr><td className="legname">{T("fuel.trip")}</td><td>{L(plan.trip)}</td></tr>
-                <tr><td className="legname">{T("fuel.contingency")} ({p.plan.contingencyPercent} %)</td><td>{L(plan.contingency)}</td></tr>
-                <tr><td className="legname">{T("fuel.alternate")} ({p.plan.alternateMinutes} min)</td><td>{L(plan.alternate)}</td></tr>
-                <tr><td className="legname">{T("fuel.reserve")} ({p.plan.reserveMinutes} min)</td><td>{L(plan.reserve)}</td></tr>
+                <tr><td className="legname">{T("fuel.taxi")}</td><td>{fv.taxi}</td></tr>
+                <tr><td className="legname">{T("fuel.trip")}</td><td>{fv.trip}</td></tr>
+                <tr><td className="legname">{T("fuel.contingency")} ({p.plan.contingencyPercent} %)</td><td>{fv.contingency}</td></tr>
+                <tr><td className="legname">{T("fuel.alternate")} ({p.plan.alternateMinutes} min)</td><td>{fv.alternate}</td></tr>
+                <tr><td className="legname">{T("fuel.reserve")} ({p.plan.reserveMinutes} min)</td><td>{fv.reserve}</td></tr>
               </tbody>
               <tfoot>
-                <tr><td className="legname">{T("fuel.required")}</td><td>{L(plan.required)}</td></tr>
-                <tr><td className="legname">{T("fuel.onboard")}</td><td>{L(plan.onboard)}</td></tr>
-                <tr><td className="legname">{T("fuel.surplus")}</td><td>{L(plan.surplus)}</td></tr>
-                <tr><td className="legname">{T("fuel.endurance")}</td><td>{plan.endurance === null ? "—" : formatDuration(plan.endurance * 3600).replace(/:\d\d$/, "")}</td></tr>
+                <tr><td className="legname">{T("fuel.required")}</td><td>{fv.required}</td></tr>
+                <tr><td className="legname">{T("fuel.onboard")}</td><td>{fv.onboard}</td></tr>
+                <tr><td className="legname">{T("fuel.surplus")}</td><td>{fv.surplus}</td></tr>
+                <tr><td className="legname">{T("fuel.arrival")}</td><td>{fv.arrival}</td></tr>
+                <tr><td className="legname">{T("fuel.endurance")}</td><td>{fv.enduranceTotal}</td></tr>
+                <tr><td className="legname">{T("fuel.enduranceUsable")}</td><td>{fv.enduranceUsable}</td></tr>
               </tfoot>
             </table>
           </div>
-          {plan.sufficient === false && <p className="error" role="alert">{T("fuel.insufficient")}</p>}
-          {plan.sufficient === true && <p className="muted small">{T("fuel.sufficient")}</p>}
-          {plan.overCapacity && <p className="error" role="alert">{T("fuel.overCapacity")}</p>}
+          {f.sufficient === false && <p className="error" role="alert">{T("fuel.insufficient")}</p>}
+          {f.sufficient === true && <p className="muted small">{T("fuel.sufficient")}</p>}
+          {f.overCapacity && <p className="error" role="alert">{T("fuel.overCapacity")}</p>}
           <p className="muted small">{T("fuel.note")}</p>
         </>
       )}

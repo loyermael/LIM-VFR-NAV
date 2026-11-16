@@ -155,9 +155,9 @@ function drawSheet(c: Ctx, model: LogModel | null, form: Record<string, string>)
   // Bas : CARBURANT, AERODROME D'ARRIVEE, PERFO
   const by = bottom + 24;
   rect(c, 15, by, 138, 24, { fill: GREY }); text(c, "CARBURANT", 84, by + 5, 15, { font: "bold", align: "center" });
-  [["Start", "fStart"], ["AUTO", "fAuto"], ["Stop", "fStop"]].forEach(([lab, key], i) => {
+  [["Embarqué", "fStart"], ["Auton. totale", "fAuto"], ["À l'arrivée", "fStop"]].forEach(([lab, key], i) => {
     const y = by + 24 + i * 40;
-    rect(c, 15, y, 62, 40, { fill: GREY }); text(c, lab!, 46, y + 12, 15, { font: "bold", align: "center" });
+    rect(c, 15, y, 62, 40, { fill: GREY }); text(c, lab!, 46, y + 15, 10, { font: "bold", align: "center", maxW: 58 });
     rect(c, 77, y, 76, 40); if (m) text(c, v(key!), 83, y + 12, 15, { color: FILL, maxW: 68 });
   });
   rect(c, 153, by, 322, 24, { fill: GREY }); text(c, "AERODROME D'ARRIVEE", 314, by + 5, 15, { font: "bold", align: "center" });

@@ -2,15 +2,15 @@ import { Icon } from "./ui/Icon";
 import { Button } from "./ui/Button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  airspacesAlongRoute, computeNavLog, formatAngle, formatDuration, formatQuantity, fromSI, litersPerHour, meters, toSI, unitLabel,
-  exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type Loads, type LatLon, type NavLogLeg, type RouteFormat, type UnitPrefs,
+  airspacesAlongRoute, formatAngle, formatDuration, formatQuantity, fromSI, meters, toSI, unitLabel,
+  exportRoute, nearestAirfields, searchAirfields, type Aircraft, type Airfield, type Airspace, type LatLon, type NavLog, type NavLogLeg, type RouteFormat, type UnitPrefs,
 } from "@lim/core";
 import { periodStatus } from "./aeroGeo";
 import { ageText, filterRoutes, orderRoutes, summarizeRoute } from "./routeList";
 import { ConfirmButton } from "./ui/ConfirmButton";
 import { LogSheet, useLogForm } from "./LogSheet";
-import { arrivalSheet, buildAutoFields, buildLogModel, fuelFigures, vpKey } from "./logModel";
-import type { FuelPlanParams } from "./aircraftStore";
+import { arrivalSheet, buildAutoFields, buildLogModel } from "./logModel";
+import { formatFuel, type FuelSheet } from "./fuel";
 import { buildLogPdf } from "./logPdf";
 import { WIND_HORIZON_H, windKey } from "./windClient";
 import type { WindForecast } from "@lim/core";
@@ -145,8 +145,14 @@ interface NavProps {
   aircraftList: readonly Aircraft[];
   aircraft: Aircraft | null;
   /** Charges et réglages carburant de l'écran Avion (carburant embarqué, roulage, réserves). */
-  loads: Loads;
-  fuelPlan: FuelPlanParams;
+  /** Log de nav unique (calculé par l'App, avec la Vp de la route) et fiche carburant unique. */
+  navLog: NavLog | null;
+  fuel: FuelSheet;
+  /** Vp modifiée sur le log (m/s), par route ; null = vitesse de l'avion. Gardée par l'App pour que tous les écrans calculent pareil. */
+  vpOver: number | null;
+  onVpOver: (mps: number | null) => void;
+  /** Embarqué (litres), partagé avec Centrage et Carburant. */
+  onOnboard: (liters: number) => void;
   onSelectAircraft: (id: string) => void;
   onGoAircraft: () => void;
   /** Vent de chaque branche d'après la météo : altitude de croisière (m) et heure de décollage (ms) ; rend un message d'erreur ou null. */
@@ -177,17 +183,8 @@ export function NavScreen(p: NavProps) {
   const [awRetry, setAwRetry] = useState(0);
   useEffect(() => { const on = () => setAwRetry((n) => n + 1); window.addEventListener("online", on); return () => window.removeEventListener("online", on); }, []);
   const logForm = useLogForm(p.route?.id ?? "none");
-  /** Vp modifié sur le log (m/s), par route ; null = vitesse de l'avion. */
-  const [vpOver, setVpOver] = useState<number | null>(null);
-  useEffect(() => {
-    if (!p.route) return setVpOver(null);
-    try { const v = Number(localStorage.getItem(vpKey(p.route.id))); setVpOver(Number.isFinite(v) && v > 0 ? v : null); } catch { setVpOver(null); }
-  }, [p.route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const setVp = (mps: number | null) => {
-    setVpOver(mps);
-    if (!p.route) return;
-    try { if (mps === null) localStorage.removeItem(vpKey(p.route.id)); else localStorage.setItem(vpKey(p.route.id), String(mps)); } catch { /* stockage bloqué */ }
-  };
+  const { vpOver } = p;
+  const setVp = p.onVpOver;
   const { prefs, route } = p;
   const [routeQuery, setRouteQuery] = useState("");
   const [menuId, setMenuId] = useState<string | null>(null);
@@ -217,10 +214,7 @@ export function NavScreen(p: NavProps) {
   const ac = p.aircraft;
   const tas = vpOver ?? ac?.tasMps ?? null;
   const flow = ac?.fuelFlowLph ?? null;
-  const log = useMemo(() => {
-    if (!route || tas === null) return null;
-    return computeNavLog(route, { tas: tas as never, fuelFlow: litersPerHour(flow ?? 0) }, toWindPlan(route), p.date, route.departureMs);
-  }, [route, tas, flow, p.date]);
+  const log = tas === null ? null : p.navLog;
 
   const routeItems = useMemo(
     () => orderRoutes(filterRoutes(p.routes.map((r) => summarizeRoute(r, p.airfields, ac?.tasMps ?? null, p.date)), routeQuery), p.activeRouteId),
@@ -243,12 +237,13 @@ export function NavScreen(p: NavProps) {
     return buildLogModel({ prefs, route, log, aircraftName: ac ? `${ac.registration ? ac.registration + " " : ""}${ac.name}`.trim() : "", tasMps: tas, fuelFlowLph: flow, airfields: p.airfields, airspaces: p.airspaces, departureForecast: depForecast, nowMs: p.date.getTime() });
   }, [route, log, tas, flow, prefs, ac, p.airfields, p.airspaces, depForecast, p.date]);
   const autoFields = useMemo(
-    () => (route && log && log.legs.length > 0 ? buildAutoFields({ prefs, route, log, aircraft: ac, loads: p.loads, plan: p.fuelPlan, flow, airfields: p.airfields }) : {}),
-    [route, log, prefs, ac, p.loads, p.fuelPlan, flow, p.airfields],
+    () => (route && log && log.legs.length > 0 ? buildAutoFields({ prefs, route, log, fuel: p.fuel, airfields: p.airfields }) : {}),
+    [route, log, prefs, p.fuel, p.airfields],
   );
+  const fv = useMemo(() => formatFuel(p.fuel, prefs), [p.fuel, prefs]);
   const makeLogPdf = async () => {
     if (!logModel || !route) return;
-    const bytes = await buildLogPdf({ model: logModel, form: { ...autoFields, ...logForm.form } });
+    const bytes = await buildLogPdf({ model: logModel, form: { ...autoFields, ...logForm.form, ...Object.fromEntries(["fStart", "fAuto", "fStop"].map((k) => [k, autoFields[k] ?? ""])) } });
     const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "application/pdf" }));
     const a = document.createElement("a");
     a.href = url;
@@ -263,10 +258,6 @@ export function NavScreen(p: NavProps) {
   );
   const showTrue = prefs.track === "true";
   const dist = (v: number) => formatQuantity("distance", prefs, v);
-  const fuelFig = useMemo(
-    () => (route && log && log.legs.length > 0 ? fuelFigures({ prefs, route, log, aircraft: ac, loads: p.loads, plan: p.fuelPlan, flow, airfields: p.airfields }) : null),
-    [route, log, prefs, ac, p.loads, p.fuelPlan, flow, p.airfields],
-  );
   const arrivalFiche = useMemo(() => (log && log.legs.length > 0 ? arrivalSheet({ prefs, log, airfields: p.airfields }) : null), [log, prefs, p.airfields]);
   /** « Espaces traversés » : résumé, puis un espace par entrée dans l'ordre de la route (à vérifier d'abord, hors limites repliés). */
   const spacesBlock = (() => {
@@ -623,9 +614,9 @@ export function NavScreen(p: NavProps) {
                   windsUpdatedMs={depForecast?.fetchedAt ?? null}
                   onPdf={() => void makeLogPdf()}
                   altUnit={altUnit}
-                  fuel={fuelFig}
-                  fmtFuel={(l) => `${formatQuantity("fuel", prefs, l)} ${fuelUnit}`}
-                  fmtDuration={(sec) => formatDuration(sec as never).replace(/:\d\d$/, "")}
+                  fuel={p.fuel}
+                  fv={fv}
+                  onboardField={p.fuel.hasTank ? { value: fromSI("fuel", prefs, p.fuel.onboard), decimals: 1, onCommit: (v) => p.onOnboard(v === null ? 0 : Math.max(0, toSI("fuel", prefs, v))) } : null}
                   arrival={arrivalFiche}
                   spaces={spacesBlock}
                 />

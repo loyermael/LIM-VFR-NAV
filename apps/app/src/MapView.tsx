@@ -1280,6 +1280,14 @@ export function MapView(props: MapViewProps) {
     }
   }, [props.fix, props.vector, props.trackTrue, props.follow, props.orientation]);
 
+  // Nord en haut / Route en haut : le bouton agit aussi quand la carte ne suit pas l'avion (sans suivi, seule la rotation change).
+  useEffect(() => {
+    const m = map.current;
+    if (!m || props.follow) return;
+    if (props.orientation === "north") m.rotateTo(0, { duration: motion(400) });
+    else if (props.trackTrue !== null) m.rotateTo(props.trackTrue, { duration: motion(400) });
+  }, [props.orientation, props.trackTrue, props.follow]);
+
   useEffect(() => {
     const m = map.current;
     if (!m || props.zoomCommand.nonce === 0) return;

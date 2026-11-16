@@ -2,7 +2,9 @@ import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { useEffect, useState, type ReactNode } from "react";
 import { t, type Key, type Lang } from "./i18n";
-import { hrDeviation, loadLogForm, saveLogForm, type ArrivalSheet, type FuelFigures, type LogModel } from "./logModel";
+import { hrDeviation, loadLogForm, saveLogForm, type ArrivalSheet, type LogModel } from "./logModel";
+import type { FuelSheet, FuelView } from "./fuel";
+import { UnitField } from "./ui/UnitField";
 
 /**
  * Page « log de navigation » : titre et export PDF, paramètres, vent, résumé, log (cartes sur téléphone, tableau dès 700 px),
@@ -47,9 +49,11 @@ export function LogSheet(p: {
   windsUpdatedMs: number | null;
   onPdf: () => void;
   altUnit: string;
-  fuel: FuelFigures | null;
-  fmtFuel: (liters: number) => string;
-  fmtDuration: (seconds: number) => string;
+  /** Fiche carburant unique et ses textes (mêmes chiffres que la page Carburant et le Centrage). */
+  fuel: FuelSheet | null;
+  fv: FuelView | null;
+  /** Champ « Embarqué » partagé avec les autres écrans (unité d'affichage) ; null si l'avion n'a pas de réservoir. */
+  onboardField: { value: number | null; decimals: number; onCommit: (v: number | null) => void } | null;
   arrival: ArrivalSheet | null;
   /** Bloc « Espaces traversés » (calculé par la page), placé entre le carburant et la perfo. */
   spaces: ReactNode;
@@ -122,13 +126,13 @@ export function LogSheet(p: {
         <div><span className="ls-lbl">{T("log.sum.fuel")}</span><b>{m.totals.fuel || "—"} {m.totals.fuel && <small>{m.consoUnit.replace("/h", "")}</small>}</b></div>
         <div className={fuelLevel === "ok" || fuelLevel === null ? "" : `lvl-${fuelLevel}`}>
           <span className="ls-lbl">{T("log.sum.arrival")}</span>
-          <b>{arrivalL === null ? "—" : p.fmtFuel(arrivalL)}</b>
+          <b>{p.fv?.arrival ?? "—"}</b>
           {fuelLevel && fuelLevel !== "ok" && reserve !== null && arrivalL !== null && (
-            <span className="ls-chip"><Icon name={fuelLevel === "bad" ? "triangle-alert" : "diamond-alert"} size={16} />{p.fmtFuel(Math.max(0, reserve - arrivalL))} {T("log.fuel.belowReserve")}</span>
+            <span className="ls-chip"><Icon name={fuelLevel === "bad" ? "triangle-alert" : "diamond-alert"} size={16} />{p.fv?.fmt(Math.max(0, reserve - arrivalL))} {T("log.fuel.belowReserve")}</span>
           )}
-          {fuelLevel === "ok" && reserve !== null && arrivalL !== null && <span className="ls-chip ok"><Icon name="circle-check" size={16} />{p.fmtFuel(arrivalL - reserve)} {T("log.fuel.aboveReserve")}</span>}
+          {fuelLevel === "ok" && reserve !== null && arrivalL !== null && <span className="ls-chip ok"><Icon name="circle-check" size={16} />{p.fv?.fmt(arrivalL - reserve)} {T("log.fuel.aboveReserve")}</span>}
         </div>
-        <div><span className="ls-lbl">{T("log.sum.endurance")}</span><b>{p.fuel?.enduranceSec != null ? p.fmtDuration(p.fuel.enduranceSec) : "—"}</b></div>
+        <div><span className="ls-lbl">{T("log.sum.endurance")}</span><b>{p.fv?.enduranceTotal ?? "—"}</b></div>
       </div>
 
       <h3>{T("log.logTitle")}</h3>
@@ -189,9 +193,13 @@ export function LogSheet(p: {
         <section className="ls-blk">
           <h3>{T("log.fuel")}</h3>
           <div className="ls-box ls-fuel">
-            <In k="fStart" label={T("log.f.start")} />
-            <In k="fAuto" label={T("log.f.auto")} />
-            <In k="fStop" label={T("log.f.stop")} className={fuelLevel && fuelLevel !== "ok" ? `lvl-${fuelLevel}` : ""} />
+            {p.onboardField && p.fv ? (
+              <UnitField label={T("log.f.start")} unit={p.fv.unit} decimals={p.onboardField.decimals} value={p.onboardField.value} onCommit={p.onboardField.onCommit} />
+            ) : (
+              <div className="ls-ro-row"><span className="ls-lbl">{T("log.f.start")}</span><b>{p.fv?.onboard ?? "—"}</b></div>
+            )}
+            <div className="ls-ro-row"><span className="ls-lbl">{T("log.f.auto")}</span><b>{p.fv?.enduranceTotal ?? "—"}</b></div>
+            <div className={`ls-ro-row ${fuelLevel && fuelLevel !== "ok" ? `lvl-${fuelLevel}` : ""}`}><span className="ls-lbl">{T("log.f.stop")}</span><b>{p.fv?.arrival ?? "—"}</b></div>
           </div>
         </section>
 

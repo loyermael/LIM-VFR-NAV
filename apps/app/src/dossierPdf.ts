@@ -10,7 +10,7 @@ import {
 } from "@lim/core";
 import { notamSubject, type NotamRole, type RelevantNotam } from "./notam";
 import type { RouteRecord } from "./routeEdit";
-import type { FuelPlanParams } from "./aircraftStore";
+import { formatFuel, type FuelSheet } from "./fuel";
 import type { Lang } from "./i18n";
 
 export interface DossierInput {
@@ -22,9 +22,9 @@ export interface DossierInput {
   readonly navLog: NavLog | null;
   readonly aircraft: Aircraft | null;
   readonly loads: Loads;
-  readonly fuelPlan: FuelPlanParams;
   /** Carburant du trajet (L) d'après le log de nav, ou null. */
-  readonly tripLiters: number | null;
+  /** Fiche carburant unique (fuel.ts). */
+  readonly fuel: FuelSheet;
   readonly crossed: readonly RouteHit[];
   readonly hasAeroData: boolean;
   /** Messages météo des stations proches de la route, dans l'ordre de rencontre. */
@@ -45,8 +45,8 @@ const TXT = {
     mass: "Masse (kg)", cg: "CG (m)", margin: "Marge (m)", state: "État", ok: "OK", limit: "HORS LIMITE", station: "Poste", load: "Charge", arm: "Bras (m)",
     envelope: "Enveloppe", axisArm: "Bras du CG (m)", axisMass: "Masse (kg)",
     balNote: "Calcul indicatif d'après les données saisies par l'utilisateur (manuel de vol, pesée). À vérifier avec le manuel de vol.",
-    fuelTitle: "Carburant", taxi: "Roulage", trip: "Trajet", contingency: "Aléas", alternate: "Déroutement", reserve: "Réserve finale",
-    required: "Total nécessaire", onboard: "Embarqué", surplus: "Excédent", endurance: "Autonomie", insufficient: "CARBURANT INSUFFISANT",
+    fuelTitle: "Carburant", taxi: "Roulage", trip: "Consommation trajet", contingency: "Aléas", alternate: "Déroutement", reserve: "Réserve finale",
+    required: "Total nécessaire", onboard: "Embarqué", surplus: "Excédent", endurance: "Autonomie totale", enduranceUsable: "Autonomie utilisable", arrival: "À l'arrivée", insufficient: "CARBURANT INSUFFISANT",
     fuelNote: "Valeurs de réserve choisies par le pilote. Estimation à consommation constante.",
     airspaces: "Espaces traversés (en plan)", noAero: "Aucune donnée d'espaces importée : section non renseignée.", noneCrossed: "Aucun espace traversé dans les données importées.",
     inside: "DANS", outside: "hors", outsideGroup: "espaces hors limites verticales", unknown: "?", entry: "entrée", activation: "activation sur demande ou NOTAM",
@@ -68,8 +68,8 @@ const TXT = {
     mass: "Mass (kg)", cg: "CG (m)", margin: "Margin (m)", state: "Status", ok: "OK", limit: "OUT OF LIMITS", station: "Station", load: "Load", arm: "Arm (m)",
     envelope: "Envelope", axisArm: "CG arm (m)", axisMass: "Mass (kg)",
     balNote: "Indicative calculation from user-entered data (flight manual, weighing). Check against the flight manual.",
-    fuelTitle: "Fuel", taxi: "Taxi", trip: "Trip", contingency: "Contingency", alternate: "Alternate", reserve: "Final reserve",
-    required: "Total required", onboard: "On board", surplus: "Surplus", endurance: "Endurance", insufficient: "FUEL INSUFFICIENT",
+    fuelTitle: "Fuel", taxi: "Taxi", trip: "Trip fuel", contingency: "Contingency", alternate: "Alternate", reserve: "Final reserve",
+    required: "Total required", onboard: "On board", surplus: "Surplus", endurance: "Total endurance", enduranceUsable: "Usable endurance", arrival: "At arrival", insufficient: "FUEL INSUFFICIENT",
     fuelNote: "Reserve values chosen by the pilot. Estimate at constant fuel flow.",
     airspaces: "Airspaces crossed (lateral)", noAero: "No airspace data imported: section not filled.", noneCrossed: "No airspace crossed in the imported data.",
     inside: "INSIDE", outside: "outside", outsideGroup: "airspaces outside vertical limits", unknown: "?", entry: "entry", activation: "activation on request or NOTAM",
@@ -240,7 +240,7 @@ export async function buildDossier(inp: DossierInput): Promise<Uint8Array> {
   if (inp.route.departureMs !== null) w.text(`${L.departure} ${dateTime(inp.route.departureMs)}`);
   const names = inp.route.points.map((p) => p.name).join(" > ");
   w.text(`${L.points} : ${names || "---"}`);
-  if (inp.navLog) w.text(`${dist(inp.navLog.totals.distance)} ${dU} - TAV ${formatDuration(inp.navLog.totals.timeWithWind)} - ${fuelTxt(inp.tripLiters)}`, { font: bold });
+  if (inp.navLog) w.text(`${dist(inp.navLog.totals.distance)} ${dU} - TAV ${formatDuration(inp.navLog.totals.timeWithWind)} - ${fuelTxt(inp.fuel.trip)}`, { font: bold });
   w.text(inp.aircraft ? `${L.aircraft} : ${inp.aircraft.registration ? `${inp.aircraft.registration} - ` : ""}${inp.aircraft.name}` : `${L.aircraft} : ${L.noAircraft}`);
   w.y -= 6;
   w.text(L.warning, { font: bold, color: BAD, size: 9 });
@@ -280,7 +280,7 @@ export async function buildDossier(inp: DossierInput): Promise<Uint8Array> {
   if (!a) w.text(L.noAircraft, { color: MUTED });
   else if (defects.length > 0) w.text(`${L.sheetIncomplete} : ${defects.join(", ")}`, { color: BAD });
   else {
-    const res = computeBalance(a, inp.loads, inp.tripLiters ?? 0);
+    const res = computeBalance(a, inp.loads, inp.fuel.burnToLanding ?? 0);
     w.table(
       [L.station, L.load, L.arm],
       res.lines.map((ln) => [ln.station.name, ln.station.kind === "fuel" ? `${ln.mass.toFixed(1)} kg (${fuelTxt(res.fuelLiters.takeoff)})` : ln.mass.toFixed(1), ln.station.arm.toFixed(3)]),
@@ -309,27 +309,22 @@ export async function buildDossier(inp: DossierInput): Promise<Uint8Array> {
   w.heading(L.fuelTitle);
   if (!a) w.text(L.noAircraft, { color: MUTED });
   else {
-    const fuelStation = a.stations.find((s) => s.kind === "fuel");
-    const onboard = fuelStation ? (inp.loads[fuelStation.id] ?? 0) : 0;
+    const f = inp.fuel;
+    const fv = formatFuel(f, prefs);
     w.need(150);
-    const plan = planFuel({
-      tripLiters: inp.tripLiters, taxiLiters: inp.fuelPlan.taxiLiters, contingencyPercent: inp.fuelPlan.contingencyPercent,
-      alternateMinutes: inp.fuelPlan.alternateMinutes, reserveMinutes: inp.fuelPlan.reserveMinutes, fuelFlowLph: a.fuelFlowLph,
-      onboardLiters: onboard, usableCapacityLiters: Math.max(0, a.fuel.capacity - a.fuel.unusable),
-    });
     w.table(
       ["", ""],
       [
-        [L.taxi, fuelTxt(plan.taxi)],
-        [L.trip, fuelTxt(plan.trip)],
-        [`${L.contingency} (${inp.fuelPlan.contingencyPercent} %)`, fuelTxt(plan.contingency)],
-        [`${L.alternate} (${inp.fuelPlan.alternateMinutes} min)`, fuelTxt(plan.alternate)],
-        [`${L.reserve} (${inp.fuelPlan.reserveMinutes} min)`, fuelTxt(plan.reserve)],
+        [L.taxi, fv.taxi],
+        [L.trip, fv.trip],
+        [`${L.contingency} (${f.plan.contingencyPercent} %)`, fv.contingency],
+        [`${L.alternate} (${f.plan.alternateMinutes} min)`, fv.alternate],
+        [`${L.reserve} (${f.plan.reserveMinutes} min)`, fv.reserve],
       ],
       [260, 120],
-      { foot: [[L.required, fuelTxt(plan.required)], [L.onboard, fuelTxt(plan.onboard)], [L.surplus, fuelTxt(plan.surplus)], [L.endurance, plan.endurance === null ? "---" : formatDuration(plan.endurance * 3600).replace(/:\d\d$/, "")]] },
+      { foot: [[L.required, fv.required], [L.onboard, fv.onboard], [L.surplus, fv.surplus], [L.arrival, fv.arrival], [L.endurance, fv.enduranceTotal], [L.enduranceUsable, fv.enduranceUsable]] },
     );
-    if (plan.sufficient === false) w.text(L.insufficient, { font: bold, color: BAD });
+    if (f.sufficient === false) w.text(L.insufficient, { font: bold, color: BAD });
     w.text(L.fuelNote, { size: 8, color: MUTED });
   }
 

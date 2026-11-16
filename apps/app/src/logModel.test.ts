@@ -32,6 +32,7 @@ describe("log : facteur de base et durées", () => {
 
 import { buildAutoFields } from "./logModel";
 import { DEFAULT_FUEL_PLAN } from "./aircraftStore";
+import { computeFuelSheet } from "./fuel";
 
 describe("log : champs préremplis", () => {
   const prefs = { ...DEFAULT_UNIT_PREFS, fuel: "l", altitude: "ft", distance: "km" } as typeof DEFAULT_UNIT_PREFS;
@@ -39,9 +40,13 @@ describe("log : champs préremplis", () => {
     id: icao, name: icao, icao, type: 0, position: { lat, lon: 2 }, elevation: 300, private: false,
     frequencies: [{ name: "A/A", mhz: "123.500", primary: true }], runways: [{ designator: "04/22", trueHeading: 40, lengthM: len, paved: true }],
   });
+  const sheet = (onboard: number) => computeFuelSheet({
+    aircraft: { fuelFlowLph: 20, fuel: { capacity: 100, unusable: 5, density: 0.72 }, stations: [{ id: "f", kind: "fuel" }] } as never,
+    loads: { f: onboard }, plan: DEFAULT_FUEL_PLAN,
+    log: { totals: { timeWithWind: 3600, timeNoWind: 3600 } } as never,
+  });
   const input = {
-    prefs, aircraft: { fuel: { capacity: 100, unusable: 5, density: 0.72 }, stations: [{ id: "f", kind: "fuel" }] } as never,
-    loads: { f: 60 }, plan: DEFAULT_FUEL_PLAN, flow: 20,
+    prefs, fuel: sheet(60),
     route: { departureMs: Date.UTC(2026, 5, 1, 8, 0) } as never,
     log: { legs: [{ from: { name: "A", position: { lat: 45, lon: 2 } }, to: { name: "B", position: { lat: 45.5, lon: 2 } } }], totals: { fuel: 10, timeWithWind: 3600 } } as never,
     airfields: [ad("LFAA", 45, 1500), ad("LFBB", 45.5, 900)] as never,
@@ -49,8 +54,8 @@ describe("log : champs préremplis", () => {
   it("carburant : embarqué, autonomie, restant à l'arrivée", () => {
     const o = buildAutoFields(input);
     expect(o["fStart"]).toBe("60.0 L");
-    expect(o["fAuto"]).toBe("3:00:00");
-    expect(o["fStop"]).toBe("50.0 L");
+    expect(o["fAuto"]).toBe("3:00");
+    expect(o["fStop"]).toBe("40.0 L");
   });
   it("aérodromes de départ et d'arrivée, pistes et fréquences", () => {
     const o = buildAutoFields(input);
@@ -61,7 +66,7 @@ describe("log : champs préremplis", () => {
     expect(o["arrival"]).toContain("04/22 900 m dur");
   });
   it("sans carburant embarqué : carburant minimal annoncé", () => {
-    const o = buildAutoFields({ ...input, loads: {} });
+    const o = buildAutoFields({ ...input, fuel: sheet(0) });
     expect(o["fStart"]).toMatch(/^mini /);
   });
 });

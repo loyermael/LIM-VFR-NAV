@@ -42,6 +42,8 @@ import { STOPWATCH_ZERO, advanceReplay, alarm, cdDue, type Countdown, type Stopw
 import { pointAt, type TrackPoint } from "@lim/core";
 import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
+import { computeFuelSheet } from "./fuel";
+import { vpKey } from "./logModel";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
 import { DeviceGpsSource, RouteFlightSource, SimulatedSource, type PositionSource } from "./positionSource";
@@ -921,12 +923,32 @@ export function App() {
     setPerf(p2);
     savePerf(p2);
   };
+  /** Vp modifiée sur le log (m/s), par route : gardée ici pour que log, Carburant et Centrage calculent le même trajet. */
+  const [vpOver, setVpOverState] = useState<number | null>(null);
+  useEffect(() => {
+    if (!route) return setVpOverState(null);
+    try { const v = Number(localStorage.getItem(vpKey(route.id))); setVpOverState(Number.isFinite(v) && v > 0 ? v : null); } catch { setVpOverState(null); }
+  }, [route?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const setVpOver = (mps: number | null) => {
+    setVpOverState(mps);
+    if (!route) return;
+    try { if (mps === null) localStorage.removeItem(vpKey(route.id)); else localStorage.setItem(vpKey(route.id), String(mps)); } catch { /* stockage bloqué */ }
+  };
+  /** UN SEUL log de nav : vitesse du log (Vp de la route, sinon avion) et consommation de l'avion. Tous les écrans le lisent. */
+  const logTas = vpOver ?? ac.active?.tasMps ?? perf.tasMps;
+  const logFlow = ac.active?.fuelFlowLph ?? null;
   const navLog = useMemo(
-    () => (route && route.points.length >= 2 && perf.tasMps !== null
-      ? computeNavLog(route, { tas: perf.tasMps as never, fuelFlow: litersPerHour(perf.fuelFlowLph ?? 0) }, toWindPlan(route), new Date(now), route.departureMs)
+    () => (route && route.points.length >= 2 && logTas !== null
+      ? computeNavLog(route, { tas: logTas as never, fuelFlow: litersPerHour(logFlow ?? 0) }, toWindPlan(route), new Date(now), route.departureMs)
       : null),
-    [route, perf.tasMps, perf.fuelFlowLph, now],
+    [route, logTas, logFlow, now],
   );
+  /** UNE SEULE fiche carburant (fuel.ts) : log, Carburant, Centrage et PDF n'en recalculent rien. */
+  const fuelSheet = useMemo(() => computeFuelSheet({ log: navLog, aircraft: ac.active, loads: ac.loads, plan: ac.plan }), [navLog, ac.active, ac.loads, ac.plan]);
+  const setOnboard = (liters: number) => {
+    const st = ac.active?.stations.find((x) => x.kind === "fuel");
+    if (ac.active && st) ac.setLoads(ac.active.id, { ...ac.loads, [st.id]: liters });
+  };
   /** Fenêtre de vol (départ prévu, ou maintenant ; durée = distance / vitesse propre, sinon 3 h) pour filtrer les NOTAM. */
   const flightWindow = (r: RouteRecord): { startMs: number; endMs: number } => {
     const startMs = r.departureMs ?? Date.now();
@@ -941,7 +963,7 @@ export function App() {
       const metars = stationsNearRoute(route, metarSet?.items ?? [], corridor, 10).map((s) => s.station);
       const tafs = stationsNearRoute(route, tafSet?.items ?? [], corridor, 10).map((s) => s.station);
       const bytes = await buildDossier({
-        lang, prefs, nowMs: Date.now(), route, navLog, aircraft: ac.active, loads: ac.loads, fuelPlan: ac.plan, tripLiters,
+        lang, prefs, nowMs: Date.now(), route, navLog, aircraft: ac.active, loads: ac.loads, fuel: fuelSheet,
         crossed, hasAeroData: aspSet !== null, metars, tafs,
         notams: notamSet ? notamsForFlight(notamSet.items, route.points, aptSet?.items ?? [], flightWindow(route)) : null,
       });
@@ -955,7 +977,6 @@ export function App() {
       setRouteImportError(e instanceof Error ? e.message : String(e));
     }
   };
-  const tripLiters = navLog && perf.fuelFlowLph !== null ? navLog.totals.fuel : null;
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
@@ -1759,8 +1780,11 @@ export function App() {
                 onUndoable={offerUndo}
                 aircraftList={ac.list}
                 aircraft={ac.active}
-                loads={ac.loads}
-                fuelPlan={ac.plan}
+                navLog={navLog}
+                fuel={fuelSheet}
+                vpOver={vpOver}
+                onVpOver={setVpOver}
+                onOnboard={setOnboard}
                 onSelectAircraft={(id) => { ac.select(id); pushAircraftPerf(ac.list.find((x) => x.id === id) ?? null); }}
                 onGoAircraft={() => open("aircraft")}
                 onAutoWind={autoWinds}
@@ -1814,7 +1838,7 @@ export function App() {
                 prefs={prefs}
                 active={ac.active}
                 loads={ac.loads}
-                burnLiters={tripLiters}
+                fuel={fuelSheet}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}
                 onOpenSheet={() => setTab(0)}
               />
@@ -1824,7 +1848,7 @@ export function App() {
                 prefs={prefs}
                 active={ac.active}
                 loads={ac.loads}
-                tripLiters={tripLiters}
+                fuel={fuelSheet}
                 plan={ac.plan}
                 onPlan={ac.updatePlan}
                 onLoads={(l) => ac.active && ac.setLoads(ac.active.id, l)}

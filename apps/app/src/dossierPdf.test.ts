@@ -4,6 +4,7 @@ import { DEFAULT_UNIT_PREFS, computeNavLog, litersPerHour, type Aircraft } from 
 import { buildDossier, sanitize, type DossierInput } from "./dossierPdf";
 import { addPoint, newRoute, setDefaultWind, toWindPlan } from "./routeEdit";
 import { DEFAULT_FUEL_PLAN } from "./aircraftStore";
+import { computeFuelSheet } from "./fuel";
 import { parseNotams, type RelevantNotam } from "./notam";
 
 // Avion FICTIF de test (aucune donnée d'un appareil réel).
@@ -27,7 +28,7 @@ function input(over: Partial<DossierInput> = {}): DossierInput {
   const navLog = computeNavLog(r, { tas: 50 as never, fuelFlow: litersPerHour(25) }, toWindPlan(r), new Date(Date.UTC(2026, 5, 1)), null);
   return {
     lang: "fr", prefs: DEFAULT_UNIT_PREFS, nowMs: Date.UTC(2026, 5, 1, 8, 0), route: r, navLog, aircraft,
-    loads: { p: 80, b: 10, f: 60 }, fuelPlan: DEFAULT_FUEL_PLAN, tripLiters: navLog.totals.fuel as number,
+    loads: { p: 80, b: 10, f: 60 }, fuel: computeFuelSheet({ log: navLog, aircraft, loads: { p: 80, b: 10, f: 60 }, plan: DEFAULT_FUEL_PLAN }),
     crossed: [], hasAeroData: false, metars: [], tafs: [], ...over,
   };
 }
@@ -52,7 +53,7 @@ describe("dossier PDF", () => {
     }
   });
   it("ne plante pas sans avion, sans log, sans données", async () => {
-    const i = input({ aircraft: null, navLog: null, tripLiters: null });
+    const i = input({ aircraft: null, navLog: null, fuel: computeFuelSheet({ log: null, aircraft: null, loads: {}, plan: DEFAULT_FUEL_PLAN }) });
     const bytes = await buildDossier(i);
     expect(bytes.length).toBeGreaterThan(1000);
   });
