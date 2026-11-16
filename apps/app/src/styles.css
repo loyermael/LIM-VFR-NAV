@@ -1153,7 +1153,7 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .fp-fold[open] > summary .icon { transform: rotate(180deg); }
 .fp-fold-in { display: grid; gap: var(--sp-3); padding: var(--sp-3); border-top: 1px solid var(--hair); }
 .fp-grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(2, minmax(0, 1fr)); }
-@media (max-width: 480px) { .fp-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 339px) { .fp-grid { grid-template-columns: minmax(0, 1fr); } }
 .fp-ro { display: grid; gap: 3px; min-width: 0; }
 .fp-lbl { font-family: var(--font-mono); font-size: var(--fs-12); font-weight: 600; }
 .fp-rov { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: var(--h-touch); padding: 0 var(--sp-2); border: 1px dashed var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -1192,3 +1192,7 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .fp-table td.u { width: 1%; padding-left: 6px; font-size: 11px; color: var(--ink-muted); white-space: nowrap; }
 .fp-table tr.tot td { border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); font-weight: 800; font-size: 14px; }
 .fp-table.bil td.v { font-size: 16px; } .fp-table.bil tr.big td.v { font-size: 20px; font-weight: 800; }
+.fp-rov { gap: 4px; padding: 0 var(--sp-2); flex-wrap: nowrap; }
+.fp-rov b { font-size: 16px; white-space: nowrap; }
+.fp-rov button { white-space: nowrap; padding: 0 4px; }
+.fp-lbl, .ufield .uf-label > span:first-child { min-height: 1.4em; }

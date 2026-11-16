@@ -616,7 +616,7 @@ export function FuelTab(p: FuelProps) {
               {fuelStation && (
                 <section className="fp-sec">
                   <h3>{T("fuel.onboardTitle")}</h3>
-                  <UnitField label={T("fuel.onboardField")} unit={u} decimals={dec} value={fromSI("fuel", p.prefs, f.onboard)} limit={fromSI("fuel", p.prefs, f.capacity)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
+                  <UnitField layout="stack" label={T("fuel.onboardField")} unit={u} decimals={dec} value={fromSI("fuel", p.prefs, f.onboard)} limit={fromSI("fuel", p.prefs, f.capacity)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
                   <p className="fp-basis">{T("fuel.sync")}{f.tripBasis !== null && <> · {T(f.tripBasis === "wind" ? "fuel.basisWind" : "fuel.basisNoWind")}</>}</p>
                 </section>
               )}
