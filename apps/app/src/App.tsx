@@ -44,6 +44,7 @@ import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 import { computeFuelSheet } from "./fuel";
 import { SpacesTab } from "./SpacesTab";
+import { positionAlong, projectOnRoute } from "./spacesProfile";
 import { vpKey } from "./logModel";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
@@ -984,6 +985,24 @@ export function App() {
     () => (screen === "nav" && tab === 3 && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces) : []),
     [screen, tab, route, visibleAirspaces],
   );
+  /** Curseur de l'onglet Espaces : distance le long de la route (m), partagée entre le profil et la carte (survol dans les deux sens). */
+  const [cursorM, setCursorMState] = useState<number | null>(null);
+  const setCursorM = (d: number | null) => setCursorMState((prev) => (d === null || prev === null ? d : Math.abs(d - prev) < 60 ? prev : d));
+  const onSpacesTab = screen === "nav" && tab === 3;
+  useEffect(() => { if (!onSpacesTab) setCursorMState(null); }, [onSpacesTab]);
+  const onMapHover = (h: { lat: number; lon: number; metersPerPixel: number } | null) => {
+    if (!onSpacesTab || !route) return;
+    if (!h) return setCursorM(null);
+    const pr = projectOnRoute(route.points, h, cursorM ?? aircraftM);
+    setCursorM(pr && pr.offset <= 40 * h.metersPerPixel ? pr.along : null);
+  };
+  const cursorPos = useMemo(() => (onSpacesTab && cursorM !== null && route ? positionAlong(route.points, cursorM) : null), [onSpacesTab, cursorM, route]);
+  /** Position de l'avion projetée sur la route (si le GPS est à moins de 10 km de la route). */
+  const aircraftM = useMemo(() => {
+    if (!onSpacesTab || !fix || status === "lost" || !route) return null;
+    const pr = projectOnRoute(route.points, fix.position);
+    return pr && pr.offset < 10_000 ? pr.along : null;
+  }, [onSpacesTab, fix, status, route]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
     if (!fix || !activeRoute || targetIndex === null || adhoc !== null || status === "lost") return;
@@ -1246,6 +1265,8 @@ export function App() {
 
       <div className={split ? "stage split" : "stage"}>
         <MapView
+          onHover={onMapHover}
+          cursor={cursorPos}
           theme={theme}
           emptyLabel={T("map.empty")}
           fix={status === "lost" ? null : fix}
@@ -1771,6 +1792,9 @@ export function App() {
                 navLog={navLog}
                 nowMs={now}
                 exportedAtMs={aspSet?.meta.exportedAtMs ?? null}
+                cursorM={cursorM}
+                onCursor={setCursorM}
+                aircraftM={aircraftM}
               />
             ) : screen === "nav" && tab === 4 ? (
               (() => {

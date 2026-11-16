@@ -1255,3 +1255,18 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .sp-zl:first-child { margin-left: 0; }
 .sp-zv { min-width: 2.6em; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
 .sp-profile { max-height: 520px; overflow: auto; }
+
+/* Curseur partagé profil / carte (onglet Espaces). */
+.sp-cursor line { stroke: var(--ink); stroke-width: 1.6; }
+.sp-cursor circle { fill: var(--brand); stroke: var(--ink); stroke-width: 2; }
+.sp-ac line { stroke: var(--route-ink, #b0007a); stroke-width: 2; stroke-dasharray: 4 3; }
+.sp-ac path { fill: var(--route-ink, #b0007a); }
+.sp-box.at rect { stroke-width: 3.2; fill-opacity: .24; }
+.sp-svg { touch-action: pan-y pinch-zoom; cursor: crosshair; }
+.sp-readout { min-height: 3.4em; font-family: var(--font-mono); font-size: 13px; }
+.sp-hint { color: var(--ink-muted); font-size: 12px; }
+.sp-here { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+.sp-hc { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; }
+.sp-hc i { font-style: normal; font-weight: 400; color: var(--ink-muted); }
+.sp-hc.inside { color: var(--signal); } .sp-hc.unknown { color: var(--caution); } .sp-hc.outside { color: var(--ink-muted); }
+.route-cursor { width: 22px; height: 22px; border-radius: 50%; border: 4px solid var(--ink); background: var(--brand); box-shadow: 0 0 0 3px var(--paper); pointer-events: none; }

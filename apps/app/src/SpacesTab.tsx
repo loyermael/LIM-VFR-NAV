@@ -1,10 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Button } from "./ui/Button";
 import { formatQuantity, fromSI, toSI, unitLabel, type Airspace, type NavLog, type RouteHit, type UnitPrefs } from "@lim/core";
 import { Icon } from "./ui/Icon";
 import { t, type Key, type Lang } from "./i18n";
 import { periodStatus, sortAirspacesTopDown } from "./aeroGeo";
-import { isGroundRelative, limitToMeters, niceStep, profileTop, routeProfilePoints } from "./spacesProfile";
+import { isGroundRelative, limitToMeters, niceStep, positionAlong, profileTop, routeProfilePoints } from "./spacesProfile";
 import type { RouteRecord } from "./routeEdit";
 
 const ZOOMS = [1, 1.5, 2, 3, 4, 6];
@@ -15,7 +15,7 @@ const ICON = { inside: "triangle-alert", unknown: "diamond-alert", outside: "cir
 const STATUS_KEY: Record<Status, Key> = { inside: "sp.inside", unknown: "sp.unknown", outside: "sp.outside" };
 
 /** Un bloc par espace, de la première entrée à la dernière sortie (un espace traversé deux fois reste un seul bloc). */
-function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string; zx: number; zy: number }) {
+function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string; zx: number; zy: number; cursorM: number | null; aircraftM: number | null; onCursor: (d: number | null) => void }) {
   const { hits, prefs, T } = p;
   const pts = routeProfilePoints(p.route.points);
   const total = pts[pts.length - 1]?.d ?? 0;
@@ -59,8 +59,15 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
   for (let v = 0; v <= topDisp + 1e-9; v += stepDisp) yTicks.push(v);
   const polyline = pts.filter((x) => x.alt !== null).map((x) => `${X(x.d)},${Y(x.alt as number)}`).join(" ");
 
+  const pick = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    if (r.width === 0 || total === 0) return;
+    const d = ((((e.clientX - r.left) / r.width) * W - L) / pw) * total;
+    p.onCursor(Math.min(total, Math.max(0, d)));
+  };
+  const cur = p.cursorM;
   return (
-    <svg className="sp-svg" viewBox={`0 0 ${W} ${H}`} style={{ width: `${p.zx * 100}%`, minWidth: 560 * p.zx }} role="img" aria-label={T("sp.profileAria")}>
+    <svg className="sp-svg" onPointerMove={pick} onPointerDown={pick} onPointerLeave={() => p.onCursor(null)} viewBox={`0 0 ${W} ${H}`} style={{ width: `${p.zx * 100}%`, minWidth: 560 * p.zx }} role="img" aria-label={T("sp.profileAria")}>
       <defs>
         <pattern id="sp-gnd" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" strokeWidth="2" /></pattern>
       </defs>
@@ -78,7 +85,7 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
         const dashed = isGroundRelative(a.lower) || isGroundRelative(a.upper) || h.vertical === "unknown";
         const w = Math.max(2, x2 - x1), hh = Math.max(2, y2 - y1);
         return (
-          <g key={a.id} className={`sp-box ${h.vertical}`}>
+          <g key={a.id} className={`sp-box ${h.vertical}${cur !== null && cur >= h.entry && cur <= h.exit ? " at" : ""}`}>
             <title>{`${a.name} — ${a.typeLabel}${a.icaoClass ? ` ${p.T("sp.class")} ${a.icaoClass}` : ""} — ${a.upper.label} / ${a.lower.label}`}</title>
             <rect x={x1} y={y1} width={w} height={hh} strokeDasharray={dashed ? "6 3" : undefined} />
             {labelOf.has(a.id) && <text x={x1 + 5} y={y1 + 13}>{labelOf.get(a.id)}</text>}
@@ -97,6 +104,15 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
           )}
         </g>
       ))}
+      {p.aircraftM !== null && (
+        <g className="sp-ac"><line x1={X(p.aircraftM)} x2={X(p.aircraftM)} y1={Tm - 8} y2={Y(0)} /><path d={`M${X(p.aircraftM)} ${Tm - 4} l-6 -10 h12 z`} /></g>
+      )}
+      {cur !== null && (
+        <g className="sp-cursor" pointerEvents="none">
+          <line x1={X(cur)} x2={X(cur)} y1={Tm - 8} y2={Y(0)} />
+          <circle cx={X(cur)} cy={Tm - 10} r="5" />
+        </g>
+      )}
       {xTicks.map((v) => <text key={v} className="sp-tick" x={L + (total === 0 ? 0 : (toSI("distance", prefs, v) / total) * pw)} y={H - 8} textAnchor="middle">{v}</text>)}
       <text className="sp-tick" x={W - R} y={H - 8} textAnchor="end">{unitLabel("distance", prefs)}</text>
     </svg>
@@ -139,6 +155,11 @@ export function SpacesTab(p: {
   navLog: NavLog | null;
   nowMs: number;
   exportedAtMs: number | null;
+  /** Curseur partagé avec la carte : distance le long de la route (m), ou null. */
+  cursorM: number | null;
+  onCursor: (d: number | null) => void;
+  /** Position de l'avion projetée sur la route (m), ou null. */
+  aircraftM: number | null;
 }): ReactNode {
   const T = (k: Key) => t(p.lang, k);
   const { route, hits } = p;
@@ -154,6 +175,19 @@ export function SpacesTab(p: {
   const totalSec = p.navLog ? ((p.navLog.totals.timeWithWind ?? p.navLog.totals.timeNoWind) as number) : null;
   const totalM = p.navLog ? (p.navLog.totals.distance as number) : null;
   const minutes = (h: RouteHit) => (totalSec !== null && totalM ? Math.max(1, Math.round((((h.exit - h.entry) / totalM) * totalSec) / 60)) : null);
+  const here = p.cursorM !== null ? positionAlong(route.points, p.cursorM) : null;
+  const atCursor = p.cursorM === null ? [] : sorted.filter((h) => p.cursorM! >= h.entry && p.cursorM! <= h.exit);
+  const readout = here && p.cursorM !== null ? (
+    <>
+      <b>{formatQuantity("distance", p.prefs, p.cursorM)} {unitLabel("distance", p.prefs)}</b>
+      {here.alt !== null && <span> · {T("sp.routeAlt")} {formatQuantity("altitude", p.prefs, here.alt)} {unitLabel("altitude", p.prefs)}</span>}
+      <div className="sp-here">
+        {atCursor.length === 0 ? T("sp.noneHere") : atCursor.map((h) => (
+          <span key={h.airspace.id} className={`sp-hc ${h.vertical}`}><Icon name={ICON[h.vertical as Status]} size={16} />{h.airspace.name}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} <i>{h.airspace.upper.label} / {h.airspace.lower.label}</i></span>
+        ))}
+      </div>
+    </>
+  ) : <span className="sp-hint">{T("sp.hint")}</span>;
   const exported = p.exportedAtMs !== null ? new Date(p.exportedAtMs).toLocaleDateString(p.lang === "fr" ? "fr-FR" : "en-GB") : null;
   return (
     <div className="sp-page">
@@ -179,7 +213,8 @@ export function SpacesTab(p: {
               <Button size="touch" icon="plus" aria-label={`${T("sp.zoomIn")} ${T("sp.zoomAlt")}`} disabled={zy >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZy(stepZoom(zy, 1))} />
               {(zx > 1 || zy > 1) && <Button size="touch" icon="rotate-ccw" onClick={() => { setZx(1); setZy(1); }}>{T("sp.zoomReset")}</Button>}
             </div>
-            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} zx={zx} zy={zy} /></div>
+            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} zx={zx} zy={zy} cursorM={p.cursorM} aircraftM={p.aircraftM} onCursor={p.onCursor} /></div>
+            <div className="sp-readout" aria-live="polite">{readout}</div>
             <div className="sp-legend">
               <span><svg width="22" height="10" aria-hidden="true"><line x1="0" x2="22" y1="5" y2="5" className="sp-route" /></svg>{T("sp.legendRoute")}</span>
               <span className="inside"><Icon name="triangle-alert" size={16} />{T("sp.legendInside")}</span>

@@ -89,6 +89,10 @@ export interface MapViewProps {
   docFocus: { nonce: number; corners: [number, number][] } | null;
   /** Commande externe de zoom : incrémentée à chaque appui sur + ou −. */
   zoomCommand: { delta: number; nonce: number };
+  /** Survol de la carte (position et mètres par pixel), null quand le pointeur quitte la carte : sert au curseur de l'onglet Espaces. */
+  onHover?: (h: { lat: number; lon: number; metersPerPixel: number } | null) => void;
+  /** Repère posé sur la route par l'onglet Espaces (curseur du profil), ou null. */
+  cursor?: { lat: number; lon: number } | null;
 }
 
 /** Couleurs lues dans les jetons CSS (aucune couleur en dur) : à relire à chaque changement de thème. */
@@ -406,6 +410,7 @@ export function MapView(props: MapViewProps) {
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const planeMarker = useRef<maplibregl.Marker | null>(null);
+  const cursorMarker = useRef<maplibregl.Marker | null>(null);
   const bubbleMarkers = useRef<maplibregl.Marker[]>([]);
   const wpMarkers = useRef<maplibregl.Marker[]>([]);
   const loaded = useRef(false);
@@ -466,6 +471,9 @@ export function MapView(props: MapViewProps) {
       // Zoom fait au doigt (pincement) : on le retient comme nouveau niveau voulu.
       if ((e as { originalEvent?: unknown }).originalEvent) targetZoom.current = m.getZoom();
     });
+
+    m.on("mousemove", (e) => latest.current.onHover?.({ lat: e.lngLat.lat, lon: e.lngLat.lng, metersPerPixel: metersPerPixel(e.lngLat.lat, m.getZoom()) }));
+    m.getCanvas().addEventListener("mouseleave", () => latest.current.onHover?.(null));
 
     m.on("movestart", (e) => {
       if ((e as { originalEvent?: unknown }).originalEvent) { latest.current.onUserMove(); latest.current.onAirfieldTap(null); }
@@ -786,7 +794,7 @@ export function MapView(props: MapViewProps) {
           {
             id, type: "symbol", source: "apt", minzoom, filter: filter as never,
             layout: {
-              "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 1, "symbol-sort-key": ["get", "prio"], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.5, 6, 0.75, 8, 1, 10, 1.4, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+              "icon-image": ["get", "sym"], "icon-allow-overlap": id === "apt-circle", "icon-padding": 1, "symbol-sort-key": ["get", "prio"], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.5, 6, 0.75, 8, 1, 10, 1.4, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
               "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 10.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
               "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
             } as never,
@@ -1279,6 +1287,20 @@ export function MapView(props: MapViewProps) {
       });
     }
   }, [props.fix, props.vector, props.trackTrue, props.follow, props.orientation]);
+
+  // Repère du curseur de l'onglet Espaces : un anneau posé sur la route.
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    const c = props.cursor ?? null;
+    if (!c) { cursorMarker.current?.remove(); cursorMarker.current = null; return; }
+    if (!cursorMarker.current) {
+      const div = document.createElement("div");
+      div.className = "route-cursor";
+      div.setAttribute("aria-hidden", "true");
+      cursorMarker.current = new maplibregl.Marker({ element: div }).setLngLat([c.lon, c.lat]).addTo(m);
+    } else cursorMarker.current.setLngLat([c.lon, c.lat]);
+  }, [props.cursor?.lat, props.cursor?.lon]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Nord en haut / Route en haut : le bouton agit aussi quand la carte ne suit pas l'avion (sans suivi, seule la rotation change).
   useEffect(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isGroundRelative, limitToMeters, niceStep, profileTop, routeProfilePoints } from "./spacesProfile";
+import { isGroundRelative, limitToMeters, niceStep, positionAlong, profileTop, projectOnRoute, routeProfilePoints } from "./spacesProfile";
 
 describe("profil vertical des espaces", () => {
   it("limites : FL en atmosphère standard, AMSL et AGL en mètres", () => {
@@ -28,5 +28,50 @@ describe("profil vertical des espaces", () => {
     expect(r[1]?.d).toBeGreaterThan(10000);
     expect(r[2]?.d).toBeGreaterThan(r[1]?.d as number);
     expect(r[1]?.alt).toBeNull();
+  });
+});
+
+describe("curseur : projection sur la route et position le long de la route", () => {
+  const pts = [
+    { position: { lat: 47, lon: 2 }, altitude: 300 },
+    { position: { lat: 47.2, lon: 2 }, altitude: 900 },
+    { position: { lat: 47.2, lon: 2.3 }, altitude: 900 },
+  ] as never;
+  const total = routeProfilePoints(pts)[2]!.d;
+  it("un point sur la route se projette sur lui-même (écart nul)", () => {
+    const mid = positionAlong(pts, 10000)!;
+    const pr = projectOnRoute(pts, mid)!;
+    expect(pr.along).toBeGreaterThan(9990);
+    expect(pr.along).toBeLessThan(10010);
+    expect(pr.offset).toBeLessThan(15);
+  });
+  it("un point à côté de la route : distance le long de la route et écart latéral", () => {
+    const pr = projectOnRoute(pts, { lat: 47.1, lon: 2.01 })!;
+    expect(pr.offset).toBeGreaterThan(700);
+    expect(pr.offset).toBeLessThan(800);
+    expect(pr.along).toBeGreaterThan(10900);
+    expect(pr.along).toBeLessThan(11300);
+  });
+  it("hors de la route : projection au plus proche des extrémités ; altitude interpolée", () => {
+    expect(projectOnRoute(pts, { lat: 46.9, lon: 2 })!.along).toBe(0);
+    expect(positionAlong(pts, 0)!.alt).toBe(300);
+    expect(positionAlong(pts, total + 5000)!.lon).toBeCloseTo(2.3, 3);
+    const half = positionAlong(pts, (routeProfilePoints(pts)[1]!.d) / 2)!;
+    expect(half.alt).toBeCloseTo(600, 0);
+  });
+});
+
+describe("route aller-retour : les deux branches se superposent", () => {
+  const ar = [
+    { position: { lat: 47, lon: 2 }, altitude: null },
+    { position: { lat: 47.2, lon: 2 }, altitude: null },
+    { position: { lat: 47, lon: 2 }, altitude: null },
+  ] as never;
+  it("sans indice : la première branche ; avec un indice : la branche la plus proche de l'indice", () => {
+    const p = { lat: 47.1, lon: 2 };
+    const out = projectOnRoute(ar, p)!;
+    const back = projectOnRoute(ar, p, 30000)!;
+    expect(out.along).toBeLessThan(12000);
+    expect(back.along).toBeGreaterThan(30000);
   });
 });
