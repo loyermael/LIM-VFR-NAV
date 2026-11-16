@@ -1,0 +1,137 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>L!M Nav — maquette Carburant</title>
+<link rel="stylesheet" href="/src/ui/fonts.css"><link rel="stylesheet" href="/src/ui/tokens.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:16px;background:#d9d4c6;color:var(--ink);font-family:var(--font-text)}
+.meta{font-family:var(--font-mono);font-size:12px;color:#444;margin:0 0 12px;max-width:1100px}
+h1.page{font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:20px;margin:24px 0 8px}
+.frame{background:var(--paper);border:1px solid var(--ink);margin:0 0 24px;overflow:hidden}
+.frame.desk{width:1180px;max-width:100%}.frame.phone{width:375px}
+.row{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.cap{font-family:var(--font-mono);font-size:11px;color:#444;margin:0 0 4px}
+svg{display:block;flex:none}
+/* écran : largeur limitée et centrée */
+.scr{padding:16px;display:grid;gap:14px;min-width:0}
+.wrap{width:100%;max-width:1080px;margin:0 auto;display:grid;gap:14px;min-width:0}
+.head{display:flex;align-items:center;gap:12px}
+.back{width:44px;height:44px;border:1px solid var(--ink);background:var(--field);display:grid;place-items:center}
+.head h2{margin:0;font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:28px;line-height:1}
+.head .route{font-family:var(--font-mono);font-size:13px;color:var(--ink-muted);margin-top:4px}
+.id{display:flex;align-items:center;gap:8px;padding:8px 12px;border:2px solid var(--ink);border-left:10px solid var(--brand);background:var(--field);font-family:var(--font-mono);font-size:13px}
+.id b{font-family:var(--font-display);font-stretch:68%;font-size:18px;text-transform:uppercase;letter-spacing:.04em}
+.cols{display:grid;gap:16px;grid-template-columns:minmax(0,380px) minmax(0,1fr);align-items:start}
+.phone .cols{grid-template-columns:minmax(0,1fr)}
+.sec{display:grid;gap:10px;align-content:start;min-width:0}
+.sec>h3{margin:0;font-family:var(--font-display);font-stretch:68%;text-transform:uppercase;font-size:16px;border-left:5px solid var(--ink);padding-left:8px;letter-spacing:.03em}
+/* bandeau d'état */
+.status{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;align-items:center;padding:12px 14px;border:3px solid var(--zone-good);background:var(--field)}
+.status.low{border-color:var(--caution)}.status.bad{border-color:var(--signal)}
+.status .t{font-family:var(--font-display);font-stretch:68%;font-size:24px;text-transform:uppercase;line-height:1}
+.status.ok .t{color:var(--zone-good)}.status.low .t{color:var(--caution)}.status.bad .t{color:var(--signal)}
+.status .kp{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border-top:1px solid var(--hair);padding-top:8px}
+.kp div{display:grid;gap:1px}
+.kp span{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);text-transform:uppercase;letter-spacing:.05em}
+.kp b{font-family:var(--font-mono);font-size:22px;font-variant-numeric:tabular-nums}
+.kp small{font-size:13px;font-weight:600;color:var(--ink-muted)}
+/* champ avec unité */
+.fld{display:grid;grid-template-columns:minmax(80px,1fr) 170px;gap:4px 12px;align-items:center}
+.fld>label{font-family:var(--font-mono);font-size:13px;font-weight:600}
+.inp{display:flex;align-items:baseline;justify-content:flex-end;gap:6px;height:44px;padding:0 10px;border:1px solid var(--ink);background:var(--field);font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.inp strong{font-size:18px;font-weight:700;align-self:center}
+.inp .u{font-size:12px;color:var(--ink-muted);align-self:center}
+.inp .lim{font-size:12px;color:var(--ink-muted);align-self:center;margin-right:auto}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.phone .grid2{grid-template-columns:minmax(0,1fr)}
+.stack{display:grid;gap:3px}
+.stack>label{font-family:var(--font-mono);font-size:12px;font-weight:600}
+.stack .inp{justify-content:flex-end}
+/* réglages repliables */
+details.fold{border:1px solid var(--ink);background:var(--field)}
+details.fold>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:0 12px;cursor:pointer;font-family:var(--font-mono);font-size:13px;font-weight:700;list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold .in{padding:12px;display:grid;gap:12px;border-top:1px solid var(--hair)}
+.sumv{font-weight:400;color:var(--ink-muted);font-size:12px}
+.note{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--ink-muted);line-height:1.4}
+/* barre empilée */
+.stk{display:grid;gap:6px}
+.track{position:relative;display:flex;height:34px;border:1px solid var(--ink);background:var(--paper-2)}
+.track i{display:block;height:100%;border-right:1px solid var(--paper)}
+.s-taxi{background:#8d877a}.s-trip{background:#4a4a46}.s-cont{background:#b3ad9f}.s-alt{background:#6f6a60}
+.s-res{background:repeating-linear-gradient(45deg,#6f6a60 0 4px,#cfc9ba 4px 8px)}
+.s-sur{background:transparent}
+.s-miss{background:repeating-linear-gradient(45deg,var(--caution) 0 4px,var(--field) 4px 8px)}
+.s-miss.bad{background:repeating-linear-gradient(45deg,var(--signal) 0 4px,var(--field) 4px 8px)}
+.mark{position:absolute;top:-6px;bottom:-6px;width:0;border-left:3px solid var(--ink)}
+.mark b{position:absolute;top:-16px;transform:translateX(-50%);font-family:var(--font-mono);font-size:10px;white-space:nowrap}
+.scale{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--ink-muted);margin-top:14px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-family:var(--font-mono);font-size:11px}
+.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{width:12px;height:12px;border:1px solid var(--ink);display:inline-block}
+/* tableau */
+table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+td{padding:7px 4px;border-bottom:1px solid var(--hair);font-size:13px}
+td.l{width:100%}td.l small{color:var(--ink-muted);font-size:11px;margin-left:6px}
+td.v{text-align:right;white-space:nowrap;font-weight:600}td.u{width:1%;padding-left:6px;color:var(--ink-muted);font-size:11px;white-space:nowrap}
+tr.tot td{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);font-weight:800;font-size:14px}
+table.bil td.v{font-size:16px}table.bil tr.big td.v{font-size:20px;font-weight:800}
+.grp{font-family:var(--font-display);font-stretch:68%;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-muted);margin:2px 0 0}
+.basis{font-family:var(--font-mono);font-size:11px;color:var(--ink-muted)}
+</style></head><body>
+<p class="meta"><b>Maquette — page Carburant</b> (téléphone 375 px, grand écran 1180 px). Aucun calcul ni code de l'app modifié. Données fictives cohérentes : consommation 12 L/h, trajet 7,1 L (avec vent), roulage 1,0 L, aléas 10 %, réserve 30 min. Même fiche que le log et le centrage (« À l'arrivée » 31,9 L).</p>
+<div id="out"></div>
+<script>
+const ICON={
+ ok:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>',
+ low:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 21.3 12 12 21.3 2.7 12Z"/><path d="M12 8v5M12 16h.01"/></svg>',
+ bad:'<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 22 20H2Z"/><path d="M12 9.5v5M12 17.5h.01"/></svg>',
+ info:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+ back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7M19 12H5"/></svg>',
+ chev:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+ chk:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>'
+};
+const f1=v=>v.toFixed(1).replace('.',',');
+const hm=h=>{const m=Math.round(h*60);return Math.floor(m/60)+':'+String(m%60).padStart(2,'0')};
+// données : embarqué, capacité, seuil marge faible (L)
+function calc(onb){const flow=12,trip=7.1,taxi=1.0,cont=trip*.1,alt=0,res=flow*.5,cap=40,low=3;
+ const req=taxi+trip+cont+alt+res,sur=onb-req;
+ return{flow,trip,taxi,cont,alt,res,cap,onb,req,sur,arr:Math.max(0,onb-taxi-trip),endT:onb/flow,endU:Math.max(0,onb-taxi-res)/flow,low,
+  st:sur<0?'bad':sur<low?'low':'ok'}}
+function banner(c){const t={ok:'Carburant suffisant',low:'Marge faible',bad:'Carburant insuffisant'}[c.st];
+ const sl=c.sur<0?'Manque':'Excédent';
+ return `<div class="status ${c.st}" role="status">${ICON[c.st]}<div class="t">${t}</div>
+ <div class="kp"><div><span>${sl}</span><b>${f1(Math.abs(c.sur))} L</b><small>${c.st==='low'?'sous le seuil de '+f1(c.low)+' L':c.st==='bad'?'à embarquer en plus':'au-dessus du nécessaire'}</small></div>
+ <div><span>Autonomie utilisable</span><b>${hm(c.endU)}</b><small>hors roulage et réserve</small></div></div></div>`}
+function bar(c){const scale=Math.max(c.cap,c.req,c.onb);const w=v=>(v/scale*100)+'%';
+ const need=[['taxi','Roulage',c.taxi],['trip','Trajet',c.trip],['cont','Aléas',c.cont],['alt','Déroutement',c.alt],['res','Réserve finale',c.res]];
+ let segs='',acc=0;
+ for(const[k,n,v]of need){ if(v<=0)continue; const room=Math.max(0,Math.min(v,c.onb-acc)); const miss=v-room;
+  if(room>0)segs+=`<i class="s-${k}" style="width:${w(room)}" title="${n}"></i>`;
+  if(miss>0)segs+=`<i class="s-miss ${c.st==='bad'?'bad':''}" style="width:${w(miss)}" title="${n} : manque"></i>`; acc+=v}
+ if(c.sur>0)segs+=`<i class="s-sur" style="width:${w(c.sur)}"></i>`;
+ const lg=need.filter(x=>x[2]>0).map(([k,n])=>`<span><i class="s-${k}"></i>${n}</span>`).join('')+(c.sur>0?'<span><i style="background:var(--field)"></i>Excédent</span>':'')+(c.sur<0?`<span><i class="s-miss ${c.st==='bad'?'bad':''}"></i>Manque</span>`:'');
+ return `<div class="stk"><div class="track">${segs}<span class="mark" style="left:${w(c.onb)}"><b style="${c.onb/scale>.85?'transform:translateX(-100%)':''}">Embarqué ${f1(c.onb)}</b></span></div>
+ <div class="scale"><span>0</span><span>capacité utilisable ${f1(c.cap)} L</span></div><div class="legend">${lg}</div></div>`}
+function row(l,v,u,x){return `<tr class="${x||''}"><td class="l">${l}</td><td class="v">${v}</td><td class="u">${u}</td></tr>`}
+function detail(c){return `<div class="grp">Calcul</div><table>${row('Roulage',f1(c.taxi),'L')}${row('Consommation trajet',f1(c.trip),'L')}${row('Aléas <small>10 %</small>',f1(c.cont),'L')}${row('Déroutement <small>0 min</small>',f1(c.alt),'L')}${row('Réserve finale <small>30 min</small>',f1(c.res),'L')}${row('Total nécessaire',f1(c.req),'L','tot')}</table>
+ <div class="grp" style="margin-top:6px">Bilan</div><table class="bil">${row('Embarqué',f1(c.onb),'L','big')}${row(c.sur<0?'Manque':'Excédent',f1(Math.abs(c.sur)),'L','big')}${row('À l’arrivée',f1(c.arr),'L')}${row('Autonomie totale',hm(c.endT),'h:mm')}${row('Autonomie utilisable',hm(c.endU),'h:mm')}</table>`}
+function inputs(c){return `<div class="sec"><h3>Saisie du vol</h3><div class="fld"><label>Embarqué</label><div class="inp"><span class="lim">/ ${f1(c.cap)} L</span><strong>${f1(c.onb)}</strong><span class="u">L</span></div></div>
+ <div class="basis">Trajet calculé avec le vent · même valeur que sur le log et le centrage</div></div>
+ <details class="fold"><summary><span>Réglages <span class="sumv">roulage 1,0 L · aléas 10 % · déroutement 0 min · réserve 30 min</span></span>${ICON.chev}</summary><div class="in">
+ <div class="grid2"><div class="stack"><label>Roulage</label><div class="inp"><strong>1,0</strong><span class="u">L</span></div></div><div class="stack"><label>Aléas</label><div class="inp"><strong>10</strong><span class="u">%</span></div></div>
+ <div class="stack"><label>Déroutement</label><div class="inp"><strong>0</strong><span class="u">min</span></div></div><div class="stack"><label>Réserve finale</label><div class="inp"><strong>30</strong><span class="u">min</span></div></div>
+ <div class="stack"><label>Seuil « marge faible »</label><div class="inp"><strong>3,0</strong><span class="u">L</span></div></div></div>
+ <div class="note">${ICON.info}<span>Valeurs par défaut à confirmer selon votre réglementation.</span></div></div></details>`}
+function screen(c,cls){return `<div class="scr"><div class="wrap">
+ <div class="head"><div class="back">${ICON.back}</div><div><h2>Carburant</h2><div class="route">AR LFHV LFLM · 43,7 km</div></div></div>
+ <div class="id">${ICON.chk}<b>F-EXMP</b><span>SF28 (exemple)</span></div>
+ ${banner(c)}
+ ${cls==='desk'?`<div class="cols"><div class="sec" style="gap:14px">${inputs(c)}</div><div class="sec" style="gap:14px"><h3>Répartition</h3>${bar(c)}<h3>Détail</h3>${detail(c)}</div></div>`
+ :`${inputs(c)}<div class="sec"><h3>Répartition</h3>${bar(c)}</div><div class="sec"><h3>Détail</h3>${detail(c)}</div>`}
+ <div class="note">${ICON.info}<span>Estimation à consommation constante. Ne remplace pas la vérification des quantités réelles.</span></div></div></div>`}
+const A=calc(40),B=calc(17),C=calc(12);
+document.getElementById('out').innerHTML=
+ `<h1 class="page">Grand écran — carburant suffisant</h1><div class="frame desk">${screen(A,'desk')}</div>
+  <h1 class="page">Téléphone — les trois états</h1><div class="row">
+  <div><p class="cap">Suffisant (embarqué 40 L)</p><div class="frame phone">${screen(A,'phone')}</div></div>
+  <div><p class="cap">Marge faible (embarqué 17 L)</p><div class="frame phone">${screen(B,'phone')}</div></div>
+  <div><p class="cap">Insuffisant (embarqué 12 L)</p><div class="frame phone">${screen(C,'phone')}</div></div></div>`;
+</script></body></html>
