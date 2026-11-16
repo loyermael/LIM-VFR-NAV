@@ -1308,3 +1308,6 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 @container (max-width: 380px) { .fp-bar { flex-wrap: wrap; } .fp-next { flex-basis: 100%; } .fp-bar .fp-seg { margin-left: auto; } }
 /* Grand écran : le profil garde une largeur raisonnable (à droite des boutons) au lieu de s'étirer sur toute la carte. */
 .stage .fprofile { max-width: 760px; }
+.air-name { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.air-name .icon { flex: none; color: var(--ink-muted); }
+.air-main .air-name { width: 100%; }

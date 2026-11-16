@@ -386,17 +386,16 @@ export function AircraftTab(p: AircraftTabProps) {
           const done = validateAircraft(x).length === 0;
           return (
             <div className={sel ? "air-card sel" : "air-card"} key={x.id}>
-              <button className="air-main" aria-current={sel ? "true" : undefined} onClick={() => p.onSelect(x.id)}>
+              <button className="air-main" aria-current={sel ? "true" : undefined} onClick={() => { p.onSelect(x.id); setEditing(true); }} aria-label={`${T("ac.edit")} : ${x.registration ? `${x.registration} · ` : ""}${x.name}`}>
                 <span className="air-top">
                   {sel && <span className="route-badge"><Icon name="circle-check" size={16} />{T("ac.chosen")}</span>}
                   <span className={done ? "stat-good" : "stat-caution"}><Icon name={done ? "circle-check" : "diamond-alert"} size={16} />{status(x)}</span>
                 </span>
-                <b>{x.registration ? `${x.registration} · ` : ""}{x.name}</b>
+                <b className="air-name">{x.registration ? `${x.registration} · ` : ""}{x.name}<Icon name="pencil" size={16} /></b>
                 <span className="muted small">{T("nav.tas")} {tas} · {flow} · MTOW {mtow}</span>
               </button>
               {sel && (
                 <div className="air-actions">
-                  <Button size="touch" icon="pencil" onClick={() => setEditing(true)}>{T("ac.edit")}</Button>
                   <Button size="touch" icon="copy" onClick={() => { const c = duplicateAircraft(x, crypto.randomUUID(), Date.now()); p.onPut(c); p.onSelect(c.id); }}>{T("ac.duplicate")}</Button>
                   <ConfirmButton className="end" label={T("nav.delete")} confirmLabel={T("tr.confirmDelete")} onConfirm={() => p.onRemove(x.id)} />
                 </div>
