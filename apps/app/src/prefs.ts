@@ -144,3 +144,25 @@ export function saveVisibleGroups(groups: readonly string[]): void {
     /* stockage bloqué : valable pour la session */
   }
 }
+
+const FLIGHT_PROFILE_KEY = "lim.flightProfile.v1";
+
+/** Profil des espaces en vol : activé, fenêtre devant l'avion (0 à 2 = petite, moyenne, grande) et affichage des espaces hors limites verticales. */
+export interface FlightProfilePrefs { readonly on: boolean; readonly windowIdx: 0 | 1 | 2; readonly showOutside: boolean }
+export const DEFAULT_FLIGHT_PROFILE: FlightProfilePrefs = { on: false, windowIdx: 1, showOutside: false };
+
+export function parseFlightProfile(raw: unknown): FlightProfilePrefs {
+  const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const w = o["windowIdx"];
+  return {
+    on: o["on"] === true,
+    windowIdx: w === 0 || w === 1 || w === 2 ? w : DEFAULT_FLIGHT_PROFILE.windowIdx,
+    showOutside: o["showOutside"] === true,
+  };
+}
+export function loadFlightProfile(): FlightProfilePrefs {
+  try { return parseFlightProfile(JSON.parse(localStorage.getItem(FLIGHT_PROFILE_KEY) ?? "null")); } catch { return DEFAULT_FLIGHT_PROFILE; }
+}
+export function saveFlightProfile(v: FlightProfilePrefs): void {
+  try { localStorage.setItem(FLIGHT_PROFILE_KEY, JSON.stringify(v)); } catch { /* stockage bloqué : valable pour la session */ }
+}

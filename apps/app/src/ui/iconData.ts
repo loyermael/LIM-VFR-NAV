@@ -67,6 +67,7 @@ export const ICON_NODES = {
   "moon": [["path", {"d": "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"}]],
   "diamond-alert": [["path", {"d": "M12 2 22 12 12 22 2 12Z"}], ["path", {"d": "M12 8v5"}], ["path", {"d": "M12 16h.01"}]],
   "runway": [["path", {"d": "M9 3 5 21"}], ["path", {"d": "M15 3l4 18"}], ["path", {"d": "M12 5v2"}], ["path", {"d": "M12 11v2"}], ["path", {"d": "M12 17v2"}]],
+  "chart-line": [["path", {"d": "M3 3v16a2 2 0 0 0 2 2h16"}], ["path", {"d": "m19 9-5 5-4-4-3 3"}]],
   "north-up": [["path", {"d": "M9 5l3-3 3 3"}], ["path", {"d": "M12 2v6"}], ["path", {"d": "M7 22V12l10 10V12"}]],
   "track-up": [["circle", {"cx": "12", "cy": "12", "r": "10"}], ["path", {"d": "M12 6 16 17 12 14.5 8 17Z"}]],
 } as const satisfies Record<string, IconNode>;

@@ -44,7 +44,10 @@ import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 import { computeFuelSheet } from "./fuel";
 import { SpacesTab } from "./SpacesTab";
+import { FlightProfile } from "./FlightProfile";
+import { loadFlightProfile, saveFlightProfile, type FlightProfilePrefs } from "./prefs";
 import { positionAlong, projectOnRoute } from "./spacesProfile";
+import { windowOptionsFor } from "./flightProfileView";
 import { vpKey } from "./logModel";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
@@ -980,15 +983,19 @@ export function App() {
     }
   };
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
+  const [flightProfile, setFlightProfileState] = useState<FlightProfilePrefs>(loadFlightProfile);
+  const setFlightProfile = (patch: Partial<FlightProfilePrefs>) => setFlightProfileState((prev) => { const n = { ...prev, ...patch }; saveFlightProfile(n); return n; });
+  const onSpacesTab = screen === "nav" && tab === 3;
+  /** Bandeau en vol : option activée, route active (pas un aperçu) et carte visible. */
+  const stripVisible = flightProfile.on && (screen === "map" || (wide && screen === "nav")) && !!activeRoute && !previewRoute && !!route && route.id === activeRoute.id && route.points.length >= 2;
   /** Espaces traversés par la route (onglet Espaces) : recalculé seulement quand la route ou les espaces changent. */
   const routeSpaces = useMemo(
-    () => (screen === "nav" && tab === 3 && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces.filter((x) => !isDroneZone(x))) : []),
-    [screen, tab, route, visibleAirspaces],
+    () => ((onSpacesTab || stripVisible) && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces.filter((x) => !isDroneZone(x))) : []),
+    [onSpacesTab, stripVisible, route, visibleAirspaces],
   );
   /** Curseur de l'onglet Espaces : distance le long de la route (m), partagée entre le profil et la carte (survol dans les deux sens). */
   const [cursorM, setCursorMState] = useState<number | null>(null);
   const setCursorM = (d: number | null) => setCursorMState((prev) => (d === null || prev === null ? d : Math.abs(d - prev) < 60 ? prev : d));
-  const onSpacesTab = screen === "nav" && tab === 3;
   useEffect(() => { if (!onSpacesTab) setCursorMState(null); }, [onSpacesTab]);
   const onMapHover = (h: { lat: number; lon: number; metersPerPixel: number } | null) => {
     if (!onSpacesTab || !route) return;
@@ -999,10 +1006,10 @@ export function App() {
   const cursorPos = useMemo(() => (onSpacesTab && cursorM !== null && route ? positionAlong(route.points, cursorM) : null), [onSpacesTab, cursorM, route]);
   /** Position de l'avion projetée sur la route (si le GPS est à moins de 10 km de la route). */
   const aircraftM = useMemo(() => {
-    if (!onSpacesTab || !fix || status === "lost" || !route) return null;
+    if (!(onSpacesTab || stripVisible) || !fix || status === "lost" || !route) return null;
     const pr = projectOnRoute(route.points, fix.position);
     return pr && pr.offset < 10_000 ? pr.along : null;
-  }, [onSpacesTab, fix, status, route]);
+  }, [onSpacesTab, stripVisible, fix, status, route]);
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
     if (!fix || !activeRoute || targetIndex === null || adhoc !== null || status === "lost") return;
@@ -1429,6 +1436,7 @@ export function App() {
               <button aria-label={T("map.zoomOut")} title={T("map.zoomOut")} onClick={() => setZoomCommand((z) => ({ delta: -1, nonce: z.nonce + 1 }))}><Icon name="minus" size={24} /></button>
               <button aria-pressed={follow} aria-label={T("tb.center")} title={T("tb.center")} onClick={() => setFollow(true)}><Icon name="locate-fixed" size={24} /></button>
               <button aria-pressed={editMode} aria-label={T("tool.draw")} title={T("tool.draw")} onClick={() => setEditMode((v) => !v)}><Icon name="pencil" size={24} /></button>
+              <button aria-pressed={flightProfile.on} aria-label={T("fp.show")} title={T("fp.show")} onClick={() => setFlightProfile({ on: !flightProfile.on })}><Icon name="chart-line" size={24} /></button>
               <button aria-pressed={orientation === "track"} aria-label={T(orientation === "north" ? "map.northUp" : "map.trackUp")} title={T(orientation === "north" ? "map.northUp" : "map.trackUp")} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}><Icon name={orientation === "north" ? "north-up" : "track-up"} size={24} /></button>
             </div>
           </>
@@ -1625,6 +1633,29 @@ export function App() {
                     <button aria-pressed={!figuresColor} onClick={() => { setFiguresColor(false); saveFiguresColor(false); }}>{T("figures.mono")}</button>
                   </div>
                 </div>
+                <div className="unit-row" role="group" aria-label={T("fp.title")}>
+                  <div className="unit-name">{T("fp.title")}</div>
+                  <div className="choices">
+                    <button aria-pressed={flightProfile.on} onClick={() => setFlightProfile({ on: true })}>{T("fp.on")}</button>
+                    <button aria-pressed={!flightProfile.on} onClick={() => setFlightProfile({ on: false })}>{T("fp.off")}</button>
+                  </div>
+                </div>
+                <div className="unit-row" role="group" aria-label={T("fp.window")}>
+                  <div className="unit-name">{T("fp.window")}</div>
+                  <div className="choices">
+                    {windowOptionsFor(prefs).map((v, i) => (
+                      <button key={v} aria-pressed={flightProfile.windowIdx === i} onClick={() => setFlightProfile({ windowIdx: i as 0 | 1 | 2 })}>{v} {unitLabel("distance", prefs)}</button>
+                    ))}
+                  </div>
+                </div>
+                <div className="unit-row" role="group" aria-label={T("fp.showOutside")}>
+                  <div className="unit-name">{T("fp.showOutside")}</div>
+                  <div className="choices">
+                    <button aria-pressed={flightProfile.showOutside} onClick={() => setFlightProfile({ showOutside: true })}>{T("fp.yes")}</button>
+                    <button aria-pressed={!flightProfile.showOutside} onClick={() => setFlightProfile({ showOutside: false })}>{T("fp.no")}</button>
+                  </div>
+                </div>
+                <p className="muted small">{T("fp.setHelp")}</p>
                   </>
                 )}
                 {tab === 1 && (
@@ -1946,6 +1977,22 @@ export function App() {
           </section>
         )}
       </div>
+
+      {stripVisible && route && (
+        <FlightProfile
+          lang={lang}
+          prefs={prefs}
+          route={route}
+          hits={routeSpaces}
+          aircraftM={aircraftM}
+          hasFix={!!fix && status !== "lost"}
+          altitudeM={fv?.altitudeMsl ?? null}
+          windowIdx={flightProfile.windowIdx}
+          showOutside={flightProfile.showOutside}
+          onWindow={(i) => setFlightProfile({ windowIdx: i })}
+          onClose={() => setFlightProfile({ on: false })}
+        />
+      )}
 
       <footer className={stale ? "datagrid stale" : "datagrid"}>
         {stale && fix && <div className="staleage" role="status">{T("gps.age")} {Math.max(0, Math.round((now - fix.timeMs) / 1000))} s</div>}
