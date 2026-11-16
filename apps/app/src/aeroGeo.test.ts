@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_UNIT_PREFS, parseOpenAipAirfields, parseOpenAipAirspaces } from "@lim/core";
-import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, sortAirspacesTopDown, floorMeters, formatUtc, freshnessWarnings, periodStatus } from "./aeroGeo";
+import { airfieldDetails, airfieldPriority, airfieldsToGeoJSON, airspaceDetails, airspacesToGeoJSON, sortAirspacesTopDown, floorMeters, formatUtc, freshnessWarnings, periodStatus } from "./aeroGeo";
 
 const sq = [[[1, 45], [3, 45], [3, 47], [1, 47], [1, 45]]];
 const asp = (over: Record<string, unknown> = {}) => parseOpenAipAirspaces([{
@@ -112,5 +112,16 @@ describe("tri des espaces de la fiche", () => {
   it("plafond affiché avant le plancher", () => {
     const keys = Object.keys(airspaceDetails(asp(), null));
     expect(keys.indexOf("Plafond")).toBeLessThan(keys.indexOf("Plancher"));
+  });
+});
+
+describe("priorité d'affichage des terrains", () => {
+  const rw = (len: number, paved: boolean | undefined) => ({ designator: "09", trueHeading: 90, lengthM: len, paved });
+  it("piste en dur + fréquence avant piste en herbe, civil avant militaire", () => {
+    const big = airfieldPriority({ type: 2, runways: [rw(1500, true)], frequencies: [{ name: "A", mhz: "118.0", primary: true }] } as never);
+    const grass = airfieldPriority({ type: 2, runways: [rw(750, false)], frequencies: [{ name: "A", mhz: "120.4", primary: true }] } as never);
+    const mil = airfieldPriority({ type: 5, runways: [rw(1500, true)], frequencies: [] } as never);
+    expect(big).toBeLessThan(grass);
+    expect(grass).toBeLessThan(mil);
   });
 });

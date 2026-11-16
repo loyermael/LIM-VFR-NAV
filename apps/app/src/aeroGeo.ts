@@ -145,12 +145,23 @@ export function airfieldLabel(a: Airfield): string {
   return [a.icao ?? "", a.name.toUpperCase(), tail].filter(Boolean).join("\n");
 }
 
+/**
+ * Priorité d'affichage d'un terrain quand plusieurs symboles se gênent (plus petit = affiché en premier) :
+ * les terrains civils avec piste en dur et fréquence passent avant les pistes en herbe, puis les terrains militaires.
+ */
+export function airfieldPriority(a: Pick<Airfield, "type" | "runways" | "frequencies">): number {
+  const mil = a.type === 4 || a.type === 5;
+  const longest = Math.max(0, ...a.runways.map((r) => r.lengthM ?? 0));
+  const paved = a.runways.some((r) => r.paved === true) || (a.runways.every((r) => r.paved === undefined) && longest >= 900);
+  return (mil ? 4 : 0) + (paved ? 0 : 1) + (a.frequencies.length > 0 ? 0 : 1) + (longest >= 1200 ? 0 : 0.5);
+}
+
 export function airfieldsToGeoJSON(airfields: readonly Airfield[]): FeatureCollection {
   return {
     type: "FeatureCollection",
     features: airfields.map((a) => ({
       type: "Feature" as const,
-      properties: { id: a.id, name: a.name, icao: a.icao ?? "", sym: airfieldSymbol(a), lbl: airfieldLabel(a), mil: a.type === 4 || a.type === 5 },
+      properties: { id: a.id, name: a.name, icao: a.icao ?? "", sym: airfieldSymbol(a), lbl: airfieldLabel(a), mil: a.type === 4 || a.type === 5, prio: airfieldPriority(a) },
       geometry: { type: "Point" as const, coordinates: [a.position.lon, a.position.lat] },
     })),
   };

@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Button } from "./ui/Button";
 import { formatQuantity, fromSI, toSI, unitLabel, type Airspace, type NavLog, type RouteHit, type UnitPrefs } from "@lim/core";
 import { Icon } from "./ui/Icon";
 import { t, type Key, type Lang } from "./i18n";
@@ -6,12 +7,15 @@ import { periodStatus, sortAirspacesTopDown } from "./aeroGeo";
 import { isGroundRelative, limitToMeters, niceStep, profileTop, routeProfilePoints } from "./spacesProfile";
 import type { RouteRecord } from "./routeEdit";
 
+const ZOOMS = [1, 1.5, 2, 3, 4, 6];
+const stepZoom = (z: number, dir: 1 | -1) => ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, ZOOMS.indexOf(z) + dir))] ?? 1;
+
 type Status = "inside" | "unknown" | "outside";
 const ICON = { inside: "triangle-alert", unknown: "diamond-alert", outside: "circle-check" } as const;
 const STATUS_KEY: Record<Status, Key> = { inside: "sp.inside", unknown: "sp.unknown", outside: "sp.outside" };
 
 /** Un bloc par espace, de la première entrée à la dernière sortie (un espace traversé deux fois reste un seul bloc). */
-function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string }) {
+function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string; zx: number; zy: number }) {
   const { hits, prefs, T } = p;
   const pts = routeProfilePoints(p.route.points);
   const total = pts[pts.length - 1]?.d ?? 0;
@@ -20,9 +24,10 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
   const routeMaxDisp = alts.length ? aU(Math.max(...alts)) : 0;
   const topDisp = profileTop(routeMaxDisp, prefs.altitude === "ft" ? 8000 : 2500);
   const topM = toSI("altitude", prefs, topDisp);
-  const stepDisp = niceStep(topDisp, 5);
+  const stepDisp = niceStep(topDisp, 5 * p.zy);
 
-  const W = 800, H = 320, L = 52, R = 12, Tm = 30, B = 30;
+  // Zoom : le dessin grandit (marges et textes gardent leur taille), le cadre défile.
+  const W = 800 * p.zx, H = 320 * p.zy, L = 52, R = 12, Tm = 30, B = 30;
   const pw = W - L - R, ph = H - Tm - B;
   const X = (m: number) => L + (total === 0 ? 0 : (m / total) * pw);
   const Y = (m: number) => Tm + ph - (Math.min(Math.max(m, 0), topM) / topM) * ph;
@@ -39,14 +44,15 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
     const hh = Y(limitToMeters(a.lower)) - Y(Math.min(limitToMeters(a.upper), topM));
     if (x2 - x1 <= 56 || hh <= 16) return;
     const maxCh = Math.floor((x2 - x1 - 8) / 6.2);
-    const text = a.name.length > maxCh ? `${a.name.slice(0, maxCh - 1)}…` : a.name;
+    const full = a.icaoClass ? `${a.name} · ${a.icaoClass}` : a.name;
+    const text = full.length > maxCh ? `${full.slice(0, maxCh - 1)}…` : full;
     const bx2 = x1 + 5 + text.length * 6.2;
     if (placed.some((q) => Math.abs(q.y - y) < 12 && q.x1 < bx2 && x1 + 5 < q.x2)) return;
     placed.push({ x1: x1 + 5, x2: bx2, y });
     labelOf.set(a.id, text);
   });
   const dU = (m: number) => fromSI("distance", prefs, m);
-  const distStep = niceStep(dU(total), 5);
+  const distStep = niceStep(dU(total), 5 * p.zx);
   const xTicks: number[] = [];
   for (let v = 0; v <= dU(total) + 1e-9; v += distStep) xTicks.push(v);
   const yTicks: number[] = [];
@@ -54,7 +60,7 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
   const polyline = pts.filter((x) => x.alt !== null).map((x) => `${X(x.d)},${Y(x.alt as number)}`).join(" ");
 
   return (
-    <svg className="sp-svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={T("sp.profileAria")}>
+    <svg className="sp-svg" viewBox={`0 0 ${W} ${H}`} style={{ width: `${p.zx * 100}%`, minWidth: 560 * p.zx }} role="img" aria-label={T("sp.profileAria")}>
       <defs>
         <pattern id="sp-gnd" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="currentColor" strokeWidth="2" /></pattern>
       </defs>
@@ -73,7 +79,7 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
         const w = Math.max(2, x2 - x1), hh = Math.max(2, y2 - y1);
         return (
           <g key={a.id} className={`sp-box ${h.vertical}`}>
-            <title>{`${a.name} — ${a.upper.label} / ${a.lower.label}`}</title>
+            <title>{`${a.name} — ${a.typeLabel}${a.icaoClass ? ` ${p.T("sp.class")} ${a.icaoClass}` : ""} — ${a.upper.label} / ${a.lower.label}`}</title>
             <rect x={x1} y={y1} width={w} height={hh} strokeDasharray={dashed ? "6 3" : undefined} />
             {labelOf.has(a.id) && <text x={x1 + 5} y={y1 + 13}>{labelOf.get(a.id)}</text>}
           </g>
@@ -136,6 +142,8 @@ export function SpacesTab(p: {
 }): ReactNode {
   const T = (k: Key) => t(p.lang, k);
   const { route, hits } = p;
+  const [zx, setZx] = useState(1);
+  const [zy, setZy] = useState(1);
   if (!route || route.points.length < 2) return <div className="sp-page"><p className="muted">{T("navlog.needPoints")}</p></div>;
   if (!p.hasAero) return <div className="sp-page"><p className="muted">{T("navasp.needData")}</p></div>;
   const withAlt = route.points.some((x) => x.altitude !== null);
@@ -160,7 +168,18 @@ export function SpacesTab(p: {
           </div>
           <section className="sp-sec">
             <h3>{T("sp.profile")}</h3>
-            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} /></div>
+            <div className="sp-zoom" role="group" aria-label={T("sp.zoom")}>
+              <span className="sp-zl">{T("sp.zoomDist")}</span>
+              <Button size="touch" icon="minus" aria-label={`${T("sp.zoomOut")} ${T("sp.zoomDist")}`} disabled={zx <= 1} onClick={() => setZx(stepZoom(zx, -1))} />
+              <b className="sp-zv">×{zx}</b>
+              <Button size="touch" icon="plus" aria-label={`${T("sp.zoomIn")} ${T("sp.zoomDist")}`} disabled={zx >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZx(stepZoom(zx, 1))} />
+              <span className="sp-zl">{T("sp.zoomAlt")}</span>
+              <Button size="touch" icon="minus" aria-label={`${T("sp.zoomOut")} ${T("sp.zoomAlt")}`} disabled={zy <= 1} onClick={() => setZy(stepZoom(zy, -1))} />
+              <b className="sp-zv">×{zy}</b>
+              <Button size="touch" icon="plus" aria-label={`${T("sp.zoomIn")} ${T("sp.zoomAlt")}`} disabled={zy >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZy(stepZoom(zy, 1))} />
+              {(zx > 1 || zy > 1) && <Button size="touch" icon="rotate-ccw" onClick={() => { setZx(1); setZy(1); }}>{T("sp.zoomReset")}</Button>}
+            </div>
+            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} zx={zx} zy={zy} /></div>
             <div className="sp-legend">
               <span><svg width="22" height="10" aria-hidden="true"><line x1="0" x2="22" y1="5" y2="5" className="sp-route" /></svg>{T("sp.legendRoute")}</span>
               <span className="inside"><Icon name="triangle-alert" size={16} />{T("sp.legendInside")}</span>

@@ -786,7 +786,7 @@ export function MapView(props: MapViewProps) {
           {
             id, type: "symbol", source: "apt", minzoom, filter: filter as never,
             layout: {
-              "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["case", ["get", "mil"], 1, 0], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
+              "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 1, "symbol-sort-key": ["get", "prio"], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.5, 6, 0.75, 8, 1, 10, 1.4, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
               "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 10.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
               "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
             } as never,
