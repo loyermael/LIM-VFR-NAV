@@ -262,3 +262,25 @@ describe.skipIf(!existsSync(realAsp) || !existsSync(realApt))("export réel de l
     expect(airspacesAt({ lat: 46.6, lon: 2.35 }, meters(1000) as Meters, asp.items).length).toBeGreaterThan(0);
   });
 });
+
+describe("espaces traversés : plusieurs traversées d'un même espace", () => {
+  const A = parseOpenAipAirspaces([rawAsp({ _id: "A", name: "TMA A" })]).items[0]!; // carré de ±0,2° autour de (46, 2)
+  const pt = (id: string, lat: number, lon: number, altFt: number | null): RoutePoint => ({
+    id, name: id, position: { lat, lon }, altitude: altFt === null ? null : feetToMeters(feet(altFt)),
+  });
+  it("une route aller-retour traverse l'espace deux fois : deux segments, pas un seul bloc de bout en bout", () => {
+    // A est le carré [1,3]x[45,47] du fichier de test : on entre, on sort, on revient plus tard.
+    const r = airspacesAlongRoute({ points: [pt("a", 46, 1.5, 3000), pt("b", 46, 4, 3000), pt("c", 46, 1.5, 3000)] }, [A]);
+    expect(r).toHaveLength(1);
+    expect(r[0]!.segments.length).toBeGreaterThanOrEqual(2);
+    const [s1, s2] = r[0]!.segments;
+    expect(s2!.entry).toBeGreaterThan(s1!.exit + 10000);
+    expect(r[0]!.entry).toBe(s1!.entry);
+    expect(r[0]!.exit).toBe(r[0]!.segments[r[0]!.segments.length - 1]!.exit);
+  });
+  it("une seule traversée : un segment, avec le statut vertical de l'espace", () => {
+    const r = airspacesAlongRoute({ points: [pt("a", 46, 1.5, 3000), pt("b", 46, 2.5, 3000)] }, [A]);
+    expect(r[0]!.segments).toHaveLength(1);
+    expect(r[0]!.segments[0]!.vertical).toBe(r[0]!.vertical);
+  });
+});

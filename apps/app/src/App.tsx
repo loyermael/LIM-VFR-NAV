@@ -16,7 +16,7 @@ import { airfieldDetails, airfieldsToGeoJSON, airspaceDetails, sortAirspacesTopD
 import { deleteDataset, importAeroFiles, loadDatasets, saveDataset, type AirfieldDataset, type AirspaceDataset } from "./datasets";
 import { addPoint, fromRouteFile, movePoint, newRoute, renamePoint, reverseRoute, setDepartureMs, setLegWind, toWindPlan, type RouteRecord } from "./routeEdit";
 import { deleteRoute, loadActiveRouteId, loadRoutes, saveActiveRouteId, saveRoute } from "./routeStore";
-import { FormatError, airspaceAhead, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
+import { FormatError, isDroneZone, airspaceAhead, airspacesAlongRoute, computeNavLog, importRoute, legWindsFromForecasts, litersPerHour, meters, stationsNearRoute, type Aircraft } from "@lim/core";
 import { buildDossier } from "./dossierPdf";
 import { DocsTab } from "./DocsScreen";
 import { AdInfo, AdMenu } from "./AdMenu";
@@ -982,7 +982,7 @@ export function App() {
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
   /** Espaces traversés par la route (onglet Espaces) : recalculé seulement quand la route ou les espaces changent. */
   const routeSpaces = useMemo(
-    () => (screen === "nav" && tab === 3 && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces) : []),
+    () => (screen === "nav" && tab === 3 && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces.filter((x) => !isDroneZone(x))) : []),
     [screen, tab, route, visibleAirspaces],
   );
   /** Curseur de l'onglet Espaces : distance le long de la route (m), partagée entre le profil et la carte (survol dans les deux sens). */

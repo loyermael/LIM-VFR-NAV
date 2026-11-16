@@ -1,6 +1,6 @@
 import { useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { Button } from "./ui/Button";
-import { formatQuantity, fromSI, toSI, unitLabel, type Airspace, type NavLog, type RouteHit, type UnitPrefs } from "@lim/core";
+import { formatQuantity, fromSI, toSI, unitLabel, type Airspace, type NavLog, type RouteHit, type RouteSegment, type UnitPrefs } from "@lim/core";
 import { Icon } from "./ui/Icon";
 import { t, type Key, type Lang } from "./i18n";
 import { periodStatus, sortAirspacesTopDown } from "./aeroGeo";
@@ -14,8 +14,8 @@ type Status = "inside" | "unknown" | "outside";
 const ICON = { inside: "triangle-alert", unknown: "diamond-alert", outside: "circle-check" } as const;
 const STATUS_KEY: Record<Status, Key> = { inside: "sp.inside", unknown: "sp.unknown", outside: "sp.outside" };
 
-/** Un bloc par espace, de la première entrée à la dernière sortie (un espace traversé deux fois reste un seul bloc). */
-function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string; zx: number; zy: number; cursorM: number | null; aircraftM: number | null; onCursor: (d: number | null) => void }) {
+/** Un bloc par TRAVERSÉE d'espace (un espace traversé deux fois donne deux blocs), de son entrée à sa sortie. */
+function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T: (k: Key) => string; zx: number; zy: number; cursorM: number | null; aircraftM: number | null; onCursor: (d: number | null) => void; showOutside: boolean }) {
   const { hits, prefs, T } = p;
   const pts = routeProfilePoints(p.route.points);
   const total = pts[pts.length - 1]?.d ?? 0;
@@ -32,15 +32,17 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
   const X = (m: number) => L + (total === 0 ? 0 : (m / total) * pw);
   const Y = (m: number) => Tm + ph - (Math.min(Math.max(m, 0), topM) / topM) * ph;
 
+  // Traversées à dessiner : par défaut seulement celles où l'altitude est dans l'espace ou à vérifier (les autres sont au-dessus ou en dessous de la route).
   const drawn = hits
-    .filter((h) => limitToMeters(h.airspace.lower) < topM)
-    .sort((a, b) => (b.exit - b.entry) * (limitToMeters(b.airspace.upper) - limitToMeters(b.airspace.lower)) - (a.exit - a.entry) * (limitToMeters(a.airspace.upper) - limitToMeters(a.airspace.lower)));
+    .flatMap((h) => h.segments.map((s, i) => ({ h, s, key: `${h.airspace.id}-${i}` })))
+    .filter((x) => (p.showOutside || x.s.vertical !== "outside") && limitToMeters(x.h.airspace.lower) < topM)
+    .sort((a, b) => (b.s.exit - b.s.entry) * (limitToMeters(b.h.airspace.upper) - limitToMeters(b.h.airspace.lower)) - (a.s.exit - a.s.entry) * (limitToMeters(a.h.airspace.upper) - limitToMeters(a.h.airspace.lower)));
   // Noms : on ne pose pas un nom sur un autre (même zone du dessin) ; les espaces les plus hauts sont servis d'abord.
   const placed: { x1: number; x2: number; y: number }[] = [];
   const labelOf = new Map<string, string>();
-  [...drawn].sort((a, b) => limitToMeters(b.airspace.upper) - limitToMeters(a.airspace.upper)).forEach((h) => {
+  [...drawn].sort((a, b) => limitToMeters(b.h.airspace.upper) - limitToMeters(a.h.airspace.upper)).forEach(({ h, s, key }) => {
     const a = h.airspace;
-    const x1 = X(h.entry), x2 = X(h.exit), y = Y(Math.min(limitToMeters(a.upper), topM)) + 13;
+    const x1 = X(s.entry), x2 = X(s.exit), y = Y(Math.min(limitToMeters(a.upper), topM)) + 13;
     const hh = Y(limitToMeters(a.lower)) - Y(Math.min(limitToMeters(a.upper), topM));
     if (x2 - x1 <= 56 || hh <= 16) return;
     const maxCh = Math.floor((x2 - x1 - 8) / 6.2);
@@ -49,7 +51,7 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
     const bx2 = x1 + 5 + text.length * 6.2;
     if (placed.some((q) => Math.abs(q.y - y) < 12 && q.x1 < bx2 && x1 + 5 < q.x2)) return;
     placed.push({ x1: x1 + 5, x2: bx2, y });
-    labelOf.set(a.id, text);
+    labelOf.set(key, text);
   });
   const dU = (m: number) => fromSI("distance", prefs, m);
   const distStep = niceStep(dU(total), 5 * p.zx);
@@ -78,17 +80,17 @@ function Profile(p: { hits: RouteHit[]; route: RouteRecord; prefs: UnitPrefs; T:
         </g>
       ))}
       <text className="sp-tick" x={L - 6} y={Tm - 18} textAnchor="end">{unitLabel("altitude", prefs)}</text>
-      {drawn.map((h) => {
+      {drawn.map(({ h, s, key }) => {
         const a = h.airspace;
         const lo = limitToMeters(a.lower), up = Math.min(limitToMeters(a.upper), topM);
-        const x1 = X(h.entry), x2 = X(h.exit), y1 = Y(up), y2 = Y(lo);
-        const dashed = isGroundRelative(a.lower) || isGroundRelative(a.upper) || h.vertical === "unknown";
+        const x1 = X(s.entry), x2 = X(s.exit), y1 = Y(up), y2 = Y(lo);
+        const dashed = isGroundRelative(a.lower) || isGroundRelative(a.upper) || s.vertical === "unknown";
         const w = Math.max(2, x2 - x1), hh = Math.max(2, y2 - y1);
         return (
-          <g key={a.id} className={`sp-box ${h.vertical}${cur !== null && cur >= h.entry && cur <= h.exit ? " at" : ""}`}>
+          <g key={key} className={`sp-box ${s.vertical}${cur !== null && cur >= s.entry && cur <= s.exit ? " at" : ""}`}>
             <title>{`${a.name} — ${a.typeLabel}${a.icaoClass ? ` ${p.T("sp.class")} ${a.icaoClass}` : ""} — ${a.upper.label} / ${a.lower.label}`}</title>
             <rect x={x1} y={y1} width={w} height={hh} strokeDasharray={dashed ? "6 3" : undefined} />
-            {labelOf.has(a.id) && <text x={x1 + 5} y={y1 + 13}>{labelOf.get(a.id)}</text>}
+            {labelOf.has(key) && <text x={x1 + 5} y={y1 + 13}>{labelOf.get(key)}</text>}
           </g>
         );
       })}
@@ -138,7 +140,10 @@ function Card(p: { hit: RouteHit; prefs: UnitPrefs; nowMs: number; minutes: numb
         <dt>{T("sp.ceiling")}</dt><dd>{a.upper.label}</dd>
         <dt>{T("sp.floor")}</dt><dd>{a.lower.label}</dd>
       </dl>
-      <div className="sp-cf"><span>{T("sp.entry")}</span> {dist(h.entry)} <span>· {T("sp.exit")}</span> {dist(h.exit)} {du}{p.minutes !== null && <><span> · {T("sp.inside.time")}</span> ≈ {p.minutes} min</>}</div>
+      {h.segments.map((sg: RouteSegment, i: number) => (
+        <div className="sp-cf" key={i}><span>{T("sp.entry")}</span> {dist(sg.entry)} <span>· {T("sp.exit")}</span> {dist(sg.exit)} {du}{h.segments.length > 1 && <span> · {T(STATUS_KEY[sg.vertical as Status])}</span>}</div>
+      ))}
+      {p.minutes !== null && <div className="sp-cf"><span>{T("sp.inside.time")}</span> ≈ {p.minutes} min</div>}
       {f0 && <div className="sp-cf"><span>{T("sp.freq")}</span> {f0.mhz} {f0.name}</div>}
       {(a.byNotam || a.onRequest) && <div className="sp-cf warn">{T("navasp.activation")}</div>}
     </div>
@@ -165,6 +170,7 @@ export function SpacesTab(p: {
   const { route, hits } = p;
   const [zx, setZx] = useState(1);
   const [zy, setZy] = useState(1);
+  const [showOutside, setShowOutside] = useState(false);
   if (!route || route.points.length < 2) return <div className="sp-page"><p className="muted">{T("navlog.needPoints")}</p></div>;
   if (!p.hasAero) return <div className="sp-page"><p className="muted">{T("navasp.needData")}</p></div>;
   const withAlt = route.points.some((x) => x.altitude !== null);
@@ -174,16 +180,19 @@ export function SpacesTab(p: {
   const count = (v: Status) => hits.filter((h) => h.vertical === v).length;
   const totalSec = p.navLog ? ((p.navLog.totals.timeWithWind ?? p.navLog.totals.timeNoWind) as number) : null;
   const totalM = p.navLog ? (p.navLog.totals.distance as number) : null;
-  const minutes = (h: RouteHit) => (totalSec !== null && totalM ? Math.max(1, Math.round((((h.exit - h.entry) / totalM) * totalSec) / 60)) : null);
+  const minutes = (h: RouteHit) => (totalSec !== null && totalM ? Math.max(1, Math.round(((h.segments.reduce((a, sg) => a + (sg.exit - sg.entry), 0) / totalM) * totalSec) / 60)) : null);
   const here = p.cursorM !== null ? positionAlong(route.points, p.cursorM) : null;
-  const atCursor = p.cursorM === null ? [] : sorted.filter((h) => p.cursorM! >= h.entry && p.cursorM! <= h.exit);
+  const atCursor = p.cursorM === null ? [] : sorted.flatMap((h) => {
+    const sg = h.segments.find((x) => p.cursorM! >= x.entry && p.cursorM! <= x.exit);
+    return sg && (showOutside || sg.vertical !== "outside") ? [{ h, vertical: sg.vertical as Status }] : [];
+  });
   const readout = here && p.cursorM !== null ? (
     <>
       <b>{formatQuantity("distance", p.prefs, p.cursorM)} {unitLabel("distance", p.prefs)}</b>
       {here.alt !== null && <span> · {T("sp.routeAlt")} {formatQuantity("altitude", p.prefs, here.alt)} {unitLabel("altitude", p.prefs)}</span>}
       <div className="sp-here">
-        {atCursor.length === 0 ? T("sp.noneHere") : atCursor.map((h) => (
-          <span key={h.airspace.id} className={`sp-hc ${h.vertical}`}><Icon name={ICON[h.vertical as Status]} size={16} />{h.airspace.name}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} <i>{h.airspace.upper.label} / {h.airspace.lower.label}</i></span>
+        {atCursor.length === 0 ? T("sp.noneHere") : atCursor.map(({ h, vertical }) => (
+          <span key={h.airspace.id} className={`sp-hc ${vertical}`}><Icon name={ICON[vertical]} size={16} />{h.airspace.name}{h.airspace.icaoClass ? ` · ${h.airspace.icaoClass}` : ""} <i>{h.airspace.upper.label} / {h.airspace.lower.label}</i></span>
         ))}
       </div>
     </>
@@ -213,7 +222,9 @@ export function SpacesTab(p: {
               <Button size="touch" icon="plus" aria-label={`${T("sp.zoomIn")} ${T("sp.zoomAlt")}`} disabled={zy >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZy(stepZoom(zy, 1))} />
               {(zx > 1 || zy > 1) && <Button size="touch" icon="rotate-ccw" onClick={() => { setZx(1); setZy(1); }}>{T("sp.zoomReset")}</Button>}
             </div>
-            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} zx={zx} zy={zy} cursorM={p.cursorM} aircraftM={p.aircraftM} onCursor={p.onCursor} /></div>
+            <div className="sp-profile"><Profile hits={hits} route={route} prefs={p.prefs} T={T} zx={zx} zy={zy} cursorM={p.cursorM} aircraftM={p.aircraftM} onCursor={p.onCursor} showOutside={showOutside} /></div>
+            {!showOutside && !hits.some((h) => h.vertical !== "outside") && <p className="sp-note strong"><Icon name="circle-check" size={16} />{T("sp.noneAtAlt")}</p>}
+            <label className="sp-toggle"><input type="checkbox" checked={showOutside} onChange={(e) => setShowOutside(e.target.checked)} />{T("sp.showOutside")}</label>
             <div className="sp-readout" aria-live="polite">{readout}</div>
             <div className="sp-legend">
               <span><svg width="22" height="10" aria-hidden="true"><line x1="0" x2="22" y1="5" y2="5" className="sp-route" /></svg>{T("sp.legendRoute")}</span>
@@ -223,6 +234,7 @@ export function SpacesTab(p: {
             </div>
             {!withAlt && <p className="sp-note"><Icon name="info" size={16} />{T("sp.noAlt")}</p>}
             <p className="sp-note"><Icon name="info" size={16} />{T("sp.note")}</p>
+            <p className="sp-note"><Icon name="info" size={16} />{T("sp.layersNote")}</p>
           </section>
           <section className="sp-sec">
             <h3>{T("sp.topDown")}</h3>

@@ -81,6 +81,17 @@ export interface RouteHit {
   readonly entryLeg: number;
   /** « inside » si, à un moment de la traversée, l'altitude prévue est dans les limites ; « unknown » si on ne peut pas le dire. */
   readonly vertical: VerticalStatus;
+  /**
+   * Traversées distinctes (un espace non convexe ou une route aller-retour peut être traversé plusieurs fois) :
+   * `entry` / `exit` ci-dessus sont la première entrée et la dernière sortie ; chaque traversée a son propre statut vertical.
+   */
+  readonly segments: readonly RouteSegment[];
+}
+
+export interface RouteSegment {
+  readonly entry: Meters;
+  readonly exit: Meters;
+  readonly vertical: VerticalStatus;
 }
 
 interface RouteLike {
@@ -93,7 +104,8 @@ interface RouteLike {
  * peut être manqué (500 m par défaut).
  */
 export function airspacesAlongRoute(route: RouteLike, airspaces: readonly Airspace[], stepM = 500): RouteHit[] {
-  const hits = new Map<string, { a: Airspace; entry: number; exit: number; leg: number; inside: boolean; unknown: boolean }>();
+  interface Seg { entry: number; exit: number; inside: boolean; unknown: boolean }
+  const hits = new Map<string, { a: Airspace; leg: number; segs: Seg[] }>();
   let travelled = 0;
   for (let i = 0; i + 1 < route.points.length; i++) {
     const from = route.points[i] as RoutePoint;
@@ -112,26 +124,35 @@ export function airspacesAlongRoute(route: RouteLike, airspaces: readonly Airspa
       for (const a of airspaces) {
         if (!inBbox(pos, a.bbox) || !pointInRings(pos, a.rings)) continue;
         const v = verticalStatus(a, alt);
-        const h = hits.get(a.id);
-        if (!h) hits.set(a.id, { a, entry: along, exit: along, leg: i, inside: v === "inside", unknown: v === "unknown" });
-        else {
-          h.exit = along;
-          h.inside = h.inside || v === "inside";
-          h.unknown = h.unknown || v === "unknown";
-        }
+        let h = hits.get(a.id);
+        if (!h) { h = { a, leg: i, segs: [] }; hits.set(a.id, h); }
+        const last = h.segs[h.segs.length - 1];
+        // Même traversée tant que les échantillons se suivent ; un trou de plus d'un pas et demi = on est sorti de l'espace entre-temps.
+        if (last && along - last.exit <= stepM * 1.6) {
+          last.exit = along;
+          last.inside = last.inside || v === "inside";
+          last.unknown = last.unknown || v === "unknown";
+        } else h.segs.push({ entry: along, exit: along, inside: v === "inside", unknown: v === "unknown" });
       }
     }
     travelled += len;
   }
+  const status = (x: { inside: boolean; unknown: boolean }): VerticalStatus => (x.inside ? "inside" : x.unknown ? "unknown" : "outside");
   return [...hits.values()]
-    .sort((x, y) => x.entry - y.entry)
-    .map((h) => ({
-      airspace: h.a,
-      entry: meters(h.entry),
-      exit: meters(h.exit),
-      entryLeg: h.leg,
-      vertical: h.inside ? "inside" : h.unknown ? "unknown" : "outside",
-    }));
+    .map((h) => {
+      const first = h.segs[0] as Seg;
+      const lastSeg = h.segs[h.segs.length - 1] as Seg;
+      const any = { inside: h.segs.some((x) => x.inside), unknown: h.segs.some((x) => x.unknown) };
+      return {
+        airspace: h.a,
+        entry: meters(first.entry),
+        exit: meters(lastSeg.exit),
+        entryLeg: h.leg,
+        vertical: status(any),
+        segments: h.segs.map((x) => ({ entry: meters(x.entry), exit: meters(x.exit), vertical: status(x) })),
+      };
+    })
+    .sort((x, y) => x.entry - y.entry);
 }
 
 export interface NearAirfield {
