@@ -76,9 +76,9 @@ export function LogSheet(p: {
   const lastHe = m.legs[m.legs.length - 1]?.he ?? "";
   const windMissing = m.winds.fl20 === "---" && m.winds.fl50 === "---" && m.winds.fl100 === "---";
   const windCell = (v: string) => (v === "---" ? <span className="ls-na">—</span> : v);
-  const reserve = p.fuel?.reserve ?? null;
-  const arrivalL = p.fuel?.arrival ?? null;
-  const fuelLevel: "ok" | "caution" | "bad" | null = arrivalL === null || reserve === null ? null : arrivalL <= 0 ? "bad" : arrivalL < reserve ? "caution" : "ok";
+  // Même verdict que la page Carburant : l'excédent est l'embarqué moins TOUT le nécessaire (roulage, trajet, aléas, déroutement, réserve).
+  const surplusL = p.fuel?.surplus ?? null;
+  const fuelLevel: "ok" | "caution" | "bad" | null = p.fuel?.arrival == null ? null : p.fuel.level;
   const [showAlt, setShowAlt] = useState(false);
   const altShown = showAlt || ["deg", "toda3", "lda3"].some((k) => val(k) !== "");
   const pt = (j: number) => m.points[j];
@@ -123,14 +123,16 @@ export function LogSheet(p: {
         <div><span className="ls-lbl">{T("log.sum.dist")}</span><b>{m.totals.d} <small>{m.totals.dUnit}</small></b></div>
         <div><span className="ls-lbl">{T("log.sum.noWind")}</span><b>{m.totals.tsv}</b></div>
         <div><span className="ls-lbl">{T("log.sum.wind")}</span><b>{m.totals.tav}</b></div>
-        <div><span className="ls-lbl">{T("log.sum.fuel")}</span><b>{m.totals.fuel || "—"} {m.totals.fuel && <small>{m.consoUnit.replace("/h", "")}</small>}</b></div>
+        <div><span className="ls-lbl">{T("log.sum.fuel")}</span><b>{p.fv && p.fuel?.trip != null ? p.fv.trip : "—"}</b></div>
         <div className={fuelLevel === "ok" || fuelLevel === null ? "" : `lvl-${fuelLevel}`}>
           <span className="ls-lbl">{T("log.sum.arrival")}</span>
           <b>{p.fv?.arrival ?? "—"}</b>
-          {fuelLevel && fuelLevel !== "ok" && reserve !== null && arrivalL !== null && (
-            <span className="ls-chip"><Icon name={fuelLevel === "bad" ? "triangle-alert" : "diamond-alert"} size={16} />{p.fv?.fmt(Math.max(0, reserve - arrivalL))} {T("log.fuel.belowReserve")}</span>
+          {fuelLevel && surplusL !== null && (
+            <span className={fuelLevel === "ok" ? "ls-chip ok" : "ls-chip"}>
+              <Icon name={fuelLevel === "ok" ? "circle-check" : fuelLevel === "caution" ? "diamond-alert" : "triangle-alert"} size={16} />
+              {p.fv?.fmt(Math.abs(surplusL))} {surplusL < 0 ? T("log.fuel.belowReserve") : T("log.fuel.aboveReserve")}
+            </span>
           )}
-          {fuelLevel === "ok" && reserve !== null && arrivalL !== null && <span className="ls-chip ok"><Icon name="circle-check" size={16} />{p.fv?.fmt(arrivalL - reserve)} {T("log.fuel.aboveReserve")}</span>}
         </div>
         <div><span className="ls-lbl">{T("log.sum.endurance")}</span><b>{p.fv?.enduranceTotal ?? "—"}</b></div>
       </div>
