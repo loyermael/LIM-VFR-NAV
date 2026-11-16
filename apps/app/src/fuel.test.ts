@@ -119,3 +119,17 @@ describe("état et barre empilée", () => {
     expect(bad.segs.reduce((a, x) => a + x.liters, 0)).toBeCloseTo(at(8).required as number, 9);
   });
 });
+
+describe("base du trajet : avec vent seulement si la route porte un vent", () => {
+  it("route sans aucun vent : « sans vent » (le temps avec vent n'est alors que le temps sans vent)", () => {
+    const { log } = logFor(0);
+    expect(log.totals.timeWithWind).not.toBeNull();
+    expect(computeFuelSheet({ log, aircraft, loads, plan: DEFAULT_FUEL_PLAN }).tripBasis).toBe("nowind");
+  });
+  it("route avec vent : « avec vent » et consommation sur le temps avec vent", () => {
+    const { log } = logFor(8);
+    const s = computeFuelSheet({ log, aircraft, loads, plan: DEFAULT_FUEL_PLAN });
+    expect(s.tripBasis).toBe("wind");
+    expect(s.tripSec).toBe(log.totals.timeWithWind);
+  });
+});

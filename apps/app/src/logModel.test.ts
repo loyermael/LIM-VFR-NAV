@@ -43,7 +43,7 @@ describe("log : champs préremplis", () => {
   const sheet = (onboard: number) => computeFuelSheet({
     aircraft: { fuelFlowLph: 20, fuel: { capacity: 100, unusable: 5, density: 0.72 }, stations: [{ id: "f", kind: "fuel" }] } as never,
     loads: { f: onboard }, plan: DEFAULT_FUEL_PLAN,
-    log: { totals: { timeWithWind: 3600, timeNoWind: 3600 } } as never,
+    log: { legs: [{ wind: { direction: 0, speed: 5 } }], totals: { timeWithWind: 3600, timeNoWind: 3600 } } as never,
   });
   const input = {
     prefs, fuel: sheet(60),

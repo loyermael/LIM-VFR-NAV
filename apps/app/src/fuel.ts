@@ -59,8 +59,10 @@ export function computeFuelSheet(i: FuelInput): FuelSheet {
   const tank = a?.stations.find((s) => s.kind === "fuel") ?? null;
   const onboard = a && tank ? (i.loads[tank.id] ?? 0) : 0;
   const withWind = i.log?.totals.timeWithWind ?? null;
-  const tripBasis: TripBasis | null = !i.log || flow === null ? null : withWind !== null ? "wind" : "nowind";
-  const tripSec = tripBasis === null || !i.log ? null : tripBasis === "wind" ? (withWind as number) : (i.log.totals.timeNoWind as number);
+  // « Avec vent » seulement si la route porte un vent (sinon le temps avec vent est le temps sans vent) et qu'il est calculable partout.
+  const hasWind = i.log?.legs.some((l) => l.wind !== null) ?? false;
+  const tripBasis: TripBasis | null = !i.log || flow === null ? null : withWind !== null && hasWind ? "wind" : "nowind";
+  const tripSec = tripBasis === null || !i.log ? null : tripBasis === "wind" ? (withWind as number) : withWind !== null ? withWind : (i.log.totals.timeNoWind as number);
   const trip = flow === null || tripSec === null ? null : (flow * tripSec) / 3600;
   const capacity = a ? Math.max(0, a.fuel.capacity - a.fuel.unusable) : 0;
   const p = planFuel({
