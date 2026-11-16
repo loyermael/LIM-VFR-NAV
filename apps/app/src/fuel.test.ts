@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_UNIT_PREFS, computeBalance, computeNavLog, litersPerHour, type Aircraft } from "@lim/core";
 import { addPoint, newRoute, setDefaultWind, toWindPlan } from "./routeEdit";
 import { DEFAULT_FUEL_PLAN } from "./aircraftStore";
-import { computeFuelSheet, formatFuel, formatHm } from "./fuel";
+import { computeFuelSheet, formatFuel, formatHm, fuelBar } from "./fuel";
 import { buildAutoFields } from "./logModel";
 
 // Avion FICTIF de test.
@@ -95,5 +95,27 @@ describe("mêmes chiffres sur toutes les pages", () => {
     expect((b.arrival as number) - (a.arrival as number)).toBeCloseTo(10, 9);
     expect((b.surplus as number) - (a.surplus as number)).toBeCloseTo(10, 9);
     expect((b.enduranceTotalSec as number) - (a.enduranceTotalSec as number)).toBeCloseTo((10 / 12) * 3600, 6);
+  });
+});
+
+describe("état et barre empilée", () => {
+  const { log } = logFor(0);
+  const at = (f: number, low = 3) => computeFuelSheet({ log, aircraft, loads: { p: 80, f }, plan: { ...DEFAULT_FUEL_PLAN, lowMarginLiters: low } });
+  it("vert / orange / rouge selon l'excédent et le seuil réglable", () => {
+    const need = at(40).required as number;
+    expect(at(40).level).toBe("ok");
+    expect(at(need + 1).level).toBe("caution");
+    expect(at(need + 1, 0.5).level).toBe("ok");
+    expect(at(need - 1).level).toBe("bad");
+    expect(computeFuelSheet({ log: null, aircraft, loads, plan: DEFAULT_FUEL_PLAN }).level).toBeNull();
+  });
+  it("la barre : postes remplis dans l'ordre, excédent à la fin, manque signalé", () => {
+    const ok = fuelBar(at(40))!;
+    expect(ok.segs.map((x) => x.key)).toEqual(["trip", "contingency", "reserve", "surplus"]);
+    expect(ok.segs.reduce((a, x) => a + x.liters, 0)).toBeCloseTo(40, 9);
+    const bad = fuelBar(at(8))!;
+    expect(bad.segs.some((x) => x.key === "missing")).toBe(true);
+    expect(bad.segs.some((x) => x.key === "surplus")).toBe(false);
+    expect(bad.segs.reduce((a, x) => a + x.liters, 0)).toBeCloseTo(at(8).required as number, 9);
   });
 });

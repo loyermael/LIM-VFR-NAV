@@ -12,13 +12,15 @@ export interface FuelPlanParams {
   readonly contingencyPercent: number;
   readonly alternateMinutes: number;
   readonly reserveMinutes: number;
+  /** Excédent (L) en dessous duquel l'état passe à « marge faible ». */
+  readonly lowMarginLiters: number;
 }
 
 /**
  * Valeurs de départ du plan de carburant. Ce sont des réglages à CONFIRMER par le pilote selon sa réglementation
  * et sa politique de sécurité, pas des exigences : JUGÉ. Roulage 0 : à renseigner.
  */
-export const DEFAULT_FUEL_PLAN: FuelPlanParams = { taxiLiters: 0, contingencyPercent: 10, alternateMinutes: 0, reserveMinutes: 30 };
+export const DEFAULT_FUEL_PLAN: FuelPlanParams = { taxiLiters: 0, contingencyPercent: 10, alternateMinutes: 0, reserveMinutes: 30, lowMarginLiters: 3 };
 
 const ACTIVE_KEY = "lim.aircraft.active.v1";
 const LOADS_KEY = "lim.aircraft.loads.v1";
@@ -54,7 +56,7 @@ export function parseLoads(raw: unknown): Record<string, Loads> {
 export function parseFuelPlan(raw: unknown): FuelPlanParams {
   const o = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   const n = (k: keyof FuelPlanParams) => (typeof o[k] === "number" && Number.isFinite(o[k]) && (o[k] as number) >= 0 ? (o[k] as number) : DEFAULT_FUEL_PLAN[k]);
-  return { taxiLiters: n("taxiLiters"), contingencyPercent: n("contingencyPercent"), alternateMinutes: n("alternateMinutes"), reserveMinutes: n("reserveMinutes") };
+  return { taxiLiters: n("taxiLiters"), contingencyPercent: n("contingencyPercent"), alternateMinutes: n("alternateMinutes"), reserveMinutes: n("reserveMinutes"), lowMarginLiters: n("lowMarginLiters") };
 }
 
 /** État des fiches avion, des charges saisies par avion et des paramètres du plan de carburant. */

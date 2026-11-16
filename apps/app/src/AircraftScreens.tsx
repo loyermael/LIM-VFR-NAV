@@ -20,7 +20,7 @@ import {
   patchVertex, removeStation, removeVertex,
 } from "./aircraftEdit";
 import type { FuelPlanParams } from "./aircraftStore";
-import { formatFuel, type FuelSheet } from "./fuel";
+import { formatFuel, fuelBar, type FuelSheet } from "./fuel";
 import { listAircraft, type AircraftSort } from "./aircraftList";
 
 const ISSUE_KEYS: Record<BalanceIssue, Key> = {
@@ -549,16 +549,42 @@ interface FuelProps {
   onOpenSheet: () => void;
 }
 
-/** Onglet « Carburant » : carburant nécessaire (trajet, aléas, déroutement, réserve) et comparaison avec l'embarqué. */
+/** Barre empilée : postes du plan comparés à l'embarqué (neutre ; hachures orange / rouge pour ce qui manque). */
+function FuelBar(p: { f: FuelSheet; fv: ReturnType<typeof formatFuel>; T: (k: Key) => string }) {
+  const bar = fuelBar(p.f);
+  if (!bar) return null;
+  const pct = (v: number) => `${(v / bar.scale) * 100}%`;
+  const names: Record<string, Key> = { taxi: "fuel.taxi", trip: "fuel.trip", contingency: "fuel.contingency", alternate: "fuel.alternate", reserve: "fuel.reserve", missing: "fuel.missing", surplus: "fuel.surplus" };
+  const keys = [...new Set(bar.segs.map((x) => x.key))];
+  const onbPct = p.f.onboard / bar.scale;
+  return (
+    <div className="fp-stack">
+      <div className="fp-track" role="img" aria-label={`${p.T("fuel.onboard")} ${p.fv.onboard}`}>
+        {bar.segs.map((x, n) => <i key={n} className={`seg-${x.key}${x.key === "missing" && p.f.level === "bad" ? " bad" : ""}`} style={{ width: pct(x.liters) }} />)}
+        <span className="fp-mark" style={{ left: pct(p.f.onboard) }}><b style={onbPct > 0.8 ? { transform: "translateX(-100%)" } : undefined}>{p.T("fuel.onboard")} {p.fv.onboard}</b></span>
+      </div>
+      <div className="fp-scale"><span>0</span><span>{p.T("fuel.capacityScale")} {p.fv.capacity}</span></div>
+      <div className="fp-legend">{keys.map((k) => <span key={k}><i className={`seg-${k}${k === "missing" && p.f.level === "bad" ? " bad" : ""}`} />{p.T(names[k] as Key)}</span>)}</div>
+    </div>
+  );
+}
+
+/** Onglet « Carburant » : réglages et embarqué (saisie) puis résultat : état, répartition et détail. Tout vient de la fiche carburant unique (fuel.ts). */
 export function FuelTab(p: FuelProps) {
   const T = (k: Key) => t(p.lang, k);
   const a = p.active;
   const fuelStation = a?.stations.find((s) => s.kind === "fuel") ?? null;
   const f = p.fuel;
   const fv = formatFuel(f, p.prefs);
-  const L = fv.fmt;
+  const u = unitLabel("fuel", p.prefs);
+  const dec = 1;
+  const setPlan = (patch: Partial<FuelPlanParams>) => p.onPlan({ ...p.plan, ...patch });
+  const litres = (v: number | null, key: keyof FuelPlanParams) => setPlan({ [key]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) });
+  const level = f.level;
+  const bannerTitle = level === "bad" ? T("fuel.state.bad") : level === "caution" ? T("fuel.state.caution") : T("fuel.state.ok");
+  const surplusLabel = f.surplus !== null && f.surplus < 0 ? T("fuel.missing") : T("fuel.surplus");
   return (
-    <div className="navscreen acform">
+    <div className="fuelpage">
       {!a && (
         <>
           <p className="muted">{T("fuel.noAircraft")}</p>
@@ -568,43 +594,78 @@ export function FuelTab(p: FuelProps) {
       {a && (
         <>
           <div className="ac-chosen"><Icon name="circle-check" size={20} />{a.registration ? <><b>{a.registration}</b><span>{a.name}</span></> : <b>{a.name}</b>}</div>
-          <p className="muted small">{T("fuel.defaultsNote")}</p>
-          <div className="params">
-            <NumField label={`${T("fuel.taxi")} (${unitLabel("fuel", p.prefs)})`} decimals={1} value={fromSI("fuel", p.prefs, p.plan.taxiLiters)} onCommit={(v) => p.onPlan({ ...p.plan, taxiLiters: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
-            <NumField label={`${T("fuel.contingency")} (%)`} decimals={0} value={p.plan.contingencyPercent} onCommit={(v) => p.onPlan({ ...p.plan, contingencyPercent: v === null ? 0 : Math.max(0, v) })} />
-            <NumField label={`${T("fuel.alternate")} (min)`} decimals={0} value={p.plan.alternateMinutes} onCommit={(v) => p.onPlan({ ...p.plan, alternateMinutes: v === null ? 0 : Math.max(0, v) })} />
-            <NumField label={`${T("fuel.reserve")} (min)`} decimals={0} value={p.plan.reserveMinutes} onCommit={(v) => p.onPlan({ ...p.plan, reserveMinutes: v === null ? 0 : Math.max(0, v) })} />
-            {fuelStation && (
-              <NumField label={`${T("fuel.onboard")} (${unitLabel("fuel", p.prefs)})`} decimals={1} value={fromSI("fuel", p.prefs, f.onboard)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
-            )}
+          <div className="fp-cols">
+            <div className="fp-in">
+              <details className="fp-fold" open>
+                <summary>{T("fuel.settings")}<Icon name="chevron-down" size={24} /></summary>
+                <div className="fp-fold-in">
+                  <div className="fp-grid">
+                    <div className="fp-ro">
+                      <span className="fp-lbl">{T("fuel.flow")}</span>
+                      <div className="fp-rov"><b>{a.fuelFlowLph === null ? "—" : fromSI("fuel", p.prefs, a.fuelFlowLph).toFixed(1)} <u>{u}/h</u></b><button type="button" onClick={p.onOpenSheet}>{T("fuel.sheetLink")} ›</button></div>
+                    </div>
+                    <UnitField layout="stack" label={T("fuel.taxi")} unit={u} decimals={dec} value={fromSI("fuel", p.prefs, p.plan.taxiLiters)} onCommit={(v) => litres(v, "taxiLiters")} />
+                    <UnitField layout="stack" label={T("fuel.contingencyLabel")} unit="%" decimals={0} value={p.plan.contingencyPercent} onCommit={(v) => setPlan({ contingencyPercent: v === null ? 0 : Math.max(0, v) })} />
+                    <UnitField layout="stack" label={T("fuel.alternate")} unit="min" decimals={0} value={p.plan.alternateMinutes} onCommit={(v) => setPlan({ alternateMinutes: v === null ? 0 : Math.max(0, v) })} />
+                    <UnitField layout="stack" label={T("fuel.reserve")} unit="min" decimals={0} value={p.plan.reserveMinutes} onCommit={(v) => setPlan({ reserveMinutes: v === null ? 0 : Math.max(0, v) })} />
+                    <UnitField layout="stack" label={T("fuel.lowMargin")} unit={u} decimals={dec} value={fromSI("fuel", p.prefs, p.plan.lowMarginLiters)} onCommit={(v) => litres(v, "lowMarginLiters")} />
+                  </div>
+                  <p className="fp-note"><Icon name="info" size={16} />{T("fuel.defaultsNote")}</p>
+                </div>
+              </details>
+              {fuelStation && (
+                <section className="fp-sec">
+                  <h3>{T("fuel.onboardTitle")}</h3>
+                  <UnitField label={T("fuel.onboardField")} unit={u} decimals={dec} value={fromSI("fuel", p.prefs, f.onboard)} limit={fromSI("fuel", p.prefs, f.capacity)} onCommit={(v) => p.onLoads({ ...p.loads, [fuelStation.id]: v === null ? 0 : Math.max(0, toSI("fuel", p.prefs, v)) })} />
+                  <p className="fp-basis">{T("fuel.sync")}{f.tripBasis !== null && <> · {T(f.tripBasis === "wind" ? "fuel.basisWind" : "fuel.basisNoWind")}</>}</p>
+                </section>
+              )}
+            </div>
+
+            <div className="fp-out">
+              {f.trip === null && <p className="fp-note"><Icon name="info" size={16} />{T(a.fuelFlowLph === null ? "fuel.noFlow" : "fuel.noTrip")}</p>}
+              {level && (
+                <StatusBanner level={level} title={bannerTitle}>
+                  <div className="fp-kpis">
+                    <div><span>{surplusLabel}</span><b>{f.surplus === null ? "—" : fv.fmt(Math.abs(f.surplus))}</b><small>{level === "bad" ? T("fuel.toAdd") : level === "caution" ? `${T("fuel.underThreshold")} ${fv.fmt(p.plan.lowMarginLiters)}` : T("fuel.aboveNeeded")}</small></div>
+                    <div><span>{T("fuel.enduranceUsable")}</span><b>{fv.enduranceUsable}</b><small>{T("fuel.usableHint")}</small></div>
+                  </div>
+                </StatusBanner>
+              )}
+              {f.overCapacity && <p className="error" role="alert">{T("fuel.overCapacity")}</p>}
+              {level && (
+                <section className="fp-sec">
+                  <h3>{T("fuel.split")}</h3>
+                  <FuelBar f={f} fv={fv} T={T} />
+                </section>
+              )}
+              <section className="fp-sec">
+                <h3>{T("fuel.detail")}</h3>
+                <div className="fp-grp">{T("fuel.calc")}</div>
+                <table className="fp-table">
+                  <tbody>
+                    <tr><td>{T("fuel.taxi")}</td><td className="v">{fv.fmt(f.taxi).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.trip")}</td><td className="v">{fv.fmt(f.trip).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.contingency")} <small>{p.plan.contingencyPercent} %</small></td><td className="v">{fv.fmt(f.contingency).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.alternate")} <small>{p.plan.alternateMinutes} min</small></td><td className="v">{fv.fmt(f.alternate).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.reserve")} <small>{p.plan.reserveMinutes} min</small></td><td className="v">{fv.fmt(f.reserve).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr className="tot"><td>{T("fuel.required")}</td><td className="v">{fv.fmt(f.required).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                  </tbody>
+                </table>
+                <div className="fp-grp">{T("fuel.bilan")}</div>
+                <table className="fp-table bil">
+                  <tbody>
+                    <tr className="big"><td>{T("fuel.onboard")}</td><td className="v">{fv.fmt(f.onboard).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr className="big"><td>{surplusLabel}</td><td className="v">{f.surplus === null ? "—" : fv.fmt(Math.abs(f.surplus)).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.arrival")}</td><td className="v">{fv.fmt(f.arrival).replace(` ${u}`, "")}</td><td className="u">{u}</td></tr>
+                    <tr><td>{T("fuel.endurance")}</td><td className="v">{fv.enduranceTotal}</td><td className="u">h:mm</td></tr>
+                    <tr><td>{T("fuel.enduranceUsable")}</td><td className="v">{fv.enduranceUsable}</td><td className="u">h:mm</td></tr>
+                  </tbody>
+                </table>
+              </section>
+            </div>
           </div>
-          <h3>{T("fuel.plan")}</h3>
-          {f.trip === null && <p className="muted small">{T("fuel.noTrip")}</p>}
-          {f.tripBasis !== null && <p className="muted small">{T(f.tripBasis === "wind" ? "fuel.basisWind" : "fuel.basisNoWind")}</p>}
-          {a.fuelFlowLph === null && <p className="muted small">{T("fuel.noFlow")}</p>}
-          <div className="tablewrap">
-            <table className="navlog">
-              <tbody>
-                <tr><td className="legname">{T("fuel.taxi")}</td><td>{fv.taxi}</td></tr>
-                <tr><td className="legname">{T("fuel.trip")}</td><td>{fv.trip}</td></tr>
-                <tr><td className="legname">{T("fuel.contingency")} ({p.plan.contingencyPercent} %)</td><td>{fv.contingency}</td></tr>
-                <tr><td className="legname">{T("fuel.alternate")} ({p.plan.alternateMinutes} min)</td><td>{fv.alternate}</td></tr>
-                <tr><td className="legname">{T("fuel.reserve")} ({p.plan.reserveMinutes} min)</td><td>{fv.reserve}</td></tr>
-              </tbody>
-              <tfoot>
-                <tr><td className="legname">{T("fuel.required")}</td><td>{fv.required}</td></tr>
-                <tr><td className="legname">{T("fuel.onboard")}</td><td>{fv.onboard}</td></tr>
-                <tr><td className="legname">{T("fuel.surplus")}</td><td>{fv.surplus}</td></tr>
-                <tr><td className="legname">{T("fuel.arrival")}</td><td>{fv.arrival}</td></tr>
-                <tr><td className="legname">{T("fuel.endurance")}</td><td>{fv.enduranceTotal}</td></tr>
-                <tr><td className="legname">{T("fuel.enduranceUsable")}</td><td>{fv.enduranceUsable}</td></tr>
-              </tfoot>
-            </table>
-          </div>
-          {f.sufficient === false && <p className="error" role="alert">{T("fuel.insufficient")}</p>}
-          {f.sufficient === true && <p className="muted small">{T("fuel.sufficient")}</p>}
-          {f.overCapacity && <p className="error" role="alert">{T("fuel.overCapacity")}</p>}
-          <p className="muted small">{T("fuel.note")}</p>
+          <p className="fp-note"><Icon name="info" size={16} />{T("fuel.note")}</p>
         </>
       )}
     </div>

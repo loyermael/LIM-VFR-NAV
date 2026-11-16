@@ -1563,9 +1563,14 @@ export function App() {
           <section className="screen">
             <header className="screen-head">
               <Button icon="arrow-left" aria-label={T("back")} onClick={goBack} />
-              <h2>
-                {screen === "soon" ? T(soonTitle) : T(SCREEN_TITLE[screen] ?? "soon")}
-              </h2>
+              <div className="sh-titles">
+                <h2>
+                  {screen === "soon" ? T(soonTitle) : screen === "aircraft" && tab === 2 ? T("nav.fuel") : screen === "aircraft" && tab === 1 ? T("nav.wb") : T(SCREEN_TITLE[screen] ?? "soon")}
+                </h2>
+                {screen === "aircraft" && tab >= 1 && route && (
+                  <div className="sh-sub">{route.name}{navLog ? ` · ${formatQuantity("distance", prefs, navLog.totals.distance as number)} ${unitLabel("distance", prefs)}` : ""}</div>
+                )}
+              </div>
             </header>
             {screen === "settings" ? (
               <div className="settings">

@@ -42,6 +42,8 @@ export interface FuelSheet {
   readonly enduranceUsableSec: number | null;
   readonly sufficient: boolean | null;
   readonly overCapacity: boolean;
+  /** État global : ok (excédent ≥ seuil), caution (marge faible), bad (insuffisant) ; null si inconnu. */
+  readonly level: "ok" | "caution" | "bad" | null;
 }
 
 export interface FuelInput {
@@ -87,6 +89,7 @@ export function computeFuelSheet(i: FuelInput): FuelSheet {
     enduranceUsableSec: usable,
     sufficient: p.sufficient,
     overCapacity: p.overCapacity,
+    level: p.surplus === null ? null : p.surplus < 0 ? "bad" : p.surplus < i.plan.lowMarginLiters ? "caution" : "ok",
   };
 }
 
@@ -137,4 +140,27 @@ export function formatFuel(s: FuelSheet, prefs: UnitPrefs): FuelView {
     flow: s.flow === null ? "—" : `${formatQuantity("fuel", prefs, s.flow)} ${unit}/h`,
     fmt,
   };
+}
+
+/** Segment de la barre « roulage + trajet + aléas + déroutement + réserve » comparée à l'embarqué. */
+export interface BarSeg { readonly key: "taxi" | "trip" | "contingency" | "alternate" | "reserve" | "missing" | "surplus"; readonly liters: number }
+
+/**
+ * Barre empilée : chaque poste est rempli dans l'ordre par l'embarqué ; ce qui manque est un segment « missing », ce qui reste un segment « surplus ».
+ * Échelle = le plus grand de la capacité utilisable, du nécessaire et de l'embarqué. null si le nécessaire est inconnu.
+ */
+export function fuelBar(s: FuelSheet): { scale: number; segs: BarSeg[] } | null {
+  if (s.required === null || s.trip === null || s.contingency === null || s.alternate === null || s.reserve === null) return null;
+  const need: [BarSeg["key"], number][] = [["taxi", s.taxi], ["trip", s.trip], ["contingency", s.contingency], ["alternate", s.alternate], ["reserve", s.reserve]];
+  const segs: BarSeg[] = [];
+  let acc = 0;
+  for (const [key, v] of need) {
+    if (v <= 0) continue;
+    const room = Math.max(0, Math.min(v, s.onboard - acc));
+    if (room > 0) segs.push({ key, liters: room });
+    if (v - room > 1e-9) segs.push({ key: "missing", liters: v - room });
+    acc += v;
+  }
+  if (s.onboard - s.required > 1e-9) segs.push({ key: "surplus", liters: s.onboard - s.required });
+  return { scale: Math.max(s.capacity, s.required, s.onboard, 1e-9), segs };
 }

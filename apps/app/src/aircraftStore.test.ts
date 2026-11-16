@@ -15,7 +15,7 @@ describe("charges mémorisées", () => {
 describe("plan de carburant mémorisé", () => {
   it("valeurs valides conservées, invalides remplacées champ par champ par les valeurs de départ", () => {
     expect(parseFuelPlan({ taxiLiters: 2, contingencyPercent: -1, alternateMinutes: "x", reserveMinutes: 45 })).toEqual({
-      taxiLiters: 2, contingencyPercent: DEFAULT_FUEL_PLAN.contingencyPercent, alternateMinutes: DEFAULT_FUEL_PLAN.alternateMinutes, reserveMinutes: 45,
+      taxiLiters: 2, contingencyPercent: DEFAULT_FUEL_PLAN.contingencyPercent, alternateMinutes: DEFAULT_FUEL_PLAN.alternateMinutes, reserveMinutes: 45, lowMarginLiters: DEFAULT_FUEL_PLAN.lowMarginLiters,
     });
     expect(parseFuelPlan(null)).toEqual(DEFAULT_FUEL_PLAN);
   });
