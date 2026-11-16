@@ -43,6 +43,7 @@ import { pointAt, type TrackPoint } from "@lim/core";
 import { AircraftTab, BalanceTab, FuelTab } from "./AircraftScreens";
 import { useAircraft } from "./aircraftStore";
 import { computeFuelSheet } from "./fuel";
+import { SpacesTab } from "./SpacesTab";
 import { vpKey } from "./logModel";
 
 import { deleteOverlay, loadOverlays, readOverlayFile, saveOverlay, type Overlay } from "./overlays";
@@ -61,7 +62,7 @@ import { loadAltitude, loadGpsAltitudeRef, loadPerf, savePerf, loadUnitPrefs, lo
 
 type Screen = "map" | "nav" | "aircraft" | "wx" | "docs" | "traces" | "data" | "settings" | "soon";
 
-const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "nav.fuel", "wx.notam"];
+const NAV_TABS: Key[] = ["nav.tabRoutes", "nav.log", "nav.fuel", "nav.spaces", "wx.notam"];
 const AIRCRAFT_TABS: Key[] = ["ac.tabSheet", "nav.wb"];
 const SETTINGS_TABS: Key[] = ["set.tabDisplay", "set.tabUnits", "set.tabLinks", "set.tabBackup"];
 const SCREEN_TITLE: Record<string, Key> = { nav: "tb.route", aircraft: "tb.aircraft", wx: "tb.weather", traces: "tb.timer", data: "tb.data", docs: "tb.docs", settings: "set.title" };
@@ -70,7 +71,7 @@ const TRACES_TABS: Key[] = ["tm.tabTimers", "tm.tabTraces"];
 const DOCS_TABS: Key[] = ["docs.documents"];
 /** Icône de chaque onglet (icône au-dessus du texte). Une icône = un sens : « route » = la route, etc. */
 const TAB_ICON: Partial<Record<Key, IconName>> = {
-  "nav.tabRoutes": "route", "nav.log": "clipboard-list", "wx.notam": "scroll-text",
+  "nav.tabRoutes": "route", "nav.log": "clipboard-list", "nav.spaces": "layers", "wx.notam": "scroll-text",
   "ac.tabSheet": "id-card", "nav.wb": "scale", "nav.fuel": "fuel",
   "wx.briefing": "newspaper", "wx.metar": "cloud", "wx.taf": "calendar-clock", "wx.sigmet": "cloud-lightning", "wx.winds": "wind",
   "tm.tabTimers": "timer", "tm.tabTraces": "history", "docs.documents": "file-text",
@@ -978,6 +979,11 @@ export function App() {
     }
   };
   const visibleAirspaces = useMemo(() => (aspSet?.items ?? []).filter((a) => visibleGroups.includes(a.group)), [aspSet, visibleGroups]);
+  /** Espaces traversés par la route (onglet Espaces) : recalculé seulement quand la route ou les espaces changent. */
+  const routeSpaces = useMemo(
+    () => (screen === "nav" && tab === 3 && route && route.points.length >= 2 && visibleAirspaces.length > 0 ? airspacesAlongRoute(route, visibleAirspaces) : []),
+    [screen, tab, route, visibleAirspaces],
+  );
   // Avancer au point suivant dès qu'on atteint le point visé.
   useEffect(() => {
     if (!fix || !activeRoute || targetIndex === null || adhoc !== null || status === "lost") return;
@@ -1565,9 +1571,9 @@ export function App() {
               <Button icon="arrow-left" aria-label={T("back")} onClick={goBack} />
               <div className="sh-titles">
                 <h2>
-                  {screen === "soon" ? T(soonTitle) : screen === "nav" && tab === 2 ? T("nav.fuel") : screen === "aircraft" && tab === 1 ? T("nav.wb") : T(SCREEN_TITLE[screen] ?? "soon")}
+                  {screen === "soon" ? T(soonTitle) : screen === "nav" && tab === 2 ? T("nav.fuel") : screen === "nav" && tab === 3 ? T("navasp.title") : screen === "aircraft" && tab === 1 ? T("nav.wb") : T(SCREEN_TITLE[screen] ?? "soon")}
                 </h2>
-                {((screen === "aircraft" && tab === 1) || (screen === "nav" && tab === 2)) && route && (
+                {((screen === "aircraft" && tab === 1) || (screen === "nav" && (tab === 2 || tab === 3))) && route && (
                   <div className="sh-sub">{route.name}{navLog ? ` · ${formatQuantity("distance", prefs, navLog.totals.distance as number)} ${unitLabel("distance", prefs)}` : ""}</div>
                 )}
               </div>
@@ -1756,6 +1762,17 @@ export function App() {
                 onOpenSheet={() => open("aircraft")}
               />
             ) : screen === "nav" && tab === 3 ? (
+              <SpacesTab
+                lang={lang}
+                prefs={prefs}
+                route={route}
+                hits={routeSpaces}
+                hasAero={aspSet !== null}
+                navLog={navLog}
+                nowMs={now}
+                exportedAtMs={aspSet?.meta.exportedAtMs ?? null}
+              />
+            ) : screen === "nav" && tab === 4 ? (
               (() => {
                 const startMs = route?.departureMs ?? now;
                 const km = route && perf.tasMps ? Math.max(1, route.points.reduce((acc, pt, i, arr) => (i === 0 ? 0 : acc + distance((arr[i - 1] as typeof pt).position, pt.position)), 0)) / perf.tasMps : 3 * 3600;

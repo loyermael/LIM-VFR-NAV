@@ -780,14 +780,14 @@ export function MapView(props: MapViewProps) {
     }
     if (ensure("apt", airfieldData) && !m.getLayer("apt-circle")) {
       addIcons(m);
-      // Comme la carte OACI : seuls les terrains à code OACI s'affichent d'emblée ; les autres (bases ULM, pistes privées) apparaissent en zoomant de près.
-      for (const [id, minzoom, filter] of [["apt-circle", 4.5, ["!=", ["get", "icao"], ""]], ["apt-minor", 11, ["==", ["get", "icao"], ""]]] as const) {
+      // Comme la carte OACI : seuls les terrains à code OACI s'affichent d'emblée ; les autres (bases ULM, planeurs, pistes privées) apparaissent dès le zoom 8,5 (sans se chevaucher) et prennent leur étiquette vers 10,5.
+      for (const [id, minzoom, filter] of [["apt-circle", 4.5, ["!=", ["get", "icao"], ""]], ["apt-minor", 8.5, ["==", ["get", "icao"], ""]]] as const) {
         m.addLayer(
           {
             id, type: "symbol", source: "apt", minzoom, filter: filter as never,
             layout: {
               "icon-image": ["get", "sym"], "icon-allow-overlap": false, "icon-padding": 3, "symbol-sort-key": ["case", ["get", "mil"], 1, 0], "icon-size": ["interpolate", ["linear"], ["zoom"], 4.5, 0.75, 6, 1.2, 12, 1.9], "icon-rotation-alignment": "map", // la barre de piste reste alignée sur le nord géographique
-              "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 11, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
+              "text-field": ["step", ["zoom"], "", id === "apt-circle" ? 6.6 : 10.5, ["get", "lbl"]], "text-font": ["Open Sans Semibold"], "text-size": ["interpolate", ["linear"], ["zoom"], 7.6, 10, 12, 14],
               "text-anchor": "left", "text-justify": "left", "text-offset": [1.6, 0], "text-optional": true,
             } as never,
             paint: { "text-color": ["case", ["get", "mil"], OACI_RED, OACI_BLUE], "text-halo-color": "#ffffff", "text-halo-width": 2 } as never,
