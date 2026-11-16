@@ -1296,3 +1296,6 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 .fp-me { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 5 4; }
 .fp-ac path { fill: var(--ink); } .fp-ac text { font-size: 10px; font-weight: 700; fill: var(--ink); }
 .mapctl { max-height: calc(100% - 2 * var(--sp-3)); overflow-y: auto; scrollbar-width: none; }
+/* Bandeau profil : largeur limitée et centré sur grand écran (pleine largeur sur téléphone). */
+.fprofile { width: 100%; max-width: 720px; align-self: center; border-left: var(--rule-line); border-right: var(--rule-line); }
+@media (max-width: 720px) { .fprofile { border-left: 0; border-right: 0; } }
