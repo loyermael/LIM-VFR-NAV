@@ -1299,3 +1299,10 @@ button[aria-pressed='true'] .muted, button[aria-current='page'] .muted { color: 
 /* Bandeau profil : largeur limitée et centré sur grand écran (pleine largeur sur téléphone). */
 .fprofile { width: 100%; max-width: 720px; align-self: center; border-left: var(--rule-line); border-right: var(--rule-line); }
 @media (max-width: 720px) { .fprofile { border-left: 0; border-right: 0; } }
+
+/* Profil en vol : posé SUR la carte (n'écrase pas la scène : la colonne + / − / nord reste en place), à droite des boutons, au-dessus de l'attribution. */
+.stage .fprofile { position: absolute; z-index: 2; width: auto; max-width: none; align-self: auto; container-type: inline-size;
+  left: calc(var(--sp-3) + var(--h-control) + var(--sp-2) + env(safe-area-inset-left)); right: var(--sp-3); bottom: calc(var(--sp-3) + 22px);
+  border: var(--rule-line); background: color-mix(in srgb, var(--field) 95%, transparent); box-shadow: var(--shadow-pop); padding: 0; }
+@media (min-width: 900px) { .stage.split .fprofile { right: calc(600px + var(--sp-3)); } }
+@container (max-width: 380px) { .fp-bar { flex-wrap: wrap; } .fp-next { flex-basis: 100%; } .fp-bar .fp-seg { margin-left: auto; } }

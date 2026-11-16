@@ -1439,6 +1439,21 @@ export function App() {
               <button aria-pressed={flightProfile.on} aria-label={T("fp.show")} title={T("fp.show")} onClick={() => setFlightProfile({ on: !flightProfile.on })}><Icon name="chart-line" size={24} /></button>
               <button aria-pressed={orientation === "track"} aria-label={T(orientation === "north" ? "map.northUp" : "map.trackUp")} title={T(orientation === "north" ? "map.northUp" : "map.trackUp")} onClick={() => setOrientation(orientation === "north" ? "track" : "north")}><Icon name={orientation === "north" ? "north-up" : "track-up"} size={24} /></button>
             </div>
+          {stripVisible && route && (
+            <FlightProfile
+              lang={lang}
+              prefs={prefs}
+              route={route}
+              hits={routeSpaces}
+              aircraftM={aircraftM}
+              hasFix={!!fix && status !== "lost"}
+              altitudeM={fv?.altitudeMsl ?? null}
+              windowIdx={flightProfile.windowIdx}
+              showOutside={flightProfile.showOutside}
+              onWindow={(i) => setFlightProfile({ windowIdx: i })}
+              onClose={() => setFlightProfile({ on: false })}
+            />
+          )}
           </>
         )}
 
@@ -1977,22 +1992,6 @@ export function App() {
           </section>
         )}
       </div>
-
-      {stripVisible && route && (
-        <FlightProfile
-          lang={lang}
-          prefs={prefs}
-          route={route}
-          hits={routeSpaces}
-          aircraftM={aircraftM}
-          hasFix={!!fix && status !== "lost"}
-          altitudeM={fv?.altitudeMsl ?? null}
-          windowIdx={flightProfile.windowIdx}
-          showOutside={flightProfile.showOutside}
-          onWindow={(i) => setFlightProfile({ windowIdx: i })}
-          onClose={() => setFlightProfile({ on: false })}
-        />
-      )}
 
       <footer className={stale ? "datagrid stale" : "datagrid"}>
         {stale && fix && <div className="staleage" role="status">{T("gps.age")} {Math.max(0, Math.round((now - fix.timeMs) / 1000))} s</div>}

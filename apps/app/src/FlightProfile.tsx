@@ -56,7 +56,7 @@ export function FlightProfile(p: {
   const next = nextSpace(segs);
   const dist = (m: number) => formatQuantity("distance", p.prefs, m);
 
-  const H = Math.max(96, Math.min(140, Math.round(window.innerHeight * 0.16))), L = 36, R = 8, Tm = 12, B = 18;
+  const H = Math.max(90, Math.min(124, Math.round(window.innerHeight * 0.14))), L = 36, R = 8, Tm = 12, B = 18;
   const pw = W - L - R, ph = H - Tm - B;
   const x0 = 0.12;
   const X = (rel: number) => L + (x0 + (rel / winM) * (1 - x0)) * pw;
